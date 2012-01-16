@@ -81,8 +81,13 @@
 	It can take the values Last or All which determine whether only the last (largest) or all sets of samples collected on a subregion over the integration phases contribute to the final result."
 
 :Evaluate: PseudoRandom::usage = "PseudoRandom is an option of Divonne.
-	If set to True, pseudo-random numbers are used instead of Sobol quasi-random numbers.
-	If set to an integer value, that value is used as the seed for the pseudo-random number generator."
+	It can take the following values:
+	False for Sobol quasi-random numbers (default),
+	True or 0 for Mersenne Twister pseudo-random numbers,
+	any other integer value n for Ranlux pseudo-random numbers of luxury level n."
+
+:Evaluate: PseudoRandomSeed::usage = "PseudoRandomSeed is an option of Divonne.
+	It specifies the seed for the pseudo-random number generator."
 
 :Evaluate: Regions::usage = "Regions is an option of Divonne.
 	It specifies whether the regions into which the integration region has been cut are returned together with the integration results."
@@ -119,7 +124,8 @@
   Real, Real, Integer, Integer, Integer,
   Integer, Integer, Integer, Integer,
   Real, Real, Real,
-  RealList, RealList, Integer, Integer}
+  RealList, RealList, Integer,
+  Integer, Integer}
 :ReturnType: Manual
 :End:
 
@@ -130,7 +136,8 @@
 	Key1 -> 47, Key2 -> 1, Key3 -> 1, MaxPass -> 5,
 	Border -> 0, MaxChisq -> 10, MinDeviation -> .25,
 	Given -> {}, NExtra -> 0, PeakFinder -> ({}&),
-	Verbose -> 1, Final -> All, PseudoRandom -> True,
+	Verbose -> 1, Final -> All,
+	PseudoRandom -> True, PseudoRandomSeed -> Automatic,
 	Regions -> False, Compiled -> True}
 
 :Evaluate: Divonne[f_, v:{_, _, _}.., opt___Rule] :=
@@ -138,12 +145,12 @@
 	tags, vars, lower, range, integrand,
 	rel, abs, mineval, maxeval, key1, key2, key3, maxpass, border,
 	maxchisq, mindeviation,	given, nextra, peakfinder,
-	final, verbose, pseudo, regions, compiled},
+	final, verbose, level, seed, regions, compiled},
 	  Message[Divonne::optx, #, Divonne]&/@
 	    Complement[First/@ {opt}, tags = First/@ Options[Divonne]];
 	  {rel, abs, mineval, maxeval, key1, key2, key3, maxpass, border,
 	    maxchisq, mindeviation, given, nextra, peakfinder,
-	    verbose, final, pseudo, regions, compiled} =
+	    verbose, final, level, seed, regions, compiled} =
 	    tags /. {opt} /. Options[Divonne];
 	  {vars, lower, range} = Transpose[{v}];
 	  range -= lower;
@@ -153,12 +160,13 @@
 	  MLDivonne[ndim, ncomp[f], 10.^-rel, 10.^-abs,
 	    Min[Max[verbose, 0], 3] +
 	      If[final === Last, 4, 0] +
-	      If[pseudo =!= False, 8, 0] +
+	      If[level =!= False, 8, 0] +
 	      If[TrueQ[regions], 256, 0],
 	    mineval, maxeval, key1, key2, key3, maxpass,
 	    N[border], N[maxchisq], N[mindeviation],
 	    given, sample[given, 0], nextra,
-	    If[IntegerQ[pseudo], pseudo, 0]]
+	    If[IntegerQ[level], level, 0],
+	    If[IntegerQ[seed], seed, 0]]
 	]
 
 :Evaluate: Attributes[ncomp] = Attributes[fun] = {HoldAll}
@@ -347,7 +355,8 @@ void Divonne(cint ndim, cint ncomp,
   cint key1, cint key2, cint key3, cint maxpass,
   creal border, creal maxchisq, creal mindeviation,
   real *xgiven, clong nxgiven, real *fgiven, clong nfgiven,
-  cnumber nextra, cint seed)
+  cnumber nextra,
+  cint level, cint seed)
 {
   ndim_ = ndim;
   ncomp_ = ncomp;
@@ -384,7 +393,8 @@ void Divonne(cint ndim, cint ncomp,
     border_.lower = border;
     border_.upper = 1 - border_.lower;
 
-    mersenneseed = seed;
+    cubarandom.level = level;
+    cubarandom.seed = seed;
 
     fail = Integrate(epsrel, Max(epsabs, NOTZERO),
       flags, mineval, maxeval, key1, key2, key3, maxpass,

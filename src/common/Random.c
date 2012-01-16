@@ -1,8 +1,18 @@
 /*
 	Random.c
 		quasi- and pseudo-random-number generation
-		last modified 2 Apr 09 th
+		last modified 12 Feb 10 th
 */
+
+
+static void (*GetRandom)(real *x);
+static void (*SkipRandom)(cnumber n);
+
+typedef unsigned int state_t;
+
+struct {
+  state_t level, seed;
+} SUFFIX(cubarandom);
 
 
 /*
@@ -18,6 +28,40 @@ static struct {
   number v[SOBOL_MAXDIM][30], prev[SOBOL_MAXDIM];
   number seq;
 } sobol_;
+
+
+static void SobolGet(real *x)
+{
+  number seq = sobol_.seq++;
+  count zerobit = 0, dim;
+
+  while( seq & 1 ) {
+    ++zerobit;
+    seq >>= 1;
+  }
+
+  for( dim = 0; dim < ndim_; ++dim ) {
+    sobol_.prev[dim] ^= sobol_.v[dim][zerobit];
+    x[dim] = sobol_.prev[dim]*sobol_.norm;
+  }
+}
+
+
+static void SobolSkip(number n)
+{
+  while( n-- ) {
+    number seq = sobol_.seq++;
+    count zerobit = 0, dim;
+
+    while( seq & 1 ) {
+      ++zerobit;
+      seq >>= 1;
+    }
+
+    for( dim = 0; dim < ndim_; ++dim )
+      sobol_.prev[dim] ^= sobol_.v[dim][zerobit];
+  }
+}
 
 
 static inline void SobolIni(cnumber n)
@@ -98,40 +142,9 @@ static inline void SobolIni(cnumber n)
 
   sobol_.seq = 0;
   VecClear(sobol_.prev);
-}
 
-
-static inline void SobolGet(real *x)
-{
-  number seq = sobol_.seq++;
-  count zerobit = 0, dim;
-
-  while( seq & 1 ) {
-    ++zerobit;
-    seq >>= 1;
-  }
-
-  for( dim = 0; dim < ndim_; ++dim ) {
-    sobol_.prev[dim] ^= sobol_.v[dim][zerobit];
-    x[dim] = sobol_.prev[dim]*sobol_.norm;
-  }
-}
-
-
-static inline void SobolSkip(number n)
-{
-  while( n-- ) {
-    number seq = sobol_.seq++;
-    count zerobit = 0, dim;
-
-    while( seq & 1 ) {
-      ++zerobit;
-      seq >>= 1;
-    }
-
-    for( dim = 0; dim < ndim_; ++dim )
-      sobol_.prev[dim] ^= sobol_.v[dim][zerobit];
-  }
+  GetRandom = SobolGet;
+  SkipRandom = SobolSkip;
 }
 
 
@@ -150,14 +163,10 @@ static inline void SobolSkip(number n)
 /* 32 or 53 random bits */
 #define RANDOM_BITS 32
 
-typedef unsigned int state_t;
-
 static struct {
   state_t state[MERSENNE_N];
   count next;
 } mersenne_;
-
-unsigned int SUFFIX(mersenneseed);
 
 
 static inline state_t Twist(state_t a, state_t b)
@@ -181,25 +190,6 @@ static inline void MersenneReload()
 }
 
 
-static inline void MersenneIni()
-{
-  state_t seed = SUFFIX(mersenneseed);
-  state_t *next = mersenne_.state;
-  int j;
-
-  if( seed == 0 ) seed = 5489;
-
-  for( j = 1; j <= MERSENNE_N; ++j ) {
-    *next++ = seed;
-    seed = 0x6c078965*(seed ^ (seed >> 30)) + j;
-    /* see Knuth TAOCP Vol 2, 3rd Ed, p. 106 for multiplier */
-  }
-
-  MersenneReload();
-  mersenne_.next = 0;
-}
-
-
 static inline state_t MersenneInt(count next)
 {
   state_t s = mersenne_.state[next];
@@ -210,7 +200,7 @@ static inline state_t MersenneInt(count next)
 }
 
 
-static inline void MersenneGet(real *x)
+static void MersenneGet(real *x)
 {
   count next = mersenne_.next, dim;
 
@@ -237,7 +227,7 @@ static inline void MersenneGet(real *x)
 }
 
 
-static inline void MersenneSkip(number n)
+static void MersenneSkip(number n)
 {
 #if RANDOM_BITS == 53
   n = 2*n*ndim_ + mersenne_.next;
@@ -250,8 +240,130 @@ static inline void MersenneSkip(number n)
 }
 
 
+static inline void MersenneIni(state_t seed)
+{
+  state_t *next = mersenne_.state;
+  count j;
+
+  if( seed == 0 ) seed = 5489;
+
+  for( j = 1; j <= MERSENNE_N; ++j ) {
+    *next++ = seed;
+    seed = 0x6c078965*(seed ^ (seed >> 30)) + j;
+    /* see Knuth TAOCP Vol 2, 3rd Ed, p. 106 for multiplier */
+  }
+
+  MersenneReload();
+  mersenne_.next = 0;
+
+  GetRandom = MersenneGet;
+  SkipRandom = MersenneSkip;
+}
+
+
 /*
-	PART 3: User routines:
+	PART 3: Ranlux subtract-and-borrow random-number generator 
+	proposed by Marsaglia and Zaman, implemented by F. James with 
+	the name RCARRY in 1991, and later improved by Martin Luescher 
+	in 1993 to produce "Luxury Pseudorandom Numbers".
+	Adapted from the CERNlib Fortran 77 code by F. James, 1993.
+
+	The available luxury levels are:
+
+	level 0  (p = 24): equivalent to the original RCARRY of Marsaglia
+	         and Zaman, very long period, but fails many tests.
+	level 1  (p = 48): considerable improvement in quality over level 0,
+	         now passes the gap test, but still fails spectral test.
+	level 2  (p = 97): passes all known tests, but theoretically still
+	         defective.
+	level 3  (p = 223): DEFAULT VALUE.  Any theoretically possible
+	         correlations have very small chance of being observed.
+	level 4  (p = 389): highest possible luxury, all 24 bits chaotic.
+*/
+
+
+static struct {
+  count n24, i24, j24, nskip;
+  int carry, state[24];
+} ranlux_;
+
+
+static inline int RanluxInt(count n)
+{
+  int s;
+
+  while( n-- ) {
+    s = ranlux_.state[ranlux_.j24] -
+        ranlux_.state[ranlux_.i24] + ranlux_.carry;
+    s += (ranlux_.carry = NegQ(s)) & (1 << 24);
+    ranlux_.state[ranlux_.i24] = s;
+    --ranlux_.i24;
+    ranlux_.i24 += NegQ(ranlux_.i24) & 24;
+    --ranlux_.j24;
+    ranlux_.j24 += NegQ(ranlux_.j24) & 24;
+  }
+
+  return s;
+}
+
+
+static void RanluxGet(real *x)
+{
+/* The Generator proper: "Subtract-with-borrow",
+   as proposed by Marsaglia and Zaman, FSU, March 1989 */
+
+  count dim;
+
+  for( dim = 0; dim < ndim_; ++dim ) {
+    cint nskip = --ranlux_.n24 >= 0 ? 0 : (ranlux_.n24 = 24, ranlux_.nskip);
+    cint s = RanluxInt(1 + nskip);
+    x[dim] = s*0x1p-24;
+/* small numbers (with less than 12 significant bits) are "padded" */
+    if( s < (1 << 12) )
+      x[dim] += ranlux_.state[ranlux_.j24]*0x1p-48;
+  }
+}
+
+
+static void RanluxSkip(cnumber n)
+{
+  RanluxInt(n + ranlux_.nskip*(n/24));
+  ranlux_.n24 = 24 - n % 24;
+}
+
+
+static inline void RanluxIni(state_t seed, state_t level)
+{
+  cint skip[] = {24, 48, 97, 223, 389,
+    223, 223, 223, 223, 223, 223, 223, 223, 223, 223,
+    223, 223, 223, 223, 223, 223, 223, 223, 223, 223};
+  count i;
+
+  if( seed == 0 ) seed = 314159265;
+
+  if( level < sizeof skip ) level = skip[level];
+  ranlux_.nskip = level - 24;
+
+  ranlux_.i24 = 23;
+  ranlux_.j24 = 9;
+  ranlux_.n24 = 24;
+
+  for( i = 0; i < 24; ++i ) {
+    int k = seed/53668;
+    seed = 40014*(seed - k*53668) - k*12211;
+    seed += NegQ(seed) & 2147483563;
+    ranlux_.state[i] = seed & ((1 << 24) - 1);
+  }
+
+  ranlux_.carry = ~TrueQ(ranlux_.state[23]) & (1 << 24);
+
+  GetRandom = RanluxGet;
+  SkipRandom = RanluxSkip;
+}
+
+
+/*
+	PART 4: User routines:
 
 	- IniRandom sets up the random-number generator to produce a
 	  sequence of at least n ndim_-dimensional random vectors.
@@ -264,21 +376,11 @@ static inline void MersenneSkip(number n)
 static void IniRandom(cnumber n, cint flags)
 {
   if( PSEUDORNG ) {
-    sobol_.seq = -1;
-    MersenneIni();
+    state_t seed = SUFFIX(cubarandom).seed;
+    state_t level = SUFFIX(cubarandom).level;
+    if( level == 0 ) MersenneIni(seed);
+    else RanluxIni(seed, level);
   }
   else SobolIni(n);
-}
-
-static inline void GetRandom(real *x)
-{
-  if( sobol_.seq == -1 ) MersenneGet(x);
-  else SobolGet(x);
-}
-
-static inline void SkipRandom(cnumber n)
-{
-  if( sobol_.seq == -1 ) MersenneSkip(n);
-  else SobolSkip(n);
 }
 

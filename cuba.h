@@ -2,7 +2,7 @@
 	cuba.h
 		Prototypes for the Cuba library
 		this file is part of Cuba
-		last modified 5 Dec 08 th
+		last modified 12 Feb 10 th
 */
 
 #ifdef __cplusplus
@@ -92,7 +92,9 @@ extern int llvegasnbatch;
 extern int llvegasgridno;
 extern char llvegasstate[128];
 
-extern unsigned int mersenneseed;
+extern struct {
+  unsigned int level, seed;
+} cubarandom;
 
 #ifdef __cplusplus
 }

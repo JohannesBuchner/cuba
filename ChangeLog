@@ -1,3 +1,13 @@
+12 Feb 10:
+
+- Added Ranlux pseudo-random number generator.
+  Luxury level 0 (mis)used for Mersenne Twister branch
+  (but observe that Luxury level 24 = Luxury level 0).
+
+- Changed external variable mersenneseed to
+  struct { unsigned int level, seed; } cubarandom;
+
+
 22 Jul 09:
 
 - Fixed potential segfault in Split.c of Divonne, thanks to

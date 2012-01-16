@@ -28,8 +28,13 @@
 	It can take the values Last or All which determine whether only the last (largest) or all of the samples collected on a subregion over the iterations contribute to the final result."
 
 :Evaluate: PseudoRandom::usage = "PseudoRandom is an option of Vegas.
-	If set to True, pseudo-random numbers are used instead of Sobol quasi-random numbers.
-	If set to an integer value, that value is used as the seed for the pseudo-random number generator."
+	It can take the following values:
+	False for Sobol quasi-random numbers (default),
+	True or 0 for Mersenne Twister pseudo-random numbers,
+	any other integer value n for Ranlux pseudo-random numbers of luxury level n."
+
+:Evaluate: PseudoRandomSeed::usage = "PseudoRandomSeed is an option of Vegas.
+	It specifies the seed for the pseudo-random number generator."
 
 :Evaluate: SharpEdges::usage = "SharpEdges is an option of Vegas.
 	It turns off smoothing of the importance function for integrands with sharp edges."
@@ -54,7 +59,8 @@
 :ArgumentTypes: {Integer, Integer,
   Real, Real, Integer, Integer, Integer,
   Integer, Integer,
-  Integer, Integer, Integer, String}
+  Integer, Integer,
+  Integer, Integer, String}
 :ReturnType: Manual
 :End:
 
@@ -64,18 +70,19 @@
 	MinPoints -> 0, MaxPoints -> 50000,
 	NStart -> 1000, NIncrease -> 500,
 	NBatch -> 1000, GridNo -> 0, StateFile -> "",
-	Verbose -> 1, Final -> All, PseudoRandom -> False,
+	Verbose -> 1, Final -> All,
+	PseudoRandom -> False, PseudoRandomSeed -> Automatic,
 	SharpEdges -> False, Compiled -> True}
 
 :Evaluate: Vegas[f_, v:{_, _, _}.., opt___Rule] :=
 	Block[ {ff = HoldForm[f], ndim = Length[{v}],
 	tags, vars, lower, range, integrand,
 	rel, abs, mineval, maxeval, nstart, nincrease, nbatch,
-	gridno, verbose, final, pseudo, edges, compiled},
+	gridno, verbose, final, level, seed, edges, compiled},
 	  Message[Vegas::optx, #, Vegas]&/@
 	    Complement[First/@ {opt}, tags = First/@ Options[Vegas]];
 	  {rel, abs, mineval, maxeval, nstart, nincrease, nbatch,
-	    gridno, state, verbose, final, pseudo, edges, compiled} =
+	    gridno, state, verbose, final, level, seed, edges, compiled} =
 	    tags /. {opt} /. Options[Vegas];
 	  {vars, lower, range} = Transpose[{v}];
 	  range -= lower;
@@ -84,10 +91,12 @@
 	  MLVegas[ndim, ncomp[f], 10.^-rel, 10.^-abs,
 	    Min[Max[verbose, 0], 3] +
 	      If[final === Last, 4, 0] +
-	      If[pseudo =!= False, 8, 0] +
+	      If[level =!= False, 8, 0] +
 	      If[TrueQ[edges], 16, 0],
 	    mineval, maxeval, nstart, nincrease,
-	    If[IntegerQ[pseudo], pseudo, 0], nbatch, gridno, state]
+	    If[IntegerQ[level], level, 0],
+	    If[IntegerQ[seed], seed, 0],
+	    nbatch, gridno, state]
 	]
 
 :Evaluate: Attributes[ncomp] = Attributes[fun] = {HoldAll}
@@ -140,7 +149,7 @@
 	Vegas.tm
 		Vegas Monte Carlo integration
 		by Thomas Hahn
-		last modified 5 Dec 08 th
+		last modified 12 Feb 10 th
 */
 
 
@@ -226,7 +235,8 @@ void Vegas(cint ndim, cint ncomp,
   creal epsrel, creal epsabs,
   cint flags, cnumber mineval, cnumber maxeval,
   cnumber nstart, cnumber nincrease,
-  cint seed, cint nbatch, cint gridno, const char *state)
+  cint level, cint seed,
+  cint nbatch, cint gridno, const char *state)
 {
   ndim_ = ndim;
   ncomp_ = ncomp;
@@ -245,7 +255,8 @@ void Vegas(cint ndim, cint ncomp,
     int fail;
 
     neval_ = 0;
-    mersenneseed = seed;
+    cubarandom.level = level;
+    cubarandom.seed = seed;
     vegasnbatch = nbatch;
     vegasgridno = gridno;
     strncpy(vegasstate, state, sizeof(vegasstate) - 1);
