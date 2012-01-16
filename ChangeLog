@@ -1,3 +1,70 @@
+31 Aug 05
+
+- A small patch considerably reduces the "mysterious" problem
+  in Vegas and Suave that further iterations on a more or less
+  optimal grid would often degrade the grid.
+
+2 Jun 05
+
+- Added some #ifdefs to make the compile completely silent.
+- Changed HUGE_VAL to DBL_MAX to avoid problems with icc.
+
+7 Mar 05
+
+- Extended Divonne's Korobov tables.
+- partview now sorts the list of rectangles so that the smallest
+  ones come on top.
+
+2 Mar 05
+
+- Fixed "mysterious" problem where Divonne would report a
+  larger-than-requested error even though enough samples were
+  available.
+
+17 Feb 05
+
+- Rewrote partview.cpp with tabbed window.
+- Moved sources to src/{vegas,suave,divonne,cuhre}.
+  The original names would get into the way of the Mathematica
+  executables on OSX's case-insensitive file system.
+
+15 Feb 05
+
+- configure now disables compilation of demo-fortran if no
+  Fortran compiler is found.
+
+9 Feb 05
+
+- Added some explicit typecasts and other tidbits such that
+  Cuba compiles successfully also with a C++ compiler now.
+
+7 Feb 05
+
+- Added erf implementation in case some "C99 compliant" compiler
+  like M$ Visual C++ in fact has no erf.
+
+4 Feb 05
+
+- Added partview.m for Mathematica.
+
+3 Feb 05
+
+- Added proper autoconf configure.
+- Added cuba.F, a Fortran chooser which makes the invocation
+  of the Cuba routines still simpler from Fortran.
+- Straightened out the contexts of the MathLink executables.
+
+2 Feb 05
+
+- Substituted preprocessor variable NBATCH by run-time configurable
+  global variable vegasbatch_.
+- Added checks on ncomp.
+
+1 Feb 05
+
+- Added a partition viewer which displays the tesselation of the
+  integration region on screen.  Needs Qt.
+
 27 Jan 05
 
 - Added a preprocessor flag NO_LONG_DOUBLE to disable the use

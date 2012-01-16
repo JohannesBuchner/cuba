@@ -2,7 +2,7 @@
 	cuba.h
 		Prototypes for the Cuba library
 		this file is part of Cuba
-		last modified 12 Jan 05 th
+		last modified 9 Feb 05 th
 */
 
 #ifdef __cplusplus
@@ -52,6 +52,7 @@ void Cuhre(const int ndim, const int ncomp, integrand_t integrand,
   int *nregions, int *neval, int *fail,
   double integral[], double error[], double prob[]);
 
+extern int vegasnbatch_;
 extern int vegasgridno_;
 extern char vegasstate_[128];
 
