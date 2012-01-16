@@ -1,7 +1,7 @@
 /*
 	stddecl.h
 		Type declarations common to all Cuba routines
-		last modified 6 Dec 10 th
+		last modified 28 Sep 11 th
 */
 
 
@@ -19,9 +19,13 @@
 #include <float.h>
 #include <limits.h>
 #include <unistd.h>
+#include <assert.h>
 #include <fcntl.h>
 #include <setjmp.h>
+#include <sys/wait.h>
 #include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/socket.h>
 
 
 #ifndef NDIM
@@ -159,10 +163,10 @@ typedef struct {
 } RNGState;
 
 
-#ifdef UNDERSCORE
-#define SUFFIX(s) s##_
-#else
+#if NOUNDERSCORE
 #define SUFFIX(s) s
+#else
+#define SUFFIX(s) s##_
 #endif
 
 #define EXPORT(s) EXPORT_(PREFIX(s))

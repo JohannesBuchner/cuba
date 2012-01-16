@@ -2,7 +2,7 @@
 	decl.h
 		Type declarations
 		this file is part of Vegas
-		last modified 13 Sep 10 th
+		last modified 4 Oct 11 th
 */
 
 
@@ -36,6 +36,7 @@ typedef struct _this {
 #ifndef MLVERSION
   Integrand integrand;
   void *userdata;
+  int ncores, *child;
 #endif
   real epsrel, epsabs;
   int flags, seed;

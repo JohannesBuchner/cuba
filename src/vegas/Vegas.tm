@@ -154,7 +154,7 @@
 	Vegas.tm
 		Vegas Monte Carlo integration
 		by Thomas Hahn
-		last modified 18 Jun 11 th
+		last modified 12 Aug 11 th
 */
 
 
@@ -177,25 +177,20 @@ static void Status(MLCONST char *msg, cint n)
 
 static void Print(MLCONST char *s)
 {
-  int pkt;
-
   MLPutFunction(stdlink, "EvaluatePacket", 1);
   MLPutFunction(stdlink, "Print", 1);
   MLPutString(stdlink, s);
   MLEndPacket(stdlink);
 
-  do {
-    pkt = MLNextPacket(stdlink);
-    MLNewPacket(stdlink);
-  } while( pkt != RETURNPKT );
+  MLNextPacket(stdlink);
+  MLNewPacket(stdlink);
 }
 
 /*********************************************************************/
 
-static void DoSample(This *t, cnumber n,
-  real *w, real *x, real *f, cint iter)
+static void DoSample(This *t, cnumber n, real *x, real *f,
+  real *w, cint iter)
 {
-  int pkt;
   real *mma_f;
   long mma_n;
 
@@ -208,9 +203,7 @@ static void DoSample(This *t, cnumber n,
   MLPutInteger(stdlink, iter);
   MLEndPacket(stdlink);
 
-  while( (pkt = MLNextPacket(stdlink)) && (pkt != RETURNPKT) )
-    MLNewPacket(stdlink);
-
+  MLNextPacket(stdlink);
   if( !MLGetRealList(stdlink, &mma_f, &mma_n) ) {
     MLClearError(stdlink);
     MLNewPacket(stdlink);

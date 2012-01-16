@@ -2,7 +2,7 @@
 	Cuhre.c
 		Adaptive integration using cubature rules
 		by Thomas Hahn
-		last modified 15 Feb 11 th
+		last modified 27 Sep 11 th
 */
 
 
@@ -12,16 +12,8 @@
 
 /*********************************************************************/
 
-static inline void DoSample(This *t, count n, creal *x, real *f)
-{
-  t->neval += n;
-  while( n-- ) {
-    if( t->integrand(&t->ndim, x, &t->ncomp, f, t->userdata) == ABORT )
-      longjmp(t->abort, -99);
-    x += t->ndim;
-    f += t->ncomp;
-  }
-}
+#define CUHRE
+#include "DoSample.c"
 
 /*********************************************************************/
 
@@ -49,9 +41,13 @@ Extern void EXPORT(Cuhre)(ccount ndim, ccount ncomp,
   t.nregions = 0;
   t.neval = 0;
  
+  ForkCores(&t);
+
   *pfail = Integrate(&t, integral, error, prob);
   *pnregions = t.nregions;
   *pneval = t.neval;
+
+  WaitCores(&t);
 }
 
 /*********************************************************************/
@@ -78,8 +74,12 @@ Extern void EXPORT(cuhre)(ccount *pndim, ccount *pncomp,
   t.nregions = 0;
   t.neval = 0;
  
+  ForkCores(&t);
+
   *pfail = Integrate(&t, integral, error, prob);
   *pnregions = t.nregions;
   *pneval = t.neval;
+
+  WaitCores(&t);
 }
 

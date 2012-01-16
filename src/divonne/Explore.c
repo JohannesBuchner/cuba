@@ -2,7 +2,7 @@
 	Explore.c
 		sample region, determine min and max, split if necessary
 		this file is part of Divonne
-		last modified 8 Jun 10 th
+		last modified 15 Nov 11 th
 */
 
 
@@ -13,13 +13,12 @@ typedef struct {
 
 /*********************************************************************/
 
-static bool Explore(This *t, count iregion, cSamples *samples,
-  cint depth, cint flags)
+static int Explore(This *t, ccount iregion)
 {
-#define SPLICE (flags & 1)
-#define HAVESAMPLES (flags & 2)
-
   TYPEDEFREGION;
+  Region *region = RegionPtr(iregion);
+  cBounds *bounds = region->bounds;
+  Result *result = region->result;
 
   count n, dim, comp, maxcomp;
   Extrema extrema[NCOMP];
@@ -27,24 +26,10 @@ static bool Explore(This *t, count iregion, cSamples *samples,
   creal *x;
   real *f;
   real halfvol, maxerr;
-  Region *region;
-  Bounds *bounds;
-  Result *result;
+  cSamples *samples = &t->samples[region->isamples];
 
   /* needed as of gcc 3.3 to make gcc correctly address region #@$&! */
   sizeof(*region);
-
-  if( SPLICE ) {
-    if( t->nregions == t->size ) {
-      t->size += CHUNKSIZE;
-      ReAlloc(t->voidregion, t->size*sizeof(Region));
-    }
-    VecCopy(RegionPtr(t->nregions)->bounds, RegionPtr(iregion)->bounds);
-    iregion = t->nregions++;
-  }
-  region = RegionPtr(iregion);
-  bounds = region->bounds;
-  result = region->result;
 
   for( comp = 0; comp < t->ncomp; ++comp ) {
     Extrema *e = &extrema[comp];
@@ -53,7 +38,7 @@ static bool Explore(This *t, count iregion, cSamples *samples,
     e->xmin = e->xmax = NULL;
   }
 
-  if( !HAVESAMPLES ) {
+  if( region->isamples == 0 ) {		/* others already sampled */
     real vol = 1;
     for( dim = 0; dim < t->ndim; ++dim ) {
       cBounds *b = &bounds[dim];
@@ -88,7 +73,7 @@ skip:
       f += t->ncomp;
     }
 
-    samples->sampler(t, samples, bounds, vol);
+    samples->sampler(t, iregion);
   }
 
   x = samples->x;
@@ -131,10 +116,7 @@ skip:
       }
     }
 
-    r->avg = samples->avg[comp];
-    r->err = samples->err[comp];
     r->spread = halfvol*(r->fmax - r->fmin);
-
     err = r->spread/Max(fabs(r->avg), NOTZERO);
     if( err > maxerr ) {
       maxerr = err;
@@ -146,7 +128,7 @@ skip:
 
   if( maxcomp == -1 ) { /* all NaNs */
     region->depth = 0;
-    return false;
+    return -1;
   }
 
   region->cutcomp = maxcomp;
@@ -162,10 +144,8 @@ skip:
     region->xmajor = r->xmin - (real *)region->result;
   }
 
-  region->depth = IDim(depth);
-
-  if( !HAVESAMPLES ) {
-    if( samples->weight*r->spread < r->err ||
+  if( region->isamples == 0 ) {
+    if( r->spread < samples->neff*r->err ||
         r->spread < t->totals[maxcomp].secondspread ) region->depth = 0;
     if( region->depth == 0 )
       for( comp = 0; comp < t->ncomp; ++comp )
@@ -173,7 +153,8 @@ skip:
           Max(t->totals[comp].secondspread, result[comp].spread);
   }
 
-  if( region->depth ) Split(t, iregion, region->depth);
-  return true;
+  if( region->depth ) Split(t, iregion);
+
+  return iregion;
 }
 

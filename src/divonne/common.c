@@ -2,7 +2,7 @@
 	common.c
 		includes most of the modules
 		this file is part of Divonne
-		last modified 8 Jun 10 th
+		last modified 7 Nov 11 th
 */
 
 
@@ -11,14 +11,9 @@
 #include "Rule.c"
 #include "Sample.c"
 #include "FindMinimum.c"
-
-static bool Explore(This *t, count iregion, cSamples *samples,
-  cint depth, cint flags);
-
-static void Split(This *t, count iregion, int depth);
-
-#include "Explore.c"
 #include "Split.c"
+#include "Explore.c"
+#include "Iterate.c"
 
 static inline bool BadDimension(cThis *t, ccount key)
 {

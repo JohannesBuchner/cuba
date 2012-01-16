@@ -2,7 +2,7 @@
 	Integrate.c
 		integrate over the unit hypercube
 		this file is part of Vegas
-		last modified 15 Feb 11 th
+		last modified 19 Aug 11 th
 */
 
 
@@ -48,7 +48,9 @@ static int Integrate(This *t, real *integral, real *error, real *prob)
 
   IniRandom(t);
 
-  if( t->statefile && *t->statefile &&
+  if( t->statefile && *t->statefile == 0 ) t->statefile = NULL;
+
+  if( t->statefile &&
       stat(t->statefile, &st) == 0 &&
       st.st_size == sizeof state && (st.st_mode & 0400) ) {
     cint h = open(t->statefile, O_RDONLY);
@@ -63,7 +65,6 @@ static int Integrate(This *t, real *integral, real *error, real *prob)
     }
   }
   else {
-    t->statefile = NULL;
     state.niter = 0;
     state.nsamples = t->nstart;
     Zap(state.cumul);
@@ -105,7 +106,7 @@ static int Integrate(This *t, real *integral, real *error, real *prob)
         *w++ = weight;
       }
 
-      DoSample(t, n, sample, w, f, state.niter + 1);
+      DoSample(t, n, w, f, sample, state.niter + 1);
 
       w = sample;
       bin = (bin_t *)lastf;

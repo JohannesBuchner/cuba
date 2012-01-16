@@ -1,3 +1,27 @@
+24 Nov 11:
+
+- Significantly rearranged Divonne, e.g. unrolled the recursion
+  on regions, for better parallelizability.
+
+- Improved parallelization through DoSample.
+
+- Automatic detection and usage of the free cores on a machine,
+  or else set CUBACORES to the number of cores one wishes to
+  utilize, with negative numbers meaning "up to" depending on
+  availability (e.g. -2 means "use up to two free cores").
+
+
+12 Aug 11:
+
+- Version 3.0: Added parallelization, currently 'only' through
+  the DoSample routine.  Uses fork/wait so integrands do not have
+  to be reentrant.
+
+  Specify number of cores in environment variable CUBACORES.
+  C/C++/Fortran only, Mathematica users need to replace MapSample
+  by ParallelMap or similar (as before).
+
+
 18 Jun 11:
 
 - Fixed problem with inner integration bounds depending on outer

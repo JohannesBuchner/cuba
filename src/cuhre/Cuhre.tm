@@ -121,7 +121,7 @@
 	Cuhre.tm
 		Adaptive integration using cubature rules
 		by Thomas Hahn
-		last modified 20 Jun 11 th
+		last modified 11 Jul 11 th
 */
 
 
@@ -145,24 +145,19 @@ static void Status(MLCONST char *msg, cint n1, cint n2)
 
 static void Print(MLCONST char *s)
 {
-  int pkt;
-
   MLPutFunction(stdlink, "EvaluatePacket", 1);
   MLPutFunction(stdlink, "Print", 1);
   MLPutString(stdlink, s);
   MLEndPacket(stdlink);
 
-  do {
-    pkt = MLNextPacket(stdlink);
-    MLNewPacket(stdlink);
-  } while( pkt != RETURNPKT );
+  MLNextPacket(stdlink);
+  MLNewPacket(stdlink);
 }
 
 /*********************************************************************/
 
 static void DoSample(This *t, cnumber n, real *x, real *f)
 {
-  int pkt;
   real *mma_f;
   long mma_n;
 
@@ -173,9 +168,7 @@ static void DoSample(This *t, cnumber n, real *x, real *f)
   MLPutRealList(stdlink, x, n*t->ndim);
   MLEndPacket(stdlink);
 
-  while( (pkt = MLNextPacket(stdlink)) && (pkt != RETURNPKT) )
-    MLNewPacket(stdlink);
-
+  MLNextPacket(stdlink);
   if( !MLGetRealList(stdlink, &mma_f, &mma_n) ) {
     MLClearError(stdlink);
     MLNewPacket(stdlink);

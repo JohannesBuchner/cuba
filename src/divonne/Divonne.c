@@ -4,7 +4,7 @@
 		originally by J.H. Friedman and M.H. Wright
 		(CERNLIB subroutine D151)
 		this version by Thomas Hahn
-		last modified 15 Feb 11 th
+		last modified 15 Nov 11 th
 */
 
 #include "decl.h"
@@ -13,16 +13,9 @@
 
 /*********************************************************************/
 
-static inline void DoSample(This *t, number n, ccount ldx, creal *x, real *f)
-{
-  t->neval += n;
-  while( n-- ) {
-    if( t->integrand(&t->ndim, x, &t->ncomp, f, t->userdata, &t->phase) == ABORT )
-      longjmp(t->abort, -99);
-    x += ldx;
-    f += t->ncomp;
-  }
-}
+#define DIVONNE
+static void DoSample(This *t, number n, creal *x, real *f, ccount ldx);
+static int ExploreParent(This *t, cint iregion);
 
 /*********************************************************************/
 
@@ -30,7 +23,7 @@ static inline count SampleExtra(This *t, cBounds *b)
 {
   number n = t->nextra;
   t->peakfinder(&t->ndim, b, &n, t->xextra);
-  DoSample(t, n, t->ldxgiven, t->xextra, t->fextra);
+  DoSample(t, n, t->xextra, t->fextra, t->ldxgiven);
   return n;
 }
 
@@ -52,7 +45,7 @@ static inline void AllocGiven(This *t, creal *xgiven)
     if( nxgiven ) {
       t->phase = 0;
       Copy(t->xgiven, xgiven, nxgiven);
-      DoSample(t, t->ngiven, t->ldxgiven, t->xgiven, t->fgiven);
+      DoSample(t, t->ngiven, t->xgiven, t->fgiven, t->ldxgiven);
     }
   }
 }
@@ -60,6 +53,7 @@ static inline void AllocGiven(This *t, creal *xgiven)
 /*********************************************************************/
 
 #include "common.c"
+#include "DoSample.c"
 
 Extern void EXPORT(Divonne)(ccount ndim, ccount ncomp,
   Integrand integrand, void *userdata,
@@ -99,6 +93,7 @@ Extern void EXPORT(Divonne)(ccount ndim, ccount ncomp,
   t.nregions = 0;
   t.neval = 0;
 
+  ForkCores(&t);
   AllocGiven(&t, xgiven);
 
   *pfail = Integrate(&t, integral, error, prob);
@@ -106,6 +101,7 @@ Extern void EXPORT(Divonne)(ccount ndim, ccount ncomp,
   *pneval = t.neval;
 
   free(t.xgiven);
+  WaitCores(&t);
 }
 
 /*********************************************************************/
@@ -148,6 +144,7 @@ Extern void EXPORT(divonne)(ccount *pndim, ccount *pncomp,
   t.nregions = 0;
   t.neval = 0;
 
+  ForkCores(&t);
   AllocGiven(&t, xgiven);
 
   *pfail = Integrate(&t, integral, error, prob);
@@ -155,5 +152,6 @@ Extern void EXPORT(divonne)(ccount *pndim, ccount *pncomp,
   *pneval = t.neval;
 
   free(t.xgiven);
+  WaitCores(&t);
 }
 

@@ -3,9 +3,16 @@
 /* Define to 1 if you have the `erf' function. */
 #undef HAVE_ERF
 
-/* Define to 1 if long double works and has more range or precision than
-   double. */
+/* Define to 1 if you have the `getloadavg' function. */
+#undef HAVE_GETLOADAVG
+
+/* Define to 1 if the type `long double' works and has more range or precision
+   than `double'. */
 #undef HAVE_LONG_DOUBLE
+
+/* Define to 1 if the type `long double' works and has more range or precision
+   than `double'. */
+#undef HAVE_LONG_DOUBLE_WIDER
 
 /* Define to 1 if you have the `powl' function. */
 #undef HAVE_POWL
@@ -27,6 +34,9 @@
 
 /* Define to the one symbol short name of this package. */
 #undef PACKAGE_TARNAME
+
+/* Define to the home page for this package. */
+#undef PACKAGE_URL
 
 /* Define to the version of this package. */
 #undef PACKAGE_VERSION

@@ -2,7 +2,7 @@
 	Vegas.c
 		Vegas Monte-Carlo integration
 		by Thomas Hahn
-		last modified 15 Feb 11 th
+		last modified 27 Sep 11 th
 */
 
 
@@ -12,18 +12,8 @@
 
 /*********************************************************************/
 
-static inline void DoSample(This *t, number n,
-  creal *w, creal *x, real *f, cint iter)
-{
-  t->neval += n;
-  while( n-- ) {
-    if( t->integrand(&t->ndim, x, &t->ncomp, f, t->userdata,
-          w++, &iter) == ABORT )
-      longjmp(t->abort, -99);
-    x += t->ndim;
-    f += t->ncomp;
-  }
-}
+#define VEGAS
+#include "DoSample.c"
 
 /*********************************************************************/
 
@@ -56,8 +46,12 @@ Extern void EXPORT(Vegas)(ccount ndim, ccount ncomp,
   t.statefile = statefile;
   t.neval = 0;
 
+  ForkCores(&t);
+
   *pfail = Integrate(&t, integral, error, prob);
   *pneval = t.neval;
+
+  WaitCores(&t);
 }
 
 /*********************************************************************/
@@ -100,9 +94,12 @@ Extern void EXPORT(vegas)(ccount *pndim, ccount *pncomp,
   }
   t.statefile = s;
 
+  ForkCores(&t);
+
   *pfail = Integrate(&t, integral, error, prob);
   *pneval = t.neval;
 
   free(s);
+  WaitCores(&t);
 }
 

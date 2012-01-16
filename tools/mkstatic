@@ -1,17 +1,22 @@
 #! /bin/sh
 
-st=-static
 exe=
 mach=
 mlmach=
 case `uname -s` in
 Linux)	tag=Linux
+	st=-static
 	mach=-m32
-	mlmach=-b32 ;;
+	mlmach=-b32
+	;;
 Darwin)	tag=Mac
-	st=-static-libgcc ;;
+	st=-static-libgcc
+	;;
 CYG*)	tag=Windows
-	exe=.exe ;;
+	export CC=i686-pc-mingw32-gcc
+	st="-static -static-libgcc"
+	exe=.exe
+	;;
 esac
 
 ./configure CFLAGS="-O3 -fomit-frame-pointer -ffast-math $st $mach" MCFLAGS="-st $mlmach"

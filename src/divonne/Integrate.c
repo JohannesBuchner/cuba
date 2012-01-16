@@ -4,7 +4,7 @@
 		has approximately equal spread = 1/2 vol (max - min),
 		then do a main integration over all regions
 		this file is part of Divonne
-		last modified 15 Feb 11 th
+		last modified 15 Nov 11 th
 */
 
 
@@ -19,9 +19,9 @@ static int Integrate(This *t, real *integral, real *error, real *prob)
   TYPEDEFREGION;
 
   Totals totals[NCOMP];
-  real nneed, weight;
+  real nneed;
   count dim, comp, iter, pass = 0, err, iregion;
-  number nwant, nmin = INT_MAX;
+  number nwant, nmin = INT_MAX, neff;
   int fail;
 
   if( VERBOSE > 1 ) {
@@ -51,13 +51,13 @@ static int Integrate(This *t, real *integral, real *error, real *prob)
 
   t->neval_opt = t->neval_cut = 0;
 
-  t->size = CHUNKSIZE;
-  MemAlloc(t->voidregion, t->size*sizeof(Region));
+  AllocRegions(t);
   for( dim = 0; dim < t->ndim; ++dim ) {
     Bounds *b = &RegionPtr(0)->bounds[dim];
     b->lower = 0;
     b->upper = 1;
   }
+  t->nregions = 1;
 
   RuleIni(&t->rule7);
   RuleIni(&t->rule9);
@@ -86,7 +86,7 @@ static int Integrate(This *t, real *integral, real *error, real *prob)
   Zap(totals);
   t->phase = 1;
 
-  Explore(t, 0, &t->samples[0], INIDEPTH, 1);
+  Iterate(t, 0, INIDEPTH, 0, NULL);
 
   for( iter = 1; ; ++iter ) {
     Totals *maxtot;
@@ -123,7 +123,7 @@ static int Integrate(This *t, real *integral, real *error, real *prob)
       valid += tot->avg == tot->avg;
       if( tot->spreadsq > maxtot->spreadsq ) maxtot = tot;
       tot->spread = sqrt(tot->spreadsq);
-      error[comp] = tot->spread*t->samples[0].weight;
+      error[comp] = tot->spread/t->samples[0].neff;
     }
 
     if( VERBOSE ) {
@@ -158,7 +158,7 @@ static int Integrate(This *t, real *integral, real *error, real *prob)
       else if( ++pass > t->maxpass && n >= t->mineval ) break;
     }
 
-    Split(t, maxtot->iregion, DEPTH);
+    Iterate(t, maxtot->iregion, DEPTH, -1, NULL);
   }
 
   /* Step 2: do a "full" integration on each region */
@@ -185,7 +185,7 @@ static int Integrate(This *t, real *integral, real *error, real *prob)
     if( VERBOSE ) Print("\nNot enough samples left for main integration.");
     for( comp = 0; comp < t->ncomp; ++comp )
       prob[comp] = -999;
-    weight = t->samples[0].weight;
+    neff = t->samples[0].neff;
   }
   else {
     bool can_adjust = (t->key3 == 1 && t->samples[1].sampler != SampleRule &&
@@ -209,14 +209,29 @@ static int Integrate(This *t, real *integral, real *error, real *prob)
     nlimit = t->maxeval - t->nregions*t->samples[1].n;
     df = 0;
 
+#define CopyPhaseResults(f) \
+  for( comp = 0; comp < t->ncomp; ++comp ) { \
+    PhaseResult *p = &totals[comp].phase[f]; \
+    cResult *r = &region->result[comp]; \
+    p->avg = r->avg; \
+    p->err = r->err; \
+  }
+
+#define Var2(f, res) Sq((res)->err ? (res)->err : r->spread/t->samples[f].neff)
+#define Var(f) Var2(f, &tot->phase[f])
+
     for( iregion = 0; iregion < t->nregions; ++iregion ) {
-      Region *region = RegionPtr(iregion);
+      Region *region;
       char s[64*NDIM + 256*NCOMP], *p = s;
       int todo;
 
 refine:
+      region = RegionPtr(iregion);
+      CopyPhaseResults(0);
       t->phase = 2;
-      t->samples[1].sampler(t, &t->samples[1], region->bounds, region->vol);
+      region->isamples = 1;
+      t->samples[1].sampler(t, iregion);
+      CopyPhaseResults(1);
 
       if( can_adjust )
         for( comp = 0; comp < t->ncomp; ++comp )
@@ -229,41 +244,20 @@ refine:
         cResult *r = &region->result[comp];
         Totals *tot = &totals[comp];
 
-        t->samples[0].avg[comp] = r->avg;
-        t->samples[0].err[comp] = r->err;
-
         if( t->neval < nlimit ) {
-          creal avg2 = t->samples[1].avg[comp];
-          creal err2 = t->samples[1].err[comp];
-          creal diffsq = Sq(avg2 - r->avg);
+          creal avg2 = tot->phase[1].avg;
+          creal diffsq = Sq(avg2 - tot->phase[0].avg);
 
-#define Var(s) Sq((s.err[comp] == 0) ? r->spread*s.weight : s.err[comp])
-
-          if( err2*tot->nneed > r->spread ||
-              diffsq > Max(t->maxchisq*(Var(t->samples[0]) + Var(t->samples[1])),
-                           EPS*Sq(avg2)) ) {
+          if( r->err*tot->nneed > r->spread ||
+              diffsq > Max(t->maxchisq*(Var(0) + Var(1)), EPS*Sq(avg2)) ) {
             if( t->key3 && diffsq > tot->mindevsq ) {
               if( t->key3 == 1 ) {
-                ccount xregion = t->nregions;
-
                 if( VERBOSE > 2 ) Print("\nSplit");
-
                 t->phase = 1;
-                Explore(t, iregion, &t->samples[1], POSTDEPTH, 2);
+                Iterate(t, iregion, POSTDEPTH, 1, totals);
 
                 if( can_adjust ) {
-                  number nnew;
-                  count ireg, xreg;
-
-                  for( ireg = iregion, xreg = xregion;
-                       ireg < t->nregions; ireg = xreg++ ) {
-                    cResult *result = RegionPtr(ireg)->result;
-                    count c;
-                    for( c = 0; c < t->ncomp; ++c )
-                      totals[c].spreadsq += Sq(result[c].spread);
-                  }
-
-                  nnew = (tot->spreadsq/Sq(MARKMASK) > tot->maxerrsq) ?
+                  cnumber nnew = (tot->spreadsq/Sq(MARKMASK) > tot->maxerrsq) ?
                     MARKMASK :
                     (number)ceil(sqrt(tot->spreadsq/tot->maxerrsq));
                   if( nnew > nwant + nwant/64 ) {
@@ -286,7 +280,6 @@ refine:
                     }
                   }
                 }
-
                 goto refine;
               }
               todo |= 3;
@@ -299,12 +292,13 @@ refine:
       if( can_adjust ) {
         for( comp = 0; comp < t->ncomp; ++comp )
           totals[comp].maxerrsq -=
-            Sq(region->result[comp].spread*t->samples[1].weight);
+            Sq(region->result[comp].spread/t->samples[1].neff);
       }
 
       switch( todo ) {
       case 1:	/* get spread right */
-        Explore(t, iregion, &t->samples[1], 0, 2);
+        region->isamples = 1;
+        Explore(t, iregion);
         break;
 
       case 3:	/* sample region again with more points */
@@ -314,13 +308,12 @@ refine:
           SamplesAlloc(t, &t->samples[2]);
         }
         t->phase = 3;
-        t->samples[2].sampler(t, &t->samples[2], region->bounds, region->vol);
-        Explore(t, iregion, &t->samples[2], 0, 2);
+        region->isamples = 2;
+        t->samples[2].sampler(t, iregion);
+        Explore(t, iregion);
         ++region->depth;	/* misused for df here */
         ++df;
       }
-
-      ++region->depth;	/* misused for df here */
 
       if( VERBOSE > 2 ) {
         for( dim = 0; dim < t->ndim; ++dim ) {
@@ -334,44 +327,45 @@ refine:
 
       for( comp = 0; comp < t->ncomp; ++comp ) {
         Result *r = &region->result[comp];
+        Totals *tot = &totals[comp];
 
-        creal x1 = t->samples[0].avg[comp];
-        creal s1 = Var(t->samples[0]);
-        creal x2 = t->samples[1].avg[comp];
-        creal s2 = Var(t->samples[1]);
-        creal r2 = (s1 == 0) ? Sq(t->samples[1].neff*t->samples[0].weight) : s2/s1;
+        creal x1 = tot->phase[0].avg;
+        creal v1 = Var(0);
+        creal x2 = tot->phase[1].avg;
+        creal v2 = Var(1);
+        creal r2 = v1 ? v2/v1 :
+          Sq(t->samples[1].neff/(real)t->samples[0].neff);
 
         real norm = 1 + r2;
         real avg = x2 + r2*x1;
-        real sigsq = s2;
+        real sigsq = v2;
         real chisq = Sq(x2 - x1);
-        real chiden = s1 + s2;
+        real chiden = v1 + v2;
 
         if( todo == 3 ) {
-          creal x3 = t->samples[2].avg[comp];
-          creal s3 = Var(t->samples[2]);
-          creal r3 = (s2 == 0) ? Sq(t->samples[2].neff*t->samples[1].weight) : s3/s2;
+          creal x3 = r->avg;
+          creal v3 = Var2(2, r);
+          creal r3 = v2 ? v3/v2 :
+            Sq(t->samples[2].neff/(real)t->samples[1].neff);
 
           norm = 1 + r3*norm;
           avg = x3 + r3*avg;
-          sigsq = s3;
-          chisq = s1*Sq(x3 - x2) + s2*Sq(x3 - x1) + s3*chisq;
-          chiden = s1*s2 + s3*chiden;
+          sigsq = v3;
+          chisq = v1*Sq(x3 - x2) + v2*Sq(x3 - x1) + v3*chisq;
+          chiden = v1*v2 + v3*chiden;
         }
 
         avg = LAST ? r->avg : (sigsq *= norm = 1/norm, avg*norm);
         if( chisq > EPS ) chisq /= Max(chiden, NOTZERO);
 
-#define Out(s) s.avg[comp], r->spread*s.weight, s.err[comp]
-
         if( VERBOSE > 2 ) {
+#define Out2(f, res) (res)->avg, r->spread/t->samples[f].neff, (res)->err
+#define Out(f) Out2(f, &tot->phase[f])
           p += sprintf(p, "\n[" COUNT "] "
             REAL " +- " REAL "(" REAL ")\n    "
-            REAL " +- " REAL "(" REAL ")",
-            comp + 1, Out(t->samples[0]), Out(t->samples[1]));
+            REAL " +- " REAL "(" REAL ")", comp + 1, Out(0), Out(1));
           if( todo == 3 ) p += sprintf(p, "\n    "
-            REAL " +- " REAL "(" REAL ")",
-            Out(t->samples[2]));
+            REAL " +- " REAL "(" REAL ")", Out2(2, r));
           p += sprintf(p, "  \tchisq " REAL, chisq);
         }
 
@@ -408,7 +402,7 @@ refine:
     for( comp = 0; comp < t->ncomp; ++comp )
       prob[comp] = ChiSquare(prob[comp], df);
 
-    weight = 1;
+    neff = 1;
   }
 
 #ifdef MLVERSION
@@ -433,11 +427,11 @@ refine:
       MLPutFunction(stdlink, "List", t->ncomp);
       for( comp = 0; comp < t->ncomp; ++comp ) {
         cResult *r = &region->result[comp];
-        real res[] = {r->avg, r->spread*weight, r->chisq};
+        real res[] = {r->avg, r->spread/neff, r->chisq};
         MLPutRealList(stdlink, res, Elements(res));
       }
 
-      MLPutInteger(stdlink, region->depth);  /* misused for df */
+      MLPutInteger(stdlink, region->depth + 1);  /* misused for df */
     }
   }
 #endif

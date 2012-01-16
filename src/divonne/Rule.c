@@ -4,7 +4,7 @@
 		code lifted with minor modifications from DCUHRE
 		by J. Berntsen, T. Espelid, and A. Genz
 		this file is part of Divonne
-		last modified 16 Jun 10 th
+		last modified 6 Nov 11 th
 */
 
 
@@ -634,21 +634,20 @@ next:
 
 /*********************************************************************/
 
-static void SampleRule(This *t, cSamples *samples, cBounds *b, creal vol)
+static void SampleRule(This *t, ccount iregion)
 {
+  SAMPLERDEFS;
   TYPEDEFSET;
-
-  real *x = samples->x, *f = samples->f;
   Set *first = (Set *)samples->rule->first;
   Set *last = (Set *)samples->rule->last;
   Set *s;
   creal *errcoeff = samples->rule->errcoeff;
-  count comp, rul, n;
+  count comp, rul, sn;
 
   for( s = first; s <= last; ++s )
     if( s->n ) x = ExpandFS(t, b, s->gen, x);
 
-  DoSample(t, samples->n, t->ndim, samples->x, f);
+  DoSample(t, n, samples->x, f, t->ndim);
 
   for( comp = 0; comp < t->ncomp; ++comp ) {
     real sum[nrules];
@@ -656,7 +655,7 @@ static void SampleRule(This *t, cSamples *samples, cBounds *b, creal vol)
 
     Zap(sum);
     for( s = first; s <= last; ++s )
-      for( n = s->n; n; --n ) {
+      for( sn = s->n; sn; --sn ) {
         creal fun = *f1;
         f1 += t->ncomp;
         for( rul = 0; rul < nrules; ++rul )
@@ -676,11 +675,11 @@ static void SampleRule(This *t, cSamples *samples, cBounds *b, creal vol)
       sum[rul] = maxerr;
     }
 
-    samples->avg[comp] = vol*sum[0];
-    samples->err[comp] = vol*(
+    r[comp].avg = region->vol*sum[0];
+    r[comp].err = region->vol*(
       (errcoeff[0]*sum[1] <= sum[2] && errcoeff[0]*sum[2] <= sum[3]) ?
         errcoeff[1]*sum[1] :
-        errcoeff[2]*Max(Max(sum[1], sum[2]), sum[3]));
+        errcoeff[2]*Max(Max(sum[1], sum[2]), sum[3]) );
   }
 }
 

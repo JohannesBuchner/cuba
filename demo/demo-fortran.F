@@ -1,19 +1,18 @@
 * demo-fortran.F
 * test program for the Cuba library
-* last modified 19 May 10 th
+* last modified 12 Aug 11 th
 
 
 	program CubaTest
 	implicit none
 
-	integer ndim, ncomp, verbose, last, seed, mineval, maxeval
+	integer ndim, ncomp, last, seed, mineval, maxeval
 	double precision epsrel, epsabs, userdata
 	parameter (ndim = 3)
 	parameter (ncomp = 1)
 	parameter (userdata = 0)
 	parameter (epsrel = 1D-3)
 	parameter (epsabs = 1D-12)
-	parameter (verbose = 2)
 	parameter (last = 4)
 	parameter (seed = 0)
 	parameter (mineval = 0)
@@ -52,9 +51,15 @@
 	external integrand
 
 	double precision integral(ncomp), error(ncomp), prob(ncomp)
-	integer nregions, neval, fail
+	integer verbose, nregions, neval, fail
+	character*16 env
 
 	integer c
+
+	call getenv("CUBAVERBOSE", env)
+	verbose = 2
+	read(env, *, iostat=fail, end=999, err=999) verbose
+999	continue
 
 	print *, "-------------------- Vegas test --------------------"
 

@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <math.h>
 #include "cuba.h"
 
@@ -55,7 +56,6 @@ static int Integrand(const int *ndim, const double xx[],
 #define USERDATA NULL
 #define EPSREL 1e-3
 #define EPSABS 1e-12
-#define VERBOSE 2
 #define LAST 4
 #define SEED 0
 #define MINEVAL 0
@@ -85,13 +85,17 @@ static int Integrand(const int *ndim, const double xx[],
 
 int main()
 {
-  int comp, nregions, neval, fail;
+  int verbose, comp, nregions, neval, fail;
   double integral[NCOMP], error[NCOMP], prob[NCOMP];
+
+  const char *env = getenv("CUBAVERBOSE");
+  verbose = 2;
+  if( env ) verbose = atoi(env);
 
   printf("-------------------- Vegas test --------------------\n");
 
   Vegas(NDIM, NCOMP, Integrand, USERDATA,
-    EPSREL, EPSABS, VERBOSE, SEED,
+    EPSREL, EPSABS, verbose, SEED,
     MINEVAL, MAXEVAL, NSTART, NINCREASE, NBATCH,
     GRIDNO, STATEFILE,
     &neval, &fail, integral, error, prob);
@@ -105,7 +109,7 @@ int main()
   printf("\n-------------------- Suave test --------------------\n");
 
   Suave(NDIM, NCOMP, Integrand, USERDATA,
-    EPSREL, EPSABS, VERBOSE | LAST, SEED,
+    EPSREL, EPSABS, verbose | LAST, SEED,
     MINEVAL, MAXEVAL, NNEW, FLATNESS,
     &nregions, &neval, &fail, integral, error, prob);
 
@@ -118,7 +122,7 @@ int main()
   printf("\n------------------- Divonne test -------------------\n");
 
   Divonne(NDIM, NCOMP, Integrand, USERDATA,
-    EPSREL, EPSABS, VERBOSE, SEED,
+    EPSREL, EPSABS, verbose, SEED,
     MINEVAL, MAXEVAL, KEY1, KEY2, KEY3, MAXPASS,
     BORDER, MAXCHISQ, MINDEVIATION,
     NGIVEN, LDXGIVEN, NULL, NEXTRA, NULL,
@@ -133,7 +137,7 @@ int main()
   printf("\n-------------------- Cuhre test --------------------\n");
 
   Cuhre(NDIM, NCOMP, Integrand, USERDATA,
-    EPSREL, EPSABS, VERBOSE | LAST,
+    EPSREL, EPSABS, verbose | LAST,
     MINEVAL, MAXEVAL, KEY,
     &nregions, &neval, &fail, integral, error, prob);
 

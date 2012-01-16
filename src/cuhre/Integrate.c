@@ -2,7 +2,7 @@
 	Integrate.c
 		integrate over the unit hypercube
 		this file is part of Cuhre
-		last modified 15 Feb 11 th
+		last modified 21 Nov 11 th
 */
 
 
@@ -103,12 +103,12 @@ static int Integrate(This *t, real *integral, real *error, real *prob)
       }
     }
 
-    if( maxratio <= 1 && t->neval >= t->mineval ) {
-      fail = 0;
+    if( maxratio <= 1 && t->neval >= t->mineval ) break;
+
+    if( t->neval >= t->maxeval ) {
+      fail = 1;
       break;
     }
-
-    if( t->neval >= t->maxeval ) break;
 
     maxerr = -INFTY;
     regionL = cur->region;

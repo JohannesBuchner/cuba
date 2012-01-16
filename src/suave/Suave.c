@@ -2,7 +2,7 @@
 	Suave.c
 		Subregion-adaptive Vegas Monte-Carlo integration
 		by Thomas Hahn
-		last modified 15 Feb 11 th
+		last modified 27 Sep 11 th
 */
 
 
@@ -12,18 +12,8 @@
 
 /*********************************************************************/
 
-static inline void DoSample(This *t, number n,
-  creal *w, creal *x, real *f, cint iter)
-{
-  t->neval += n;
-  while( n-- ) {
-    if( t->integrand(&t->ndim, x, &t->ncomp, f, t->userdata,
-          w++, &iter) == ABORT )
-      longjmp(t->abort, -99);
-    x += t->ndim;
-    f += t->ncomp;
-  }
-}
+#define SUAVE
+#include "DoSample.c"
 
 /*********************************************************************/
 
@@ -54,9 +44,13 @@ Extern void EXPORT(Suave)(ccount ndim, ccount ncomp,
   t.nregions = 0;
   t.neval = 0;
 
+  ForkCores(&t);
+
   *pfail = Integrate(&t, integral, error, prob);
   *pnregions = t.nregions;
   *pneval = t.neval;
+
+  WaitCores(&t);
 }
 
 /*********************************************************************/
@@ -86,8 +80,12 @@ Extern void EXPORT(suave)(ccount *pndim, ccount *pncomp,
   t.nregions = 0;
   t.neval = 0;
 
+  ForkCores(&t);
+
   *pfail = Integrate(&t, integral, error, prob);
   *pnregions = t.nregions;
   *pneval = t.neval;
+
+  WaitCores(&t);
 }
 
