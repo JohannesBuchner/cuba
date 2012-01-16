@@ -2,25 +2,24 @@
 	Cuhre.c
 		Adaptive integration using cubature rules
 		by Thomas Hahn
-		last modified 2 Mar 06 th
+		last modified 16 Jun 10 th
 */
 
 
-#include "util.c"
+#include "decl.h"
 
 #define Print(s) puts(s); fflush(stdout)
 
-static Integrand integrand_;
-
 /*********************************************************************/
 
-static inline void DoSample(count n, creal *x, real *f)
+static inline void DoSample(This *t, count n, creal *x, real *f)
 {
-  neval_ += n;
+  t->neval += n;
   while( n-- ) {
-    integrand_(&ndim_, x, &ncomp_, f);
-    x += ndim_;
-    f += ncomp_;
+    if( t->integrand(&t->ndim, x, &t->ncomp, f, t->userdata) == ABORT )
+      longjmp(t->abort, 1);
+    x += t->ndim;
+    f += t->ncomp;
   }
 }
 
@@ -29,44 +28,58 @@ static inline void DoSample(count n, creal *x, real *f)
 #include "common.c"
 
 Extern void EXPORT(Cuhre)(ccount ndim, ccount ncomp,
-  Integrand integrand,
+  Integrand integrand, void *userdata,
   creal epsrel, creal epsabs,
   cint flags, cnumber mineval, cnumber maxeval,
   ccount key,
   count *pnregions, number *pneval, int *pfail,
   real *integral, real *error, real *prob)
 {
-  ndim_ = ndim;
-  ncomp_ = ncomp;
-
-  if( BadComponent(ncomp) || BadDimension(ndim) ) *pfail = -1;
-  else {
-    neval_ = 0;
-    integrand_ = integrand;
-
-    *pfail = Integrate(epsrel, Max(epsabs, NOTZERO),
-      flags, mineval, maxeval, key,
-      integral, error, prob);
-    *pnregions = nregions_;
-    *pneval = neval_;
-  }
+  This t;
+  t.ndim = ndim;
+  t.ncomp = ncomp;
+  t.integrand = integrand;
+  t.userdata = userdata;
+  t.epsrel = epsrel;
+  t.epsabs = epsabs;
+  t.flags = flags;
+  t.mineval = mineval;
+  t.maxeval = maxeval;
+  t.key = key;
+  t.nregions = 0;
+  t.neval = 0;
+ 
+  *pfail = Integrate(&t, integral, error, prob);
+  *pnregions = t.nregions;
+  *pneval = t.neval;
 }
 
 /*********************************************************************/
 
 Extern void EXPORT(cuhre)(ccount *pndim, ccount *pncomp,
-  Integrand integrand,
+  Integrand integrand, void *userdata,
   creal *pepsrel, creal *pepsabs,
   cint *pflags, cnumber *pmineval, cnumber *pmaxeval,
   ccount *pkey,
   count *pnregions, number *pneval, int *pfail,
   real *integral, real *error, real *prob)
 {
-  EXPORT(Cuhre)(*pndim, *pncomp, integrand,
-    *pepsrel, *pepsabs,
-    *pflags, *pmineval, *pmaxeval,
-    *pkey,
-    pnregions, pneval, pfail,
-    integral, error, prob);
+  This t;
+  t.ndim = *pndim;
+  t.ncomp = *pncomp;
+  t.integrand = integrand;
+  t.userdata = userdata;
+  t.epsrel = *pepsrel;
+  t.epsabs = *pepsabs;
+  t.flags = *pflags;
+  t.mineval = *pmineval;
+  t.maxeval = *pmaxeval;
+  t.key = *pkey;
+  t.nregions = 0;
+  t.neval = 0;
+ 
+  *pfail = Integrate(&t, integral, error, prob);
+  *pnregions = t.nregions;
+  *pneval = t.neval;
 }
 

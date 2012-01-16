@@ -2,18 +2,19 @@
 	Explore.c
 		sample region, determine min and max, split if necessary
 		this file is part of Divonne
-		last modified 25 May 09 th
+		last modified 8 Jun 10 th
 */
 
 
 typedef struct {
   real fmin, fmax;
-  real *xmin, *xmax;
+  creal *xmin, *xmax;
 } Extrema;
 
 /*********************************************************************/
 
-static bool Explore(count iregion, cSamples *samples, cint depth, cint flags)
+static bool Explore(This *t, count iregion, cSamples *samples,
+  cint depth, cint flags)
 {
 #define SPLICE (flags & 1)
 #define HAVESAMPLES (flags & 2)
@@ -23,7 +24,8 @@ static bool Explore(count iregion, cSamples *samples, cint depth, cint flags)
   count n, dim, comp, maxcomp;
   Extrema extrema[NCOMP];
   Result *r;
-  real *x, *f;
+  creal *x;
+  real *f;
   real halfvol, maxerr;
   Region *region;
   Bounds *bounds;
@@ -33,18 +35,18 @@ static bool Explore(count iregion, cSamples *samples, cint depth, cint flags)
   sizeof(*region);
 
   if( SPLICE ) {
-    if( nregions_ == size_ ) {
-      size_ += CHUNKSIZE;
-      ReAlloc(voidregion_, size_*sizeof(Region));
+    if( t->nregions == t->size ) {
+      t->size += CHUNKSIZE;
+      ReAlloc(t->voidregion, t->size*sizeof(Region));
     }
-    VecCopy(region_[nregions_].bounds, region_[iregion].bounds);
-    iregion = nregions_++;
+    VecCopy(RegionPtr(t->nregions)->bounds, RegionPtr(iregion)->bounds);
+    iregion = t->nregions++;
   }
-  region = &region_[iregion];
+  region = RegionPtr(iregion);
   bounds = region->bounds;
   result = region->result;
 
-  for( comp = 0; comp < ncomp_; ++comp ) {
+  for( comp = 0; comp < t->ncomp; ++comp ) {
     Extrema *e = &extrema[comp];
     e->fmin = INFTY;
     e->fmax = -INFTY;
@@ -53,78 +55,76 @@ static bool Explore(count iregion, cSamples *samples, cint depth, cint flags)
 
   if( !HAVESAMPLES ) {
     real vol = 1;
-    for( dim = 0; dim < ndim_; ++dim ) {
+    for( dim = 0; dim < t->ndim; ++dim ) {
       cBounds *b = &bounds[dim];
       vol *= b->upper - b->lower;
     }
     region->vol = vol;
 
-    for( comp = 0; comp < ncomp_; ++comp ) {
+    for( comp = 0; comp < t->ncomp; ++comp ) {
       Result *r = &result[comp];
       r->fmin = INFTY;
       r->fmax = -INFTY;
     }
 
-    x = xgiven_;
-    f = fgiven_;
-    n = ngiven_;
-    if( nextra_ ) n += SampleExtra(bounds);
+    x = t->xgiven;
+    f = t->fgiven;
+    n = t->ngiven;
+    if( t->nextra ) n += SampleExtra(t, bounds);
 
     for( ; n; --n ) {
-      for( dim = 0; dim < ndim_; ++dim ) {
+      for( dim = 0; dim < t->ndim; ++dim ) {
         cBounds *b = &bounds[dim];
         if( x[dim] < b->lower || x[dim] > b->upper ) goto skip;
       }
-      for( comp = 0; comp < ncomp_; ++comp ) {
+      for( comp = 0; comp < t->ncomp; ++comp ) {
         Extrema *e = &extrema[comp];
         creal y = f[comp];
         if( y < e->fmin ) e->fmin = y, e->xmin = x;
         if( y > e->fmax ) e->fmax = y, e->xmax = x;
       }
 skip:
-      x += ldxgiven_;
-      f += ncomp_;
+      x += t->ldxgiven;
+      f += t->ncomp;
     }
 
-    samples->sampler(samples, bounds, vol);
+    samples->sampler(t, samples, bounds, vol);
   }
 
   x = samples->x;
   f = samples->f;
   for( n = samples->n; n; --n ) {
-    for( comp = 0; comp < ncomp_; ++comp ) {
+    for( comp = 0; comp < t->ncomp; ++comp ) {
       Extrema *e = &extrema[comp];
       creal y = *f++;
       if( y < e->fmin ) e->fmin = y, e->xmin = x;
       if( y > e->fmax ) e->fmax = y, e->xmax = x;
     }
-    x += ndim_;
+    x += t->ndim;
   }
-  neval_opt_ -= neval_;
+  t->neval_opt -= t->neval;
 
   halfvol = .5*region->vol;
   maxerr = -INFTY;
   maxcomp = -1;
 
-  for( comp = 0; comp < ncomp_; ++comp ) {
+  for( comp = 0; comp < t->ncomp; ++comp ) {
     Extrema *e = &extrema[comp];
     Result *r = &result[comp];
     real xtmp[NDIM], ftmp, err;
 
     if( e->xmin ) {	/* not all NaNs */
-      selectedcomp_ = comp;
-
-      sign_ = 1;
+      t->selectedcomp = comp;
       VecCopy(xtmp, e->xmin);
-      ftmp = FindMinimum(bounds, xtmp, e->fmin);
+      ftmp = FindMinimum(t, bounds, xtmp, e->fmin);
       if( ftmp < r->fmin ) {
         r->fmin = ftmp;
         VecCopy(r->xmin, xtmp);
       }
 
-      sign_ = -1;
+      t->selectedcomp = Tag(comp);
       VecCopy(xtmp, e->xmax);
-      ftmp = -FindMinimum(bounds, xtmp, -e->fmax);
+      ftmp = -FindMinimum(t, bounds, xtmp, -e->fmax);
       if( ftmp > r->fmax ) {
         r->fmax = ftmp;
         VecCopy(r->xmax, xtmp);
@@ -142,9 +142,9 @@ skip:
     }
   }
 
-  neval_opt_ += neval_;
+  t->neval_opt += t->neval;
 
-  if( maxcomp == -1 ) {		/* all NaNs */
+  if( maxcomp == -1 ) { /* all NaNs */
     region->depth = 0;
     return false;
   }
@@ -166,14 +166,14 @@ skip:
 
   if( !HAVESAMPLES ) {
     if( samples->weight*r->spread < r->err ||
-        r->spread < totals_[maxcomp].secondspread ) region->depth = 0;
+        r->spread < t->totals[maxcomp].secondspread ) region->depth = 0;
     if( region->depth == 0 )
-      for( comp = 0; comp < ncomp_; ++comp )
-        totals_[comp].secondspread =
-          Max(totals_[comp].secondspread, result[comp].spread);
+      for( comp = 0; comp < t->ncomp; ++comp )
+        t->totals[comp].secondspread =
+          Max(t->totals[comp].secondspread, result[comp].spread);
   }
 
-  if( region->depth ) Split(iregion, region->depth);
+  if( region->depth ) Split(t, iregion, region->depth);
   return true;
 }
 

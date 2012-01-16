@@ -76,14 +76,13 @@ demo = $(srcdir)/demo
 tools = $(srcdir)/tools
 
 
-COMMON_DEPS = $(common)/stddecl.h $(common)/debug.c \
-  $(common)/ChiSquare.c $(common)/Erf.c
+COMMON_DEPS = $(common)/stddecl.h $(common)/ChiSquare.c $(common)/Erf.c
 
 
 VEGAS_C = $(vegas)/Vegas.c
 VEGAS_TM = $(vegas)/Vegas.tm
 VEGAS_DEPS = $(COMMON_DEPS) $(common)/Random.c \
-  $(vegas)/decl.h $(vegas)/util.c $(vegas)/common.c \
+  $(vegas)/decl.h $(vegas)/common.c \
   $(vegas)/Grid.c $(vegas)/Integrate.c
 VEGAS = $(VEGAS_C) $(VEGAS_TM) $(VEGAS_DEPS)
 
@@ -115,7 +114,7 @@ Vegas$(EXE): $(VEGAS_TM) $(VEGAS_DEPS)
 SUAVE_C = $(suave)/Suave.c
 SUAVE_TM = $(suave)/Suave.tm
 SUAVE_DEPS = $(COMMON_DEPS) $(common)/Random.c \
-  $(suave)/decl.h $(suave)/util.c $(suave)/common.c \
+  $(suave)/decl.h $(suave)/common.c \
   $(suave)/Grid.c $(suave)/Fluct.c $(suave)/Sample.c \
   $(suave)/Integrate.c
 SUAVE = $(SUAVE_C) $(SUAVE_TM) $(SUAVE_DEPS)
@@ -148,7 +147,7 @@ Suave$(EXE): $(SUAVE_TM) $(SUAVE_DEPS)
 DIVONNE_C = $(divonne)/Divonne.c
 DIVONNE_TM = $(divonne)/Divonne.tm
 DIVONNE_DEPS = $(COMMON_DEPS) $(common)/Random.c \
-  $(divonne)/decl.h $(divonne)/util.c $(divonne)/common.c \
+  $(divonne)/decl.h $(divonne)/common.c \
   $(divonne)/KorobovCoeff.c $(divonne)/Rule.c $(divonne)/Sample.c \
   $(divonne)/FindMinimum.c $(divonne)/Explore.c $(divonne)/Split.c \
   $(divonne)/Integrate.c
@@ -182,7 +181,7 @@ Divonne$(EXE): $(DIVONNE_TM) $(DIVONNE_DEPS)
 CUHRE_C = $(cuhre)/Cuhre.c
 CUHRE_TM = $(cuhre)/Cuhre.tm
 CUHRE_DEPS = $(COMMON_DEPS) \
-  $(cuhre)/decl.h $(cuhre)/util.c $(cuhre)/common.c \
+  $(cuhre)/decl.h $(cuhre)/common.c \
   $(cuhre)/Rule.c $(cuhre)/Integrate.c
 CUHRE = $(CUHRE_C) $(CUHRE_TM) $(CUHRE_DEPS)
 
@@ -211,13 +210,13 @@ Cuhre$(EXE): $(CUHRE_TM) $(CUHRE_DEPS)
 	strip Cuhre$(EXE)
 
 
-$(LIB): $(LIB)(Vegas.o)     $(LIB)(Vegas_.o)    \
+$(LIB): $(LIB)(Vegas.o)     $(LIB)(Vegas_.o)     \
 	$(LIB)(llVegas.o)   $(LIB)(llVegas_.o)   \
-	$(LIB)(Suave.o)     $(LIB)(Suave_.o)    \
+	$(LIB)(Suave.o)     $(LIB)(Suave_.o)     \
 	$(LIB)(llSuave.o)   $(LIB)(llSuave_.o)   \
-	$(LIB)(Divonne.o)   $(LIB)(Divonne_.o)  \
+	$(LIB)(Divonne.o)   $(LIB)(Divonne_.o)   \
 	$(LIB)(llDivonne.o) $(LIB)(llDivonne_.o) \
-	$(LIB)(Cuhre.o)     $(LIB)(Cuhre_.o)    \
+	$(LIB)(Cuhre.o)     $(LIB)(Cuhre_.o)     \
 	$(LIB)(llCuhre.o)   $(LIB)(llCuhre_.o)
 	-$(RANLIB) $(LIB)
 

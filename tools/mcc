@@ -2,7 +2,7 @@
 # this script jumps in if there is no working mcc on the path:
 # - on Mac OS it (hopefully) figures out the location of mcc,
 # - on Cygwin it substitutes mcc completely
-# last modified 12 Nov 08 th
+# last modified 21 Jun 10 th
 
 
 sdkpath()
@@ -10,13 +10,21 @@ sdkpath()
   mathcmd="$1"
   shift
 
-  for sdk in "$@" ; do
-    path="$sdk:$path"
-  done
-  mathcmd="`PATH=\"$PATH:$path\" which $mathcmd`"
+  mathcmd=`
+    for sdk in "$@" ; do
+      cd "$sdk"
+      path="$PWD:$path"
+    done
+    PATH="$PATH:$path" which $mathcmd`
   
-  read -r sysid topdir <<< `"$mathcmd" -run \
-    'Print[$SystemID, " ", $TopDirectory]; Exit[]' < /dev/null | tr '\r' ' ' | tail -1`
+  eval `"$mathcmd" -run '
+    Print["sysid=\"", $SystemID, "\""];
+    Print["topdir=\"", $TopDirectory, "\""];
+    Exit[]' < /dev/null | tr '\r' ' ' | tail -2`
+
+	# Cygwin's dlltool does not handle native 64-bit libraries yet
+  [ "$sysid" = Windows-x86-64 ] && sysid=Windows
+  topdir=`cd "$topdir" ; echo $PWD`
 
   for sdk in \
     "$topdir/AddOns/MathLink/DeveloperKit/$sysid/CompilerAdditions" \
@@ -32,8 +40,10 @@ sdkpath()
 
 cygmcc()
 {
-  sdkpath math "$PROGRAMFILES/Wolfram Research/Mathematica"/*
-  for sdk in "`cd \"$sdk\" ; pwd`"/m* ; do
+  nodosfilewarning=1 sdkpath math \
+    "$ProgramW6432/Wolfram Research/Mathematica"/* \
+    "$PROGRAMFILES/Wolfram Research/Mathematica"/*
+  for sdk in "$sdk"/m* ; do
     break
   done
 
@@ -45,11 +55,13 @@ cygmcc()
   cache=MLcyg-cache
   [ -d $cache ] || mkdir $cache
 
-  OSbits=32
   MLversion=3
+  for OSbits in 32 64 ; do
+    dllname=ml${OSbits}i$MLversion
+    libname="$sdk/lib/${dllname}m.lib"
+    [ -f "$libname" ] && break
+  done
 
-  dllname=ml${OSbits}i$MLversion
-  libname="$sdk/lib/${dllname}m.lib"
   lib="$cache/${dllname}m"
   [ -f "$lib.a" ] || {
     ( echo "EXPORTS"

@@ -2,41 +2,38 @@
 	common.c
 		includes most of the modules
 		this file is part of Divonne
-		last modified 5 May 09 th
+		last modified 8 Jun 10 th
 */
 
-
-static bool Explore(count iregion, cSamples *samples, cint depth, cint flags);
-
-static void Split(count iregion, int depth);
 
 #include "Random.c"
 #include "ChiSquare.c"
 #include "Rule.c"
 #include "Sample.c"
 #include "FindMinimum.c"
+
+static bool Explore(This *t, count iregion, cSamples *samples,
+  cint depth, cint flags);
+
+static void Split(This *t, count iregion, int depth);
+
 #include "Explore.c"
 #include "Split.c"
-#include "Integrate.c"
 
-
-static inline bool BadDimension(ccount ndim, cint flags, ccount key)
+static inline bool BadDimension(cThis *t, ccount key)
 {
-#if NDIM > 0
-  if( ndim > NDIM ) return true;
-#endif
+  if( t->ndim > NDIM ) return true;
   if( IsSobol(key) ) return
-    ndim < SOBOL_MINDIM || (!PSEUDORNG && ndim > SOBOL_MAXDIM);
-  if( IsRule(key, ndim) ) return ndim < 1;
-  return ndim < KOROBOV_MINDIM || ndim > KOROBOV_MAXDIM;
+    t->ndim < SOBOL_MINDIM || (t->seed == 0 && t->ndim > SOBOL_MAXDIM);
+  if( IsRule(key, t->ndim) ) return t->ndim < 1;
+  return t->ndim < KOROBOV_MINDIM || t->ndim > KOROBOV_MAXDIM;
 }
 
-
-static inline bool BadComponent(cint ncomp)
+static inline bool BadComponent(cThis *t)
 {
-#if NCOMP > 0
-  if( ncomp > NCOMP ) return true;
-#endif
-  return ncomp < 1;
+  if( t->ncomp > NCOMP ) return true;
+  return t->ncomp < 1;
 }
+
+#include "Integrate.c"
 

@@ -9,8 +9,8 @@ static inline double Sq(double x)
 }
 
 
-static void Integrand(const int *ndim, const double xx[],
-                      const int *ncomp, double ff[])
+static int Integrand(const int *ndim, const double xx[],
+  const int *ncomp, double ff[], void *userdata)
 {
 #define x xx[0]
 #define y xx[1]
@@ -44,21 +44,28 @@ static void Integrand(const int *ndim, const double xx[],
 #else
   f = (rsq < 1) ? 1 : 0;
 #endif
+
+  return 0;
 }
 
 /*********************************************************************/
 
 #define NDIM 3
 #define NCOMP 1
+#define USERDATA NULL
 #define EPSREL 1e-3
 #define EPSABS 1e-12
 #define VERBOSE 2
 #define LAST 4
+#define SEED 0
 #define MINEVAL 0
 #define MAXEVAL 50000
 
 #define NSTART 1000
 #define NINCREASE 500
+#define NBATCH 1000
+#define GRIDNO 0
+#define STATEFILE NULL
 
 #define NNEW 1000
 #define FLATNESS 25.
@@ -83,9 +90,10 @@ int main()
 
   printf("-------------------- Vegas test --------------------\n");
 
-  Vegas(NDIM, NCOMP, Integrand,
-    EPSREL, EPSABS, VERBOSE, MINEVAL, MAXEVAL,
-    NSTART, NINCREASE,
+  Vegas(NDIM, NCOMP, Integrand, USERDATA,
+    EPSREL, EPSABS, VERBOSE, SEED,
+    MINEVAL, MAXEVAL, NSTART, NINCREASE, NBATCH,
+    GRIDNO, STATEFILE,
     &neval, &fail, integral, error, prob);
 
   printf("VEGAS RESULT:\tneval %d\tfail %d\n",
@@ -96,9 +104,9 @@ int main()
 
   printf("\n-------------------- Suave test --------------------\n");
 
-  Suave(NDIM, NCOMP, Integrand,
-    EPSREL, EPSABS, VERBOSE | LAST, MINEVAL, MAXEVAL,
-    NNEW, FLATNESS,
+  Suave(NDIM, NCOMP, Integrand, USERDATA,
+    EPSREL, EPSABS, VERBOSE | LAST, SEED,
+    MINEVAL, MAXEVAL, NNEW, FLATNESS,
     &nregions, &neval, &fail, integral, error, prob);
 
   printf("SUAVE RESULT:\tnregions %d\tneval %d\tfail %d\n",
@@ -109,9 +117,10 @@ int main()
 
   printf("\n------------------- Divonne test -------------------\n");
 
-  Divonne(NDIM, NCOMP, Integrand,
-    EPSREL, EPSABS, VERBOSE, MINEVAL, MAXEVAL,
-    KEY1, KEY2, KEY3, MAXPASS, BORDER, MAXCHISQ, MINDEVIATION,
+  Divonne(NDIM, NCOMP, Integrand, USERDATA,
+    EPSREL, EPSABS, VERBOSE, SEED,
+    MINEVAL, MAXEVAL, KEY1, KEY2, KEY3, MAXPASS,
+    BORDER, MAXCHISQ, MINDEVIATION,
     NGIVEN, LDXGIVEN, NULL, NEXTRA, NULL,
     &nregions, &neval, &fail, integral, error, prob);
 
@@ -123,9 +132,9 @@ int main()
 
   printf("\n-------------------- Cuhre test --------------------\n");
 
-  Cuhre(NDIM, NCOMP, Integrand,
-    EPSREL, EPSABS, VERBOSE | LAST, MINEVAL, MAXEVAL,
-    KEY,
+  Cuhre(NDIM, NCOMP, Integrand, USERDATA,
+    EPSREL, EPSABS, VERBOSE | LAST,
+    MINEVAL, MAXEVAL, KEY,
     &nregions, &neval, &fail, integral, error, prob);
 
   printf("CUHRE RESULT:\tnregions %d\tneval %d\tfail %d\n",

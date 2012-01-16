@@ -2,25 +2,24 @@
 	Vegas.c
 		Vegas Monte-Carlo integration
 		by Thomas Hahn
-		last modified 30 Aug 07 th
+		last modified 16 Jun 10 th
 */
 
 
-#include "util.c"
+#include "decl.h"
 
 #define Print(s) puts(s); fflush(stdout)
 
-static Integrand integrand_;
-
 /*********************************************************************/
 
-static inline void DoSample(number n, creal *w, creal *x, real *f)
+static inline void DoSample(This *t, number n, creal *w, creal *x, real *f)
 {
-  neval_ += n;
+  t->neval += n;
   while( n-- ) {
-    integrand_(&ndim_, x, &ncomp_, f, w++);
-    x += ndim_;
-    f += ncomp_;
+    if( t->integrand(&t->ndim, x, &t->ncomp, f, t->userdata, w++) == ABORT )
+      longjmp(t->abort, 1);
+    x += t->ndim;
+    f += t->ncomp;
   }
 }
 
@@ -29,52 +28,79 @@ static inline void DoSample(number n, creal *w, creal *x, real *f)
 #include "common.c"
 
 Extern void EXPORT(Vegas)(ccount ndim, ccount ncomp,
-  Integrand integrand,
-  creal epsrel, creal epsabs,
-  cint flags, cnumber mineval, cnumber maxeval,
-  cnumber nstart, cnumber nincrease,
+  Integrand integrand, void *userdata,
+  creal epsrel, creal epsabs, cint flags, cint seed,
+  cnumber mineval, cnumber maxeval,
+  cnumber nstart, cnumber nincrease, cnumber nbatch,
+  cint gridno, cchar *statefile,
   number *pneval, int *pfail,
   real *integral, real *error, real *prob)
 {
-  ndim_ = ndim;
-  ncomp_ = ncomp;
+  This t;
+  t.ndim = ndim;
+  t.ncomp = ncomp;
+  t.integrand = integrand;
+  t.userdata = userdata;
+  t.epsrel = epsrel;
+  t.epsabs = epsabs;
+  t.flags = flags;
+  t.seed = seed;
+  t.mineval = mineval;
+  t.maxeval = maxeval;
+  t.nstart = nstart;
+  t.nincrease = nincrease;
+  t.nbatch = nbatch;
+  t.gridno = gridno;
+  t.statefile = statefile;
+  t.neval = 0;
 
-  if( BadComponent(ncomp) || BadDimension(ndim, flags) ) *pfail = -1;
-  else {
-    neval_ = 0;
-    integrand_ = integrand;
-
-    *pfail = Integrate(epsrel, epsabs,
-      flags, mineval, maxeval, nstart, nincrease,
-      integral, error, prob);
-
-    *pneval = neval_;
-  }
+  *pfail = Integrate(&t, integral, error, prob);
+  *pneval = t.neval;
 }
 
 /*********************************************************************/
 
 Extern void EXPORT(vegas)(ccount *pndim, ccount *pncomp,
-  Integrand integrand,
-  creal *pepsrel, creal *pepsabs,
-  cint *pflags, cnumber *pmineval, cnumber *pmaxeval,
+  Integrand integrand, void *userdata,
+  creal *pepsrel, creal *pepsabs, cint *pflags, cint *pseed,
+  cnumber *pmineval, cnumber *pmaxeval,
   cnumber *pnstart, cnumber *pnincrease, 
+  cnumber *pnbatch, cint *pgridno, cchar *statefile,
   number *pneval, int *pfail,
-  real *integral, real *error, real *prob)
+  real *integral, real *error, real *prob, int statefilelen)
 {
-  /* make sure the filename is null-terminated */
-  if( *EXPORT(vegasstate) ) {
-    char *p;
-    EXPORT(vegasstate)[sizeof(EXPORT(vegasstate)) - 1] = 0;
-    if( (p = strchr(EXPORT(vegasstate), ' ')) ) *p = 0;
-  }
+  char *s = NULL;
+  This t;
+  t.ndim = *pndim;
+  t.ncomp = *pncomp;
+  t.integrand = integrand;
+  t.userdata = userdata;
+  t.epsrel = *pepsrel;
+  t.epsabs = *pepsabs;
+  t.flags = *pflags;
+  t.seed = *pseed;
+  t.mineval = *pmineval;
+  t.maxeval = *pmaxeval;
+  t.nstart = *pnstart;
+  t.nincrease = *pnincrease;
+  t.nbatch = *pnbatch;
+  t.gridno = *pgridno;
+  t.neval = 0;
 
-  EXPORT(Vegas)(*pndim, *pncomp,
-    integrand,
-    *pepsrel, *pepsabs,
-    *pflags, *pmineval, *pmaxeval,
-    *pnstart, *pnincrease,
-    pneval, pfail,
-    integral, error, prob);
+  if( statefile ) {
+	/* strip trailing spaces */
+    while( statefilelen > 0 && statefile[statefilelen - 1] == ' ' )
+      --statefilelen;
+    if( statefilelen > 0 && (s = malloc(statefilelen + 1)) ) {
+      memcpy(s, statefile, statefilelen);
+      s[statefilelen] = 0;
+    }
+  }
+  t.statefile = s;
+
+  *pfail = Integrate(&t, integral, error, prob);
+  *pneval = t.neval;
+
+  free(s);
 }
 

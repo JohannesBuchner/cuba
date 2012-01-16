@@ -2,7 +2,7 @@
 	Split.c
 		determine optimal cuts for splitting a region
 		this file is part of Divonne
-		last modified 22 Jul 09 th
+		last modified 20 Jul 10 th
 */
 
 
@@ -18,7 +18,7 @@
 #define Lower(d) (2*d)
 #define Upper(d) (2*d + 1)
 #define Dim(i) ((i) >> 1)
-#define SignedDelta(i) ((i & 1) ? delta[i] : -delta[i])
+#define SignedDelta(i) (2*(i & 1) - 1)*delta[i]
 
 typedef struct {
   count i;
@@ -42,25 +42,25 @@ static inline real Div(creal a, creal b)
 
 /*********************************************************************/
 
-static void SomeCut(Cut *cut, Bounds *b)
+static void SomeCut(This *t, Cut *cut, Bounds *b)
 {
   count dim, maxdim;
   static count nextdim = 0;
   real xmid[NDIM], ymid, maxdev;
 
-  for( dim = 0; dim < ndim_; ++dim )
+  for( dim = 0; dim < t->ndim; ++dim )
     xmid[dim] = .5*(b[dim].upper + b[dim].lower);
-  ymid = Sample(xmid);
+  ymid = Sample(t, xmid);
 
   maxdev = 0;
   maxdim = 0;
-  for( dim = 0; dim < ndim_; ++dim ) {
+  for( dim = 0; dim < t->ndim; ++dim ) {
     real ylower, yupper, dev;
     creal x = xmid[dim];
     xmid[dim] = b[dim].lower;
-    ylower = Sample(xmid);
+    ylower = Sample(t, xmid);
     xmid[dim] = b[dim].upper;
-    yupper = Sample(xmid);
+    yupper = Sample(t, xmid);
     xmid[dim] = x;
 
     dev = fabs(ymid - .5*(ylower + yupper));
@@ -71,7 +71,7 @@ static void SomeCut(Cut *cut, Bounds *b)
   }
 
   if( maxdev > 0 ) nextdim = 0;
-  else maxdim = nextdim++ % ndim_;
+  else maxdim = nextdim++ % t->ndim;
 
   cut->i = Upper(maxdim);
   cut->save = b[maxdim].upper;
@@ -80,11 +80,11 @@ static void SomeCut(Cut *cut, Bounds *b)
 
 /*********************************************************************/
 
-static inline real Volume(creal *delta)
+static inline real Volume(cThis *t, creal *delta)
 {
   real vol = 1;
   count dim;
-  for( dim = 0; dim < ndim_; ++dim )
+  for( dim = 0; dim < t->ndim; ++dim )
     vol *= delta[Lower(dim)] + delta[Upper(dim)];
   return vol;
 }
@@ -132,7 +132,7 @@ static inline void SolveEqs(Cut *cut, count ncut,
 
 /*********************************************************************/
 
-static count FindCuts(Cut *cut, Bounds *bounds, creal vol,
+static count FindCuts(This *t, Cut *cut, Bounds *bounds, creal vol,
   real *xmajor, creal fmajor, creal fdiff)
 {
   cint sign = (fdiff < 0) ? -1 : 1;
@@ -142,26 +142,22 @@ static count FindCuts(Cut *cut, Bounds *bounds, creal vol,
   real gamma, fgamma, lhssq;
   count dim, div;
 
-  for( dim = 0; dim < ndim_; ++dim ) {
-//    cBounds *b = &bounds[dim];
-//    creal xsave = xmajor[dim];
-    cBounds *b;
-    real xsave;
-    b = &bounds[dim];
-    xsave = xmajor[dim];
+  for( dim = 0; dim < t->ndim; ++dim ) {
+    cBounds *b = &bounds[dim];
+    creal xsave = xmajor[dim];
     real dist = b->upper - xsave;
     if( dist >= BNDTOL*(b->upper - b->lower) ) {
       Cut *c = &cut[ncut++];
       c->i = Upper(dim);
       c->save = dist;
       xmajor[dim] += dist *= FRACT;
-      c->f = Sample(xmajor);
+      c->f = Sample(t, xmajor);
       xmajor[dim] = xsave;
     }
     delta[Upper(dim)] = dist;
   }
 
-  for( dim = 0; dim < ndim_; ++dim ) {
+  for( dim = 0; dim < t->ndim; ++dim ) {
     cBounds *b = &bounds[dim];
     creal xsave = xmajor[dim];
     real dist = xsave - b->lower;
@@ -170,14 +166,14 @@ static count FindCuts(Cut *cut, Bounds *bounds, creal vol,
       c->i = Lower(dim);
       c->save = dist;
       xmajor[dim] -= dist *= FRACT;
-      c->f = Sample(xmajor);
+      c->f = Sample(t, xmajor);
       xmajor[dim] = xsave;
     }
     delta[Lower(dim)] = dist;
   }
 
   if( ncut == 0 ) {
-    SomeCut(cut, bounds);
+    SomeCut(t, cut, bounds);
     return 1;
   }
 
@@ -194,13 +190,13 @@ static count FindCuts(Cut *cut, Bounds *bounds, creal vol,
       }
     }
 
-    gamma = Volume(delta)/vol;
+    gamma = Volume(t, delta)/vol;
     fgamma = fmajor + (gamma - 1)*fdiff;
 
     if( sign*(mincut->f - fgamma) < 0 ) break;
 
     if( --ncut == 0 ) {
-      SomeCut(cut, bounds);
+      SomeCut(t, cut, bounds);
       return 1;
     }
 
@@ -228,11 +224,11 @@ repeat:
       creal xsave = *x;
       delta[c->i] = c->delta + c->sol/div;
       *x += SignedDelta(c->i);
-      c->f = Sample(xmajor);
+      c->f = Sample(t, xmajor);
       *x = xsave;
     }
 
-    gammanew = Volume(delta)/vol;
+    gammanew = Volume(t, delta)/vol;
     fgamma = fmajor + (gammanew - 1)*fdiff;
     lhssqnew = SetupEqs(cut, ncut, fgamma);
 
@@ -272,7 +268,7 @@ repeat:
 
 /*********************************************************************/
 
-static void Split(count iregion, int depth)
+static void Split(This *t, count iregion, int depth)
 {
   TYPEDEFREGION;
 
@@ -282,42 +278,42 @@ static void Split(count iregion, int depth)
   real tmp;
 
 {
-  Region *const region = region_ + iregion;
-  selectedcomp_ = region->cutcomp;
-  neval_cut_ -= neval_;
-  ncut = FindCuts(cut, region->bounds, region->vol,
+  Region *const region = RegionPtr(iregion);
+  t->selectedcomp = region->cutcomp;
+  t->neval_cut -= t->neval;
+  ncut = FindCuts(t, cut, region->bounds, region->vol,
     (real *)region->result + region->xmajor, region->fmajor,
     region->fmajor - region->fminor);
-  neval_cut_ += neval_;
+  t->neval_cut += t->neval;
 
-  for( comp = 0; comp < ncomp_; ++comp ) {
+  for( comp = 0; comp < t->ncomp; ++comp ) {
     Errors *e = &errors[comp];
     e->diff = region->result[comp].avg;
     e->spread = e->err = 0;
   }
 }
 
-  xregion = nregions_;
+  xregion = t->nregions;
 
   depth -= ncut;
-  if( Explore(iregion, &samples_[0], depth, 1) ) {
+  if( Explore(t, iregion, &t->samples[0], depth, 1) ) {
     Cut *c;
     for( c = cut; ncut--; ++c ) {
-      real *b = (real *)region_[iregion].bounds;
+      real *b = (real *)RegionPtr(iregion)->bounds;
       ccount c0 = c->i, c1 = c0 ^ 1;
       creal tmp = b[c1];
       b[c1] = b[c0];
       b[c0] = c->save;
-      if( !Explore(iregion, &samples_[0], depth++, ncut != 0) ) break;
-      if( ncut ) ((real *)region_[iregion].bounds)[c1] = tmp;
+      if( !Explore(t, iregion, &t->samples[0], depth++, ncut != 0) ) break;
+      if( ncut ) ((real *)RegionPtr(iregion)->bounds)[c1] = tmp;
     }
   }
 
-  nsplit = nregions_ - xregion + 1;
+  nsplit = t->nregions - xregion + 1;
 
-  for( ireg = iregion, xreg = xregion; ireg < nregions_; ireg = xreg++ ) {
-    cResult *result = region_[ireg].result;
-    for( comp = 0; comp < ncomp_; ++comp ) {
+  for( ireg = iregion, xreg = xregion; ireg < t->nregions; ireg = xreg++ ) {
+    cResult *result = RegionPtr(ireg)->result;
+    for( comp = 0; comp < t->ncomp; ++comp ) {
       cResult *r = &result[comp];
       Errors *e = &errors[comp];
       e->diff -= r->avg;
@@ -327,7 +323,7 @@ static void Split(count iregion, int depth)
   }
 
   tmp = 1./nsplit;
-  for( comp = 0; comp < ncomp_; ++comp ) {
+  for( comp = 0; comp < t->ncomp; ++comp ) {
     Errors *e = &errors[comp];
     e->diff = tmp*fabs(e->diff);
     e->err = (e->err == 0) ? 1 : 1 + e->diff/e->err;
@@ -335,14 +331,14 @@ static void Split(count iregion, int depth)
   }
 
   tmp = 1 - tmp;
-  for( ireg = iregion, xreg = xregion; ireg < nregions_; ireg = xreg++ ) {
-    Result *result = region_[ireg].result;
-    for( comp = 0; comp < ncomp_; ++comp ) {
+  for( ireg = iregion, xreg = xregion; ireg < t->nregions; ireg = xreg++ ) {
+    Result *result = RegionPtr(ireg)->result;
+    for( comp = 0; comp < t->ncomp; ++comp ) {
       Result *r = &result[comp];
       cErrors *e = &errors[comp];
       creal c = tmp*e->diff;
       if( r->err > 0 ) r->err = r->err*e->err + c;
-      r->spread = r->spread*e->spread + c*samples_[0].neff;
+      r->spread = r->spread*e->spread + c*t->samples[0].neff;
     }
   }
 }

@@ -2,22 +2,19 @@
 	Grid.c
 		utility functions for the Vegas grid
 		this file is part of Vegas
-		last modified 29 May 09 th
+		last modified 28 May 10 th
 */
 
 
-static inline void GetGrid(Grid *grid)
+static inline void GetGrid(cThis *t, Grid *grid)
 {
   count bin, dim;
-  unsigned const int slot = abs(EXPORT(vegasgridno)) - 1;
+  unsigned const int slot = abs(t->gridno) - 1;
 
-  if( EXPORT(vegasgridno) < 0 ) {
-    EXPORT(vegasgridno) = -EXPORT(vegasgridno);
-    if( slot < MAXGRIDS ) griddim_[slot] = 0;
-  }
+  if( t->gridno < 0 && slot < MAXGRIDS ) griddim_[slot] = 0;
 
   if( slot < MAXGRIDS && gridptr_[slot] ) {
-    if( griddim_[slot] == ndim_ ) {
+    if( griddim_[slot] == t->ndim ) {
       VecCopy(grid, gridptr_[slot]);
       return;
     }
@@ -27,26 +24,26 @@ static inline void GetGrid(Grid *grid)
 
   for( bin = 0; bin < NBINS; ++bin )
     grid[0][bin] = (bin + 1)/(real)NBINS;
-  for( dim = 1; dim < ndim_; ++dim )
+  for( dim = 1; dim < t->ndim; ++dim )
     Copy(&grid[dim], &grid[0], 1);
 }
 
 /*********************************************************************/
 
-static inline void PutGrid(Grid *grid)
+static inline void PutGrid(cThis *t, Grid *grid)
 {
-  unsigned const int slot = EXPORT(vegasgridno) - 1;
+  unsigned const int slot = abs(t->gridno) - 1;
 
   if( slot < MAXGRIDS ) {
-    if( gridptr_[slot] == NULL ) Alloc(gridptr_[slot], ndim_);
-    griddim_[slot] = ndim_;
+    if( gridptr_[slot] == NULL ) Alloc(gridptr_[slot], t->ndim);
+    griddim_[slot] = t->ndim;
     VecCopy(gridptr_[slot], grid);
   }
 }
 
 /*********************************************************************/
 
-static void RefineGrid(Grid grid, Grid margsum, cint flags)
+static void RefineGrid(cThis *t, Grid grid, Grid margsum)
 {
   real avgperbin, thisbin, newcur, delta;
   Grid imp, newgrid;

@@ -2,7 +2,7 @@
 	FindMinimum.c
 		find minimum (maximum) of hyperrectangular region
 		this file is part of Divonne
-		last modified 7 Mar 05 th
+		last modified 8 Jun 10 th
 */
 
 
@@ -24,20 +24,9 @@
 #define FTOL 5e-2
 #define GTOL 1e-2
 
-#define Hessian(i, j) hessian[(i)*ndim_ + j]
-
-#define Tag(x) ((x) | 0x8000)
-#define Untag(x) ((x) & 0x7fff)
-#define TaggedQ(x) ((x) & 0x8000)
+#define Hessian(i, j) hessian[(i)*t->ndim + j]
 
 typedef struct { real dx, f; } Point;
-
-/*********************************************************************/
-
-static inline real SignSample(real *x)
-{
-  return sign_*Sample(x);
-}
 
 /*********************************************************************/
 
@@ -58,7 +47,7 @@ static inline real Length(ccount n, creal *vec)
 
 /*********************************************************************/
 
-static inline void LinearSolve(ccount n, creal *hessian,
+static inline void LinearSolve(cThis *t, ccount n, creal *hessian,
   creal *grad, real *p)
 {
   int i, j;
@@ -82,7 +71,7 @@ static inline void LinearSolve(ccount n, creal *hessian,
 
 /*********************************************************************/
 
-static void RenormalizeCholesky(ccount n, real *hessian,
+static void RenormalizeCholesky(cThis *t, ccount n, real *hessian,
   real *z, real alpha)
 {
   count i, j;
@@ -118,7 +107,7 @@ static void RenormalizeCholesky(ccount n, real *hessian,
 
 /*********************************************************************/
 
-static void UpdateCholesky(ccount n, real *hessian,
+static void UpdateCholesky(cThis *t, ccount n, real *hessian,
   real *z, real *p)
 {
   int i, j;
@@ -150,7 +139,7 @@ static void UpdateCholesky(ccount n, real *hessian,
 
 /*********************************************************************/
 
-static inline void BFGS(ccount n, real *hessian,
+static inline void BFGS(cThis *t, ccount n, real *hessian,
   creal *gnew, creal *g, real *p, creal dx)
 {
   real y[NDIM], c;
@@ -160,14 +149,14 @@ static inline void BFGS(ccount n, real *hessian,
     y[i] = gnew[i] - g[i];
   c = dx*Dot(n, y, p);
   if( c < 1e-10 ) return;
-  RenormalizeCholesky(n, hessian, y, 1/c);
+  RenormalizeCholesky(t, n, hessian, y, 1/c);
 
   c = Dot(n, g, p);
   if( c >= 0 ) return;
   c = 1/sqrt(-c);
   for( i = 0; i < n; ++i )
     y[i] = c*g[i];
-  UpdateCholesky(n, hessian, y, p);
+  UpdateCholesky(t, n, hessian, y, p);
 
   for( i = 0; i < n - 1; ++i )
     for( j = i + 1; j < n; ++j )
@@ -176,7 +165,7 @@ static inline void BFGS(ccount n, real *hessian,
 
 /*********************************************************************/
 
-static void Gradient(ccount nfree, ccount *ifree,
+static void Gradient(This *t, ccount nfree, ccount *ifree,
   cBounds *b, real *x, creal y, real *grad)
 {
   count i;
@@ -186,14 +175,14 @@ static void Gradient(ccount nfree, ccount *ifree,
     creal xd = x[dim];
     creal delta = (b[dim].upper - xd < DELTA) ? -DELTA : DELTA;
     x[dim] += delta;
-    grad[i] = (SignSample(x) - y)/delta;
+    grad[i] = (Sample(t, x) - y)/delta;
     x[dim] = xd;
   }
 }
 
 /*********************************************************************/
 
-static Point LineSearch(ccount nfree, ccount *ifree,
+static Point LineSearch(This *t, ccount nfree, ccount *ifree,
   creal *p, creal *xini, real fini, real *x,
   real step, creal range, creal grad,
   creal ftol, creal xtol, creal gtol)
@@ -241,7 +230,7 @@ static Point LineSearch(ccount nfree, ccount *ifree,
         ccount dim = ifree[i];
         x[dim] = xini[dim] + dist*p[i];
       }
-      cur.f = SignSample(x);
+      cur.f = Sample(t, x);
 
       if( cur.f <= min.f ) {
         v = w;
@@ -328,7 +317,7 @@ static Point LineSearch(ccount nfree, ccount *ifree,
         ccount dim = ifree[i];
         x[dim] = xini[dim] + cur.dx*p[i];
       }
-      if( !first ) cur.f = SignSample(x);
+      if( !first ) cur.f = Sample(t, x);
 
       if( cur.dx + b.dx <= xtol ) {
         cur.dx = 0;
@@ -348,8 +337,8 @@ static Point LineSearch(ccount nfree, ccount *ifree,
 
 /*********************************************************************/
 
-static real LocalSearch(ccount nfree, ccount *ifree, cBounds *b,
-  creal *x, creal fx, real *z)
+static real LocalSearch(This *t, ccount nfree, ccount *ifree,
+  cBounds *b, creal *x, creal fx, real *z)
 {
   real delta, smax, sopp, spmax, snmax;
   real y[NDIM], fy, fz, ftest;
@@ -389,7 +378,7 @@ static real LocalSearch(ccount nfree, ccount *ifree, cBounds *b,
       ccount dim = ifree[i];
       y[dim] = x[dim] + delta*p[i];
     }
-    fy = SignSample(y);
+    fy = Sample(t, y);
     if( fabs(fy - fx) > ftest ) break;
   } while( delta != smax );
 
@@ -442,7 +431,7 @@ static real LocalSearch(ccount nfree, ccount *ifree, cBounds *b,
       ccount dim = ifree[i];
       z[dim] = y[dim] + delta*p[i];
     }
-    fz = SignSample(z);
+    fz = Sample(t, z);
     if( fabs(fz - fy) > ftest ) break;
   } while( delta != smax );
 
@@ -466,7 +455,7 @@ static real LocalSearch(ccount nfree, ccount *ifree, cBounds *b,
     }
 
     pleneps = Length(nfree, p) + RTEPS;
-    low = LineSearch(nfree, ifree, p, y, fy, z, step, range, grad,
+    low = LineSearch(t, nfree, ifree, p, y, fy, z, step, range, grad,
       RTEPS/pleneps, 0., RTEPS);
     fz = low.f;
   }
@@ -503,7 +492,7 @@ static real LocalSearch(ccount nfree, ccount *ifree, cBounds *b,
         ccount dim = ifree[i];
         z[dim] = x[dim] - delta*p[i];
       }
-      fz = SignSample(z);
+      fz = Sample(t, z);
       if( fz < fx ) {
         grad = (fz - fx)/delta;
         range = snmax;
@@ -514,7 +503,7 @@ static real LocalSearch(ccount nfree, ccount *ifree, cBounds *b,
       else if( delta < 1 ) grad = (fx - fz)/delta;
     }
 
-    low = LineSearch(nfree, ifree, p, x, fx, z, step, range, grad,
+    low = LineSearch(t, nfree, ifree, p, x, fx, z, step, range, grad,
       RTEPS/pleneps, 0., RTEPS);
     fz = low.f;
   }
@@ -524,18 +513,18 @@ static real LocalSearch(ccount nfree, ccount *ifree, cBounds *b,
 
 /*********************************************************************/
 
-static real FindMinimum(cBounds *b, real *xmin, real fmin)
+static real FindMinimum(This *t, cBounds *b, real *xmin, real fmin)
 {
   real hessian[NDIM*NDIM];
   real gfree[NDIM], p[NDIM];
   real tmp[NDIM], ftmp, fini = fmin;
-  ccount maxeval = neval_ + 50*ndim_;
+  ccount maxeval = t->neval + 50*t->ndim;
   count nfree, nfix;
   count ifree[NDIM], ifix[NDIM];
   count dim, local;
 
   Zap(hessian);
-  for( dim = 0; dim < ndim_; ++dim )
+  for( dim = 0; dim < t->ndim; ++dim )
     Hessian(dim, dim) = 1;
 
   /* Step 1: - classify the variables as "fixed" (sufficiently close
@@ -546,7 +535,7 @@ static real FindMinimum(cBounds *b, real *xmin, real fmin)
   for( local = 0; local < 2; ++local ) {
     bool resample = false;
     nfree = nfix = 0;
-    for( dim = 0; dim < ndim_; ++dim ) {
+    for( dim = 0; dim < t->ndim; ++dim ) {
       if( xmin[dim] < b[dim].lower + (1 + fabs(b[dim].lower))*QEPS ) {
         xmin[dim] = b[dim].lower;
         ifix[nfix++] = dim;
@@ -560,21 +549,21 @@ static real FindMinimum(cBounds *b, real *xmin, real fmin)
       else ifree[nfree++] = dim;
     }
 
-    if( resample ) fini = fmin = SignSample(xmin);
+    if( resample ) fini = fmin = Sample(t, xmin);
 
     if( nfree == 0 ) goto releasebounds;
 
-    Gradient(nfree, ifree, b, xmin, fmin, gfree);
+    Gradient(t, nfree, ifree, b, xmin, fmin, gfree);
     if( local || Length(nfree, gfree) > GTOL ) break;
 
-    ftmp = LocalSearch(nfree, ifree, b, xmin, fmin, tmp);
+    ftmp = LocalSearch(t, nfree, ifree, b, xmin, fmin, tmp);
     if( ftmp > fmin - (1 + fabs(fmin))*RTEPS )
       goto releasebounds;
     fmin = ftmp;
     VecCopy(xmin, tmp);
   }
 
-  while( neval_ <= maxeval ) {
+  while( t->neval <= maxeval ) {
 
     /* Step 2a: perform a quasi-Newton iteration on the free
                 variables only. */
@@ -582,10 +571,10 @@ static real FindMinimum(cBounds *b, real *xmin, real fmin)
     if( nfree > 0 ) {
       real plen, pleneps;
       real minstep;
-      count i, mini, minfix;
+      count i, mini = 0, minfix = 0;
       Point low;
 
-      LinearSolve(nfree, hessian, gfree, p);
+      LinearSolve(t, nfree, hessian, gfree, p);
       plen = Length(nfree, p);
       pleneps = plen + RTEPS;
 
@@ -626,7 +615,7 @@ fixbound:
             Copy(&Hessian(i, 0), &Hessian(i + 1, 0), i);
             Hessian(i, i) = Hessian(i + 1, i + 1);
           }
-          RenormalizeCholesky(nfree, hessian, tmp, diag);
+          RenormalizeCholesky(t, nfree, hessian, tmp, diag);
 
           Copy(&ifree[mini], &ifree[mini + 1], nfree - mini);
           Copy(&gfree[mini], &gfree[mini + 1], nfree - mini);
@@ -634,7 +623,7 @@ fixbound:
         continue;
       }
 
-      low = LineSearch(nfree, ifree, p, xmin, fmin, tmp,
+      low = LineSearch(t, nfree, ifree, p, xmin, fmin, tmp,
         Min(minstep, 1.), Min(minstep, 100.), Dot(nfree, gfree, p),
         RTEPS/pleneps, DELTA/pleneps, .2);
 
@@ -644,8 +633,8 @@ fixbound:
         fmin = low.f;
         VecCopy(xmin, tmp);
 
-        Gradient(nfree, ifree, b, xmin, fmin, tmp);
-        BFGS(nfree, hessian, tmp, gfree, p, low.dx);
+        Gradient(t, nfree, ifree, b, xmin, fmin, tmp);
+        BFGS(t, nfree, hessian, tmp, gfree, p, low.dx);
         VecCopy(gfree, tmp);
 
         if( fabs(low.dx - minstep) < QEPS*minstep ) goto fixbound;
@@ -653,7 +642,7 @@ fixbound:
         fdiff = fini - fmin;
         fini = fmin;
         if( fdiff > (1 + fabs(fmin))*FTOL ||
-            low.dx*plen > (1 + Length(ndim_, xmin))*FTOL ) continue;
+            low.dx*plen > (1 + Length(t->ndim, xmin))*FTOL ) continue;
       }
     }
 
@@ -666,10 +655,10 @@ releasebounds:
       count i, mini = 0;
       bool repeat = false;
 
-      Gradient(nfix, ifix, b, xmin, fmin, tmp);
+      Gradient(t, nfix, ifix, b, xmin, fmin, tmp);
 
       for( i = 0; i < nfix; ++i ) {
-        creal grad = TaggedQ(ifix[i]) ? -tmp[i] : tmp[i];
+        creal grad = Sign(ifix[i])*tmp[i];
         if( grad < -RTEPS ) {
           repeat = true;
           if( grad < mingrad ) {

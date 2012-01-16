@@ -4,36 +4,57 @@
 		originally by J.H. Friedman and M.H. Wright
 		(CERNLIB subroutine D151)
 		this version by Thomas Hahn
-		last modified 2 Mar 06 th
+		last modified 16 Jun 10 th
 */
 
-#include "util.c"
+#include "decl.h"
 
 #define Print(s) puts(s); fflush(stdout)
 
-static Integrand integrand_;
-static PeakFinder peakfinder_;
-
 /*********************************************************************/
 
-static inline void DoSample(number n, ccount ldx, creal *x, real *f)
+static inline void DoSample(This *t, number n, ccount ldx, creal *x, real *f)
 {
-  neval_ += n;
+  t->neval += n;
   while( n-- ) {
-    integrand_(&ndim_, x, &ncomp_, f, &phase_);
+    if( t->integrand(&t->ndim, x, &t->ncomp, f, t->userdata, &t->phase) == ABORT )
+      longjmp(t->abort, 1);
     x += ldx;
-    f += ncomp_;
+    f += t->ncomp;
   }
 }
 
 /*********************************************************************/
 
-static inline count SampleExtra(cBounds *b)
+static inline count SampleExtra(This *t, cBounds *b)
 {
-  number n = nextra_;
-  peakfinder_(&ndim_, b, &n, xextra_);
-  DoSample(n, ldxgiven_, xextra_, fextra_);
+  number n = t->nextra;
+  t->peakfinder(&t->ndim, b, &n, t->xextra);
+  DoSample(t, n, t->ldxgiven, t->xextra, t->fextra);
   return n;
+}
+
+/*********************************************************************/
+
+static inline void AllocGiven(This *t, creal *xgiven)
+{
+  if( t->ngiven | t->nextra ) {
+    cnumber nxgiven = t->ngiven*(t->ldxgiven = IMax(t->ldxgiven, t->ndim));
+    cnumber nxextra = t->nextra*t->ldxgiven;
+    cnumber nfgiven = t->ngiven*t->ncomp;
+    cnumber nfextra = t->nextra*t->ncomp;
+
+    Alloc(t->xgiven, nxgiven + nxextra + nfgiven + nfextra);
+    t->xextra = t->xgiven + nxgiven;
+    t->fgiven = t->xextra + nxextra;
+    t->fextra = t->fgiven + nfgiven;
+
+    if( nxgiven ) {
+      t->phase = 0;
+      Copy(t->xgiven, xgiven, nxgiven);
+      DoSample(t, t->ngiven, t->ldxgiven, t->xgiven, t->fgiven);
+    }
+  }
 }
 
 /*********************************************************************/
@@ -41,85 +62,98 @@ static inline count SampleExtra(cBounds *b)
 #include "common.c"
 
 Extern void EXPORT(Divonne)(ccount ndim, ccount ncomp,
-  Integrand integrand,
+  Integrand integrand, void *userdata,
   creal epsrel, creal epsabs,
-  cint flags, cnumber mineval, cnumber maxeval,
+  cint flags, cint seed,
+  cnumber mineval, cnumber maxeval,
   cint key1, cint key2, cint key3, ccount maxpass,
   creal border, creal maxchisq, creal mindeviation,
-  cnumber ngiven, ccount ldxgiven, real *xgiven,
+  cnumber ngiven, ccount ldxgiven, creal *xgiven,
   cnumber nextra, PeakFinder peakfinder,
   int *pnregions, number *pneval, int *pfail,
   real *integral, real *error, real *prob)
 {
-  ndim_ = ndim;
-  ncomp_ = ncomp;
+  This t;
+  t.ndim = ndim;
+  t.ncomp = ncomp;
+  t.integrand = integrand;
+  t.userdata = userdata;
+  t.epsrel = epsrel;
+  t.epsabs = epsabs;
+  t.flags = flags;
+  t.seed = seed;
+  t.mineval = mineval;
+  t.maxeval = maxeval;
+  t.key1 = key1;
+  t.key2 = key2;
+  t.key3 = key3;
+  t.maxpass = maxpass;
+  t.border.upper = 1 - (t.border.lower = border);
+  t.maxchisq = maxchisq;
+  t.mindeviation = mindeviation;
+  t.ngiven = ngiven;
+  t.xgiven = NULL;
+  t.ldxgiven = ldxgiven;
+  t.nextra = nextra;
+  t.peakfinder = peakfinder;
+  t.nregions = 0;
+  t.neval = 0;
 
-  if( BadComponent(ncomp) ||
-      BadDimension(ndim, flags, key1) ||
-      BadDimension(ndim, flags, key2) ||
-      ((key3 & -2) && BadDimension(ndim, flags, key3)) ) *pfail = -1;
-  else {
-    neval_ = neval_opt_ = neval_cut_ = 0;
-    integrand_ = integrand;
-    peakfinder_ = peakfinder;
-    border_.lower = border;
-    border_.upper = 1 - border_.lower;
-    ngiven_ = ngiven;
-    xgiven_ = NULL;
-    ldxgiven_ = IMax(ldxgiven, ndim_);
-    nextra_ = nextra;
+  AllocGiven(&t, xgiven);
 
-    if( ngiven + nextra ) {
-      cnumber nxgiven = ngiven*ldxgiven;
-      cnumber nxextra = nextra*ldxgiven;
-      cnumber nfgiven = ngiven*ncomp;
-      cnumber nfextra = nextra*ncomp;
+  *pfail = Integrate(&t, integral, error, prob);
+  *pnregions = t.nregions;
+  *pneval = t.neval;
 
-      Alloc(xgiven_, nxgiven + nxextra + nfgiven + nfextra);
-      xextra_ = xgiven_ + nxgiven;
-      fgiven_ = xextra_ + nxextra;
-      fextra_ = fgiven_ + nfgiven;
-
-      if( nxgiven ) {
-        phase_ = 0;
-        Copy(xgiven_, xgiven, nxgiven);
-        DoSample(ngiven_, ldxgiven_, xgiven_, fgiven_);
-      }
-    }
-
-    *pfail = Integrate(epsrel, Max(epsabs, NOTZERO),
-      flags, mineval, maxeval, key1, key2, key3, maxpass,
-      maxchisq, mindeviation,
-      integral, error, prob);
-    *pnregions = nregions_;
-    *pneval = neval_;
-
-    if( xgiven_ ) free(xgiven_);
-  }
+  free(t.xgiven);
 }
 
 /*********************************************************************/
 
 Extern void EXPORT(divonne)(ccount *pndim, ccount *pncomp,
-  Integrand integrand,
+  Integrand integrand, void *userdata,
   creal *pepsrel, creal *pepsabs,
-  cint *pflags, cnumber *pmineval, cnumber *pmaxeval,
+  cint *pflags, cint *pseed,
+  cnumber *pmineval, cnumber *pmaxeval,
   cint *pkey1, cint *pkey2, cint *pkey3, ccount *pmaxpass,
   creal *pborder, creal *pmaxchisq, creal *pmindeviation,
-  cnumber *pngiven, ccount *pldxgiven, real *xgiven,
+  cnumber *pngiven, ccount *pldxgiven, creal *xgiven,
   cnumber *pnextra, PeakFinder peakfinder,
   int *pnregions, number *pneval, int *pfail,
   real *integral, real *error, real *prob)
 {
-  EXPORT(Divonne)(*pndim, *pncomp,
-    integrand,
-    *pepsrel, *pepsabs,
-    *pflags, *pmineval, *pmaxeval,
-    *pkey1, *pkey2, *pkey3, *pmaxpass,
-    *pborder, *pmaxchisq, *pmindeviation,
-    *pngiven, *pldxgiven, xgiven,
-    *pnextra, peakfinder,
-    pnregions, pneval, pfail,
-    integral, error, prob);
+  This t;
+  t.ndim = *pndim;
+  t.ncomp = *pncomp;
+  t.integrand = integrand;
+  t.userdata = userdata;
+  t.epsrel = *pepsrel;
+  t.epsabs = *pepsabs;
+  t.flags = *pflags;
+  t.seed = *pseed;
+  t.mineval = *pmineval;
+  t.maxeval = *pmaxeval;
+  t.key1 = *pkey1;
+  t.key2 = *pkey2;
+  t.key3 = *pkey3;
+  t.maxpass = *pmaxpass;
+  t.border.upper = 1 - (t.border.lower = *pborder);
+  t.maxchisq = *pmaxchisq;
+  t.mindeviation = *pmindeviation;
+  t.ngiven = *pngiven;
+  t.xgiven = NULL;
+  t.ldxgiven = *pldxgiven;
+  t.nextra = *pnextra;
+  t.peakfinder = peakfinder;
+  t.nregions = 0;
+  t.neval = 0;
+
+  AllocGiven(&t, xgiven);
+
+  *pfail = Integrate(&t, integral, error, prob);
+  *pnregions = t.nregions;
+  *pneval = t.neval;
+
+  free(t.xgiven);
 }
 

@@ -2,15 +2,13 @@
 	decl.h
 		Type declarations
 		this file is part of Vegas
-		last modified 30 Aug 07 th
+		last modified 6 Jun 10 th
 */
 
 
 #include "stddecl.h"
 
 #define MAXGRIDS 10
-
-#define MAXSTATESIZE 128
 
 #define NBINS 128
 
@@ -30,5 +28,27 @@ typedef struct {
 
 typedef const Cumulants cCumulants;
 
-typedef void (*Integrand)(ccount *, creal *, ccount *, real *, creal *);
+typedef int (*Integrand)(ccount *, creal *, ccount *, real *, void *, creal *);
+
+typedef struct _this {
+  count ndim, ncomp;
+#ifndef MLVERSION
+  Integrand integrand;
+  void *userdata;
+#endif
+  real epsrel, epsabs;
+  int flags, seed;
+  number mineval, maxeval;
+  number nstart, nincrease, nbatch;
+  int gridno;
+  cchar *statefile;
+  number neval;
+  RNGState rng;
+  jmp_buf abort;
+} This;
+
+typedef const This cThis;
+
+static Grid *gridptr_[MAXGRIDS];
+static count griddim_[MAXGRIDS];
 

@@ -1,3 +1,40 @@
+20 Jul 10:
+
+- Fixed severe bug in divonne/Split.c (wrong sign in SignedDelta
+  macro).
+
+
+14 Jul 10:
+
+- Disabled optimization for gcc 4.2.x and 4.4.3, which would lead 
+  to an Internal Compiler Error when compiling Cuba, see
+  http://gcc.gnu.org/bugzilla/show_bug.cgi?id=40237
+  http://gcc.gnu.org/bugzilla/show_bug.cgi?id=42956
+
+
+21 Jun 10:
+
+- Fixed problem with bashy syntax in tools/mcc.
+
+
+8 Jun 10:
+
+- All Cuba functions now reentrant, except for gridptr_ and griddim_
+  in Vegas, which are intentionally preserved across calls.
+
+
+19 May 10:
+
+- Version 2.0: Changed invocations.
+
+- Added void *userdata to be passed to integrator.
+
+- Promoted integrand to int function, has to return 0 if successful,
+  otherwise integrator terminates immediately.
+
+- Moved all global variables (common blocks) to argument list.
+
+
 12 Feb 10:
 
 - Added Ranlux pseudo-random number generator.

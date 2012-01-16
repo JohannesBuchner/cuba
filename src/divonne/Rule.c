@@ -4,7 +4,7 @@
 		code lifted with minor modifications from DCUHRE
 		by J. Berntsen, T. Espelid, and A. Genz
 		this file is part of Divonne
-		last modified 9 Feb 05 th
+		last modified 16 Jun 10 th
 */
 
 
@@ -19,21 +19,7 @@ enum { nrules = 5 };
 
 /*********************************************************************/
 
-static inline void RuleIni(Rule *rule)
-{
-  rule->first = NULL;
-}
-
-/*********************************************************************/
-
-static inline void RuleFree(Rule *rule)
-{
-  if( rule->first ) free(rule->first);
-}
-
-/*********************************************************************/
-
-static void Rule13Alloc(Rule *rule)
+static void Rule13Alloc(This *t)
 {
   static creal w[][nrules] = {
     { .00844923090033615,     .3213775489050763,     .3372900883288987,
@@ -81,7 +67,7 @@ static void Rule13Alloc(Rule *rule)
   TYPEDEFSET;
 
   count n, r;
-  Set *first, *last, *s, *t;
+  Set *first, *last, *s, *x;
 
   Alloc(first, nsets);
   Clear(first, nsets);
@@ -163,20 +149,20 @@ static void Rule13Alloc(Rule *rule)
   last->gen[0] = g[14];
   last->gen[1] = g[15];
 
-  rule->first = first;
-  rule->last = last;
-  rule->errcoeff[0] = 10;
-  rule->errcoeff[1] = 1;
-  rule->errcoeff[2] = 5;
-  rule->n = n;
+  t->rule13.first = first;
+  t->rule13.last = last;
+  t->rule13.errcoeff[0] = 10;
+  t->rule13.errcoeff[1] = 1;
+  t->rule13.errcoeff[2] = 5;
+  t->rule13.n = n;
 
   for( s = first; s <= last; ++s )
     for( r = 1; r < nrules - 1; ++r ) {
       creal scale = (s->weight[r] == 0) ? 100 :
         -s->weight[r + 1]/s->weight[r];
       real sum = 0;
-      for( t = first; t <= last; ++t )
-        sum += t->n*fabs(t->weight[r + 1] + scale*t->weight[r]);
+      for( x = first; x <= last; ++x )
+        sum += x->n*fabs(x->weight[r + 1] + scale*x->weight[r]);
       s->scale[r] = scale;
       s->norm[r] = 1/sum;
     }
@@ -184,7 +170,7 @@ static void Rule13Alloc(Rule *rule)
 
 /*********************************************************************/
 
-static void Rule11Alloc(Rule *rule)
+static void Rule11Alloc(This *t)
 {
   static creal w[][nrules] = {
     { .0009903847688882167,  1.715006248224684,     1.936014978949526,
@@ -229,7 +215,7 @@ static void Rule11Alloc(Rule *rule)
   TYPEDEFSET;
 
   count n, r;
-  Set *first, *last, *s, *t;
+  Set *first, *last, *s, *x;
 
   Alloc(first, nsets);
   Clear(first, nsets);
@@ -310,20 +296,20 @@ static void Rule11Alloc(Rule *rule)
   last->gen[1] = g[12];
   last->gen[2] = g[13];
 
-  rule->first = first;
-  rule->last = last;
-  rule->errcoeff[0] = 4;
-  rule->errcoeff[1] = .5;
-  rule->errcoeff[2] = 3;
-  rule->n = n;
+  t->rule11.first = first;
+  t->rule11.last = last;
+  t->rule11.errcoeff[0] = 4;
+  t->rule11.errcoeff[1] = .5;
+  t->rule11.errcoeff[2] = 3;
+  t->rule11.n = n;
 
   for( s = first; s <= last; ++s )
     for( r = 1; r < nrules - 1; ++r ) {
       creal scale = (s->weight[r] == 0) ? 100 :
         -s->weight[r + 1]/s->weight[r];
       real sum = 0;
-      for( t = first; t <= last; ++t )
-        sum += t->n*fabs(t->weight[r + 1] + scale*t->weight[r]);
+      for( x = first; x <= last; ++x )
+        sum += x->n*fabs(x->weight[r + 1] + scale*x->weight[r]);
       s->scale[r] = scale;
       s->norm[r] = 1/sum;
     }
@@ -331,7 +317,7 @@ static void Rule11Alloc(Rule *rule)
 
 /*********************************************************************/
 
-static void Rule9Alloc(Rule *rule)
+static void Rule9Alloc(This *t)
 {
   static creal w[] = {
     -.0023611709677855117884,   .11415390023857325268,
@@ -365,10 +351,10 @@ static void Rule9Alloc(Rule *rule)
 
   TYPEDEFSET;
 
-  ccount ndim = ndim_;
+  ccount ndim = t->ndim;
   ccount twondim = 1 << ndim;
   count dim, n, r;
-  Set *first, *last, *s, *t;
+  Set *first, *last, *s, *x;
 
   Alloc(first, nsets);
   Clear(first, nsets);
@@ -454,20 +440,20 @@ static void Rule9Alloc(Rule *rule)
   for( dim = 0; dim < ndim; ++dim )
     last->gen[dim] = g[4];
 
-  rule->first = first;
-  rule->last = last;
-  rule->errcoeff[0] = 5;
-  rule->errcoeff[1] = 1;
-  rule->errcoeff[2] = 5;
-  rule->n = n;
+  t->rule9.first = first;
+  t->rule9.last = last;
+  t->rule9.errcoeff[0] = 5;
+  t->rule9.errcoeff[1] = 1;
+  t->rule9.errcoeff[2] = 5;
+  t->rule9.n = n;
 
   for( s = first; s <= last; ++s )
     for( r = 1; r < nrules - 1; ++r ) {
       creal scale = (s->weight[r] == 0) ? 100 :
         -s->weight[r + 1]/s->weight[r];
       real sum = 0;
-      for( t = first; t <= last; ++t )
-        sum += t->n*fabs(t->weight[r + 1] + scale*t->weight[r]);
+      for( x = first; x <= last; ++x )
+        sum += x->n*fabs(x->weight[r + 1] + scale*x->weight[r]);
       s->scale[r] = scale;
       s->norm[r] = 1/sum;
     }
@@ -475,7 +461,7 @@ static void Rule9Alloc(Rule *rule)
 
 /*********************************************************************/
 
-static void Rule7Alloc(Rule *rule)
+static void Rule7Alloc(This *t)
 {
   static creal w[] = {
      .019417866674748388428,   -.40385257701150182546,
@@ -498,10 +484,10 @@ static void Rule7Alloc(Rule *rule)
 
   TYPEDEFSET;
 
-  ccount ndim = ndim_;
+  ccount ndim = t->ndim;
   ccount twondim = 1 << ndim;
   count dim, n, r;
-  Set *first, *last, *s, *t;
+  Set *first, *last, *s, *x;
 
   Alloc(first, nsets);
   Clear(first, nsets);
@@ -557,20 +543,20 @@ static void Rule7Alloc(Rule *rule)
   for( dim = 0; dim < ndim; ++dim )
     last->gen[dim] = g[3];
 
-  rule->first = first;
-  rule->last = last;
-  rule->errcoeff[0] = 5;
-  rule->errcoeff[1] = 1;
-  rule->errcoeff[2] = 5;
-  rule->n = n;
+  t->rule7.first = first;
+  t->rule7.last = last;
+  t->rule7.errcoeff[0] = 5;
+  t->rule7.errcoeff[1] = 1;
+  t->rule7.errcoeff[2] = 5;
+  t->rule7.n = n;
 
   for( s = first; s <= last; ++s )
     for( r = 1; r < nrules - 1; ++r ) {
       creal scale = (s->weight[r] == 0) ? 100 :
         -s->weight[r + 1]/s->weight[r];
       real sum = 0;
-      for( t = first; t <= last; ++t )
-        sum += t->n*fabs(t->weight[r + 1] + scale*t->weight[r]);
+      for( x = first; x <= last; ++x )
+        sum += x->n*fabs(x->weight[r + 1] + scale*x->weight[r]);
       s->scale[r] = scale;
       s->norm[r] = 1/sum;
     }
@@ -578,9 +564,30 @@ static void Rule7Alloc(Rule *rule)
 
 /*********************************************************************/
 
-static real *ExpandFS(cBounds *b, real *g, real *x)
+static inline void RuleIni(Rule *rule)
 {
-  count dim, ndim = ndim_;
+  rule->first = NULL;
+}
+
+/*********************************************************************/
+
+static inline bool RuleIniQ(Rule *rule)
+{
+  return rule->first == NULL;
+}
+
+/*********************************************************************/
+
+static inline void RuleFree(Rule *rule)
+{
+  free(rule->first);
+}
+
+/*********************************************************************/
+
+static real *ExpandFS(cThis *t, cBounds *b, real *g, real *x)
+{
+  count dim, ndim = t->ndim;
 
 next:
   /* Compute centrally symmetric sum for permutation of G */
@@ -598,19 +605,18 @@ next:
 
   for( dim = 1; dim < ndim; ++dim ) {
     creal gd = g[dim];
-    count big = dim - 1;
-    if( g[big] > gd ) {
-      count i, j = dim, lastbig = big;
+    if( g[dim - 1] > gd ) {
+      count i, j = dim, ix = dim, dx = dim - 1;
       for( i = 0; i < --j; ++i ) {
         creal tmp = g[i];
         g[i] = g[j];
         g[j] = tmp;
-        if( tmp <= gd ) --big;
-        if( g[i] > gd ) lastbig = i;
+        if( tmp <= gd ) --dx;
+        if( g[i] > gd ) ix = i;
       }
-      if( g[big] <= gd ) big = lastbig;
-      g[dim] = g[big];
-      g[big] = gd;
+      if( g[dx] <= gd ) dx = ix;
+      g[dim] = g[dx];
+      g[dx] = gd;
       goto next;
     }
   }
@@ -628,7 +634,7 @@ next:
 
 /*********************************************************************/
 
-static void SampleRule(cSamples *samples, cBounds *b, creal vol)
+static void SampleRule(This *t, cSamples *samples, cBounds *b, creal vol)
 {
   TYPEDEFSET;
 
@@ -640,11 +646,11 @@ static void SampleRule(cSamples *samples, cBounds *b, creal vol)
   count comp, rul, n;
 
   for( s = first; s <= last; ++s )
-    if( s->n ) x = ExpandFS(b, s->gen, x);
+    if( s->n ) x = ExpandFS(t, b, s->gen, x);
 
-  DoSample(samples->n, ndim_, samples->x, f);
+  DoSample(t, samples->n, t->ndim, samples->x, f);
 
-  for( comp = 0; comp < ncomp_; ++comp ) {
+  for( comp = 0; comp < t->ncomp; ++comp ) {
     real sum[nrules];
     creal *f1 = f++;
 
@@ -652,7 +658,7 @@ static void SampleRule(cSamples *samples, cBounds *b, creal vol)
     for( s = first; s <= last; ++s )
       for( n = s->n; n; --n ) {
         creal fun = *f1;
-        f1 += ncomp_;
+        f1 += t->ncomp;
         for( rul = 0; rul < nrules; ++rul )
           sum[rul] += fun*s->weight[rul];
       }

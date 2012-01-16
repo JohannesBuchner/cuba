@@ -4,7 +4,7 @@
 		code lifted with minor modifications from DCUHRE
 		by J. Berntsen, T. Espelid, and A. Genz
 		this file is part of Divonne
-		last modified 9 Feb 05 th
+		last modified 8 Jun 10 th
 */
 
 
@@ -19,14 +19,7 @@ enum { nrules = 5 };
 
 /*********************************************************************/
 
-static inline void RuleFree(Rule *rule)
-{
-  free(rule->first);
-}
-
-/*********************************************************************/
-
-static void Rule13Alloc(Rule *rule)
+static void Rule13Alloc(This *t)
 {
   static creal w[][nrules] = {
     { .00844923090033615,     .3213775489050763,     .3372900883288987,
@@ -74,7 +67,7 @@ static void Rule13Alloc(Rule *rule)
   TYPEDEFSET;
 
   count n, r;
-  Set *first, *last, *s, *t;
+  Set *first, *last, *s, *x;
 
   Alloc(first, nsets);
   Clear(first, nsets);
@@ -156,20 +149,20 @@ static void Rule13Alloc(Rule *rule)
   last->gen[0] = g[14];
   last->gen[1] = g[15];
 
-  rule->first = first;
-  rule->last = last;
-  rule->errcoeff[0] = 10;
-  rule->errcoeff[1] = 1;
-  rule->errcoeff[2] = 5;
-  rule->n = n;
+  t->rule.first = first;
+  t->rule.last = last;
+  t->rule.errcoeff[0] = 10;
+  t->rule.errcoeff[1] = 1;
+  t->rule.errcoeff[2] = 5;
+  t->rule.n = n;
 
   for( s = first; s <= last; ++s )
     for( r = 1; r < nrules - 1; ++r ) {
       creal scale = (s->weight[r] == 0) ? 100 :
         -s->weight[r + 1]/s->weight[r];
       real sum = 0;
-      for( t = first; t <= last; ++t )
-        sum += t->n*fabs(t->weight[r + 1] + scale*t->weight[r]);
+      for( x = first; x <= last; ++x )
+        sum += x->n*fabs(x->weight[r + 1] + scale*x->weight[r]);
       s->scale[r] = scale;
       s->norm[r] = 1/sum;
     }
@@ -177,7 +170,7 @@ static void Rule13Alloc(Rule *rule)
 
 /*********************************************************************/
 
-static void Rule11Alloc(Rule *rule)
+static void Rule11Alloc(This *t)
 {
   static creal w[][nrules] = {
     { .0009903847688882167,  1.715006248224684,     1.936014978949526,
@@ -222,7 +215,7 @@ static void Rule11Alloc(Rule *rule)
   TYPEDEFSET;
 
   count n, r;
-  Set *first, *last, *s, *t;
+  Set *first, *last, *s, *x;
 
   Alloc(first, nsets);
   Clear(first, nsets);
@@ -303,20 +296,20 @@ static void Rule11Alloc(Rule *rule)
   last->gen[1] = g[12];
   last->gen[2] = g[13];
 
-  rule->first = first;
-  rule->last = last;
-  rule->errcoeff[0] = 4;
-  rule->errcoeff[1] = .5;
-  rule->errcoeff[2] = 3;
-  rule->n = n;
+  t->rule.first = first;
+  t->rule.last = last;
+  t->rule.errcoeff[0] = 4;
+  t->rule.errcoeff[1] = .5;
+  t->rule.errcoeff[2] = 3;
+  t->rule.n = n;
 
   for( s = first; s <= last; ++s )
     for( r = 1; r < nrules - 1; ++r ) {
       creal scale = (s->weight[r] == 0) ? 100 :
         -s->weight[r + 1]/s->weight[r];
       real sum = 0;
-      for( t = first; t <= last; ++t )
-        sum += t->n*fabs(t->weight[r + 1] + scale*t->weight[r]);
+      for( x = first; x <= last; ++x )
+        sum += x->n*fabs(x->weight[r + 1] + scale*x->weight[r]);
       s->scale[r] = scale;
       s->norm[r] = 1/sum;
     }
@@ -324,7 +317,7 @@ static void Rule11Alloc(Rule *rule)
 
 /*********************************************************************/
 
-static void Rule9Alloc(Rule *rule)
+static void Rule9Alloc(This *t)
 {
   static creal w[] = {
     -.0023611709677855117884,   .11415390023857325268,
@@ -358,10 +351,10 @@ static void Rule9Alloc(Rule *rule)
 
   TYPEDEFSET;
 
-  ccount ndim = ndim_;
+  ccount ndim = t->ndim;
   ccount twondim = 1 << ndim;
   count dim, n, r;
-  Set *first, *last, *s, *t;
+  Set *first, *last, *s, *x;
 
   Alloc(first, nsets);
   Clear(first, nsets);
@@ -447,20 +440,20 @@ static void Rule9Alloc(Rule *rule)
   for( dim = 0; dim < ndim; ++dim )
     last->gen[dim] = g[4];
 
-  rule->first = first;
-  rule->last = last;
-  rule->errcoeff[0] = 5;
-  rule->errcoeff[1] = 1;
-  rule->errcoeff[2] = 5;
-  rule->n = n;
+  t->rule.first = first;
+  t->rule.last = last;
+  t->rule.errcoeff[0] = 5;
+  t->rule.errcoeff[1] = 1;
+  t->rule.errcoeff[2] = 5;
+  t->rule.n = n;
 
   for( s = first; s <= last; ++s )
     for( r = 1; r < nrules - 1; ++r ) {
       creal scale = (s->weight[r] == 0) ? 100 :
         -s->weight[r + 1]/s->weight[r];
       real sum = 0;
-      for( t = first; t <= last; ++t )
-        sum += t->n*fabs(t->weight[r + 1] + scale*t->weight[r]);
+      for( x = first; x <= last; ++x )
+        sum += x->n*fabs(x->weight[r + 1] + scale*x->weight[r]);
       s->scale[r] = scale;
       s->norm[r] = 1/sum;
     }
@@ -468,7 +461,7 @@ static void Rule9Alloc(Rule *rule)
 
 /*********************************************************************/
 
-static void Rule7Alloc(Rule *rule)
+static void Rule7Alloc(This *t)
 {
   static creal w[] = {
      .019417866674748388428,   -.40385257701150182546,
@@ -491,10 +484,10 @@ static void Rule7Alloc(Rule *rule)
 
   TYPEDEFSET;
 
-  ccount ndim = ndim_;
+  ccount ndim = t->ndim;
   ccount twondim = 1 << ndim;
   count dim, n, r;
-  Set *first, *last, *s, *t;
+  Set *first, *last, *s, *x;
 
   Alloc(first, nsets);
   Clear(first, nsets);
@@ -550,20 +543,20 @@ static void Rule7Alloc(Rule *rule)
   for( dim = 0; dim < ndim; ++dim )
     last->gen[dim] = g[3];
 
-  rule->first = first;
-  rule->last = last;
-  rule->errcoeff[0] = 5;
-  rule->errcoeff[1] = 1;
-  rule->errcoeff[2] = 5;
-  rule->n = n;
+  t->rule.first = first;
+  t->rule.last = last;
+  t->rule.errcoeff[0] = 5;
+  t->rule.errcoeff[1] = 1;
+  t->rule.errcoeff[2] = 5;
+  t->rule.n = n;
 
   for( s = first; s <= last; ++s )
     for( r = 1; r < nrules - 1; ++r ) {
       creal scale = (s->weight[r] == 0) ? 100 :
         -s->weight[r + 1]/s->weight[r];
       real sum = 0;
-      for( t = first; t <= last; ++t )
-        sum += t->n*fabs(t->weight[r + 1] + scale*t->weight[r]);
+      for( x = first; x <= last; ++x )
+        sum += x->n*fabs(x->weight[r + 1] + scale*x->weight[r]);
       s->scale[r] = scale;
       s->norm[r] = 1/sum;
     }
@@ -571,9 +564,34 @@ static void Rule7Alloc(Rule *rule)
 
 /*********************************************************************/
 
-static real *ExpandFS(cBounds *b, real *g, real *x)
+static inline void RuleAlloc(This *t)
 {
-  count dim, ndim = ndim_;
+  if( t->key == 13 && t->ndim == 2 ) Rule13Alloc(t);
+  else if( t->key == 11 && t->ndim == 3 ) Rule11Alloc(t);
+  else if( t->key == 9 ) Rule9Alloc(t);
+  else if( t->key == 7 ) Rule7Alloc(t);
+  else {
+    if( t->ndim == 2 ) Rule13Alloc(t);
+    else if( t->ndim == 3 ) Rule11Alloc(t);
+    else Rule9Alloc(t);
+  }
+  Alloc(t->rule.x, t->rule.n*(t->ndim + t->ncomp));
+  t->rule.f = t->rule.x + t->rule.n*t->ndim;
+}
+
+/*********************************************************************/
+
+static inline void RuleFree(cThis *t)
+{
+  free(t->rule.x);
+  free(t->rule.first);
+}
+
+/*********************************************************************/
+
+static real *ExpandFS(cThis *t, cBounds *b, real *g, real *x)
+{
+  count dim, ndim = t->ndim;
 
 next:
   /* Compute centrally symmetric sum for permutation of G */
@@ -592,7 +610,7 @@ next:
   for( dim = 1; dim < ndim; ++dim ) {
     creal gd = g[dim];
     if( g[dim - 1] > gd ) {
-      count i, ix, j = dim, dx = dim - 1;
+      count i, j = dim, ix = dim, dx = dim - 1;
       for( i = 0; i < --j; ++i ) {
         creal tmp = g[i];
         g[i] = g[j];
@@ -620,7 +638,7 @@ next:
 
 /*********************************************************************/
 
-static void Sample(cRule *rule, void *voidregion, cint flags)
+static void Sample(This *t, void *voidregion)
 {
   TYPEDEFREGION;
   TYPEDEFSET;
@@ -628,16 +646,16 @@ static void Sample(cRule *rule, void *voidregion, cint flags)
   Region *const region = (Region *)voidregion;
   creal vol = ldexp(1., -region->div);
 
-  real *x = rule->x, *f = rule->f;
-  Set *first = (Set *)rule->first, *last = (Set *)rule->last, *s;
-  creal *errcoeff = rule->errcoeff;
+  real *x = t->rule.x, *f = t->rule.f;
+  Set *first = (Set *)t->rule.first, *last = (Set *)t->rule.last, *s;
+  creal *errcoeff = t->rule.errcoeff;
   creal ratio = Sq(first[2].gen[0]/first[1].gen[0]);
 
-  ccount offset = 2*ndim_*ncomp_;
+  ccount offset = 2*t->ndim*t->ncomp;
   count dim, comp, rul, n, maxdim = 0;
   real maxrange = 0;
 
-  for( dim = 0; dim < ndim_; ++dim ) {
+  for( dim = 0; dim < t->ndim; ++dim ) {
     cBounds *b = &region->bounds[dim];
     creal range = b->upper - b->lower;
     if( range > maxrange ) {
@@ -647,11 +665,11 @@ static void Sample(cRule *rule, void *voidregion, cint flags)
   }
 
   for( s = first; s <= last; ++s )
-    if( s->n ) x = ExpandFS(region->bounds, s->gen, x);
+    if( s->n ) x = ExpandFS(t, region->bounds, s->gen, x);
 
-  DoSample(rule->n, rule->x, f);
+  DoSample(t, t->rule.n, t->rule.x, f);
 
-  for( comp = 0; comp < ncomp_; ++comp ) {
+  for( comp = 0; comp < t->ncomp; ++comp ) {
     Result *r = &region->result[comp];
     real sum[nrules];
     creal *f1 = f;
@@ -659,9 +677,9 @@ static void Sample(cRule *rule, void *voidregion, cint flags)
     real maxdiff = 0;
     count bisectdim = maxdim;
 
-    for( dim = 0; dim < ndim_; ++dim ) {
-      creal *fp = f1 + ncomp_;
-      creal *fm = fp + ncomp_;
+    for( dim = 0; dim < t->ndim; ++dim ) {
+      creal *fp = f1 + t->ncomp;
+      creal *fm = fp + t->ncomp;
       creal fourthdiff = fabs(base +
         ratio*(fp[0] + fm[0]) - (fp[offset] + fm[offset]));
       f1 = fm;
@@ -677,7 +695,7 @@ static void Sample(cRule *rule, void *voidregion, cint flags)
     for( s = first; s <= last; ++s )
       for( n = s->n; n; --n ) {
         creal fun = *f1;
-        f1 += ncomp_;
+        f1 += t->ncomp;
         for( rul = 0; rul < nrules; ++rul )
           sum[rul] += fun*s->weight[rul];
       }
@@ -705,7 +723,7 @@ static void Sample(cRule *rule, void *voidregion, cint flags)
   if( VERBOSE > 2 ) {
     char s[64*NDIM + 128*NCOMP], *p = s;
 
-    for( dim = 0; dim < ndim_; ++dim ) {
+    for( dim = 0; dim < t->ndim; ++dim ) {
       cBounds *b = &region->bounds[dim];
       p += sprintf(p,
         (dim == 0) ? "\nRegion (" REALF ") - (" REALF ")" :
@@ -713,7 +731,7 @@ static void Sample(cRule *rule, void *voidregion, cint flags)
         b->lower, b->upper);
     }
 
-    for( comp = 0; comp < ncomp_; ++comp ) {
+    for( comp = 0; comp < t->ncomp; ++comp ) {
       cResult *r = &region->result[comp];
       p += sprintf(p, "\n[" COUNT "] "
         REAL " +- " REAL, comp + 1, r->avg, r->err);

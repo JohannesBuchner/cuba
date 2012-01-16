@@ -2,7 +2,7 @@
 	decl.h
 		Type declarations
 		this file is part of Suave
-		last modified 30 Aug 07 th
+		last modified 6 Jun 10 th
 */
 
 
@@ -27,7 +27,6 @@ typedef struct {
 
 typedef const Result cResult;
 
-
 typedef struct {
   real lower, upper, mid;
   Grid grid;
@@ -35,6 +34,26 @@ typedef struct {
 
 typedef const Bounds cBounds;
 
+typedef int (*Integrand)(ccount *, creal *, ccount *, real *, void *, creal *);
+
+typedef struct _this {
+  count ndim, ncomp;
+#ifndef MLVERSION
+  Integrand integrand;
+  void *userdata;
+#endif
+  real epsrel, epsabs;
+  int flags, seed;
+  number mineval, maxeval;
+  number nnew;
+  real flatness;
+  count nregions;
+  number neval;
+  RNGState rng;  
+  jmp_buf abort;
+} This;
+
+typedef const This cThis;
 
 #define TYPEDEFREGION \
   typedef struct region { \
@@ -46,7 +65,4 @@ typedef const Bounds cBounds;
     real fluct[NCOMP][NDIM][2]; \
     real w[]; \
   } Region
-
-
-typedef void (*Integrand)(ccount *, creal *, ccount *, real *, creal *);
 

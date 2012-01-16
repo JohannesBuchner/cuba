@@ -2,11 +2,11 @@
 	Grid.c
 		utility functions for the Vegas grid
 		this file is part of Suave
-		last modified 15 Feb 08 th
+		last modified 1 Jun 10 th
 */
 
 
-static void RefineGrid(Grid grid, Grid margsum, cint flags)
+static void RefineGrid(cThis *t, Grid grid, Grid margsum)
 {
   real avgperbin, thisbin, newcur, delta;
   Grid imp, newgrid;
@@ -62,17 +62,17 @@ static void RefineGrid(Grid grid, Grid margsum, cint flags)
 
 /*********************************************************************/
 
-static void Reweight(Bounds *b,
-  creal *w, creal *f, creal *lastf, cResult *total, cint flags)
+static void Reweight(cThis *t, Bounds *b,
+  creal *w, creal *f, creal *lastf, cResult *total)
 {
   Grid margsum[NDIM];
   real scale[NCOMP];
   cbin_t *bin = (cbin_t *)lastf;
   count dim, comp;
 
-  if( ncomp_ == 1 ) scale[0] = 1;
+  if( t->ncomp == 1 ) scale[0] = 1;
   else {
-    for( comp = 0; comp < ncomp_; ++comp )
+    for( comp = 0; comp < t->ncomp; ++comp )
       scale[comp] = (total[comp].avg == 0) ? 0 : 1/total[comp].avg;
   }
 
@@ -80,17 +80,17 @@ static void Reweight(Bounds *b,
 
   while( f < lastf ) {
     real fsq = 0;
-    for( comp = 0; comp < ncomp_; ++comp )
+    for( comp = 0; comp < t->ncomp; ++comp )
       fsq += Sq(*f++*scale[comp]);
     fsq *= Sq(*w++);
     if( fsq != 0 )
-      for( dim = 0; dim < ndim_; ++dim )
+      for( dim = 0; dim < t->ndim; ++dim )
         margsum[dim][bin[dim]] += fsq;
-    bin += ndim_;
+    bin += t->ndim;
   }
 
-  for( dim = 0; dim < ndim_; ++dim )
-    RefineGrid(b[dim].grid, margsum[dim], flags);
+  for( dim = 0; dim < t->ndim; ++dim )
+    RefineGrid(t, b[dim].grid, margsum[dim]);
 }
 
 /*********************************************************************/

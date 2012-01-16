@@ -2,7 +2,7 @@
 	Sample.c
 		the sampling step of Suave
 		this file is part of Suave
-		last modified 9 Feb 05 th
+		last modified 6 Jun 10 th
 */
 
 
@@ -14,8 +14,8 @@ typedef struct {
 
 /*********************************************************************/
 
-static void Sample(cnumber nnew, void *voidregion,
-  real *lastw, real *lastx, real *lastf, cint flags)
+static void Sample(This *t, cnumber nnew, void *voidregion,
+  real *lastw, real *lastx, real *lastf)
 {
   TYPEDEFREGION;
 
@@ -28,14 +28,14 @@ static void Sample(cnumber nnew, void *voidregion,
 
   creal jacobian = 1/ldexp((real)nnew, region->div);
   real *w = lastw, *f = lastx;
-  bin_t *bin = (bin_t *)(lastf + nnew*ncomp_);
+  bin_t *bin = (bin_t *)(lastf + nnew*t->ncomp);
 
   for( n = nnew; n; --n ) {
     real weight = jacobian;
 
-    GetRandom(f);
+    t->rng.getrandom(t, f);
 
-    for( dim = 0; dim < ndim_; ++dim ) {
+    for( dim = 0; dim < t->ndim; ++dim ) {
       cBounds *b = &region->bounds[dim];
       creal pos = *f*NBINS;
       ccount ipos = (count)pos;
@@ -49,7 +49,7 @@ static void Sample(cnumber nnew, void *voidregion,
     *w++ = weight;
   }
 
-  DoSample(nnew, lastw, lastx, lastf);
+  DoSample(t, nnew, lastw, lastx, lastf);
 
   *(w - 1) = -*(w - 1);
   lastw = w;
@@ -58,10 +58,10 @@ static void Sample(cnumber nnew, void *voidregion,
 
   if( VERBOSE > 2 ) {
     char *p0;
-    MemAlloc(ss, ndim_*64 + ncomp_*(sizeof(char *) + chars));
-    s = (char *)(ss + ncomp_);
-    p0 = s + ndim_*64;
-    for( comp = 0; comp < ncomp_; ++comp ) {
+    MemAlloc(ss, t->ndim*64 + t->ncomp*(sizeof(char *) + chars));
+    s = (char *)(ss + t->ncomp);
+    p0 = s + t->ndim*64;
+    for( comp = 0; comp < t->ncomp; ++comp ) {
       ss[comp] = p0;
       p0 += chars;
     }
@@ -75,7 +75,7 @@ static void Sample(cnumber nnew, void *voidregion,
     creal weight = fabs(*w++);
     ++n;
 
-    for( comp = 0; comp < ncomp_; ++comp ) {
+    for( comp = 0; comp < t->ncomp; ++comp ) {
       Cumulants *c = &cumul[comp];
 
       creal wfun = weight*(*f++);
@@ -115,7 +115,7 @@ static void Sample(cnumber nnew, void *voidregion,
 
   region->df = --df;
 
-  for( comp = 0; comp < ncomp_; ++comp ) {
+  for( comp = 0; comp < t->ncomp; ++comp ) {
     Result *r = &region->result[comp];
     Cumulants *c = &cumul[comp];
     creal sigsq = 1/c->weightsum;
@@ -147,9 +147,9 @@ static void Sample(cnumber nnew, void *voidregion,
 
   if( VERBOSE > 2 ) {
     char *p = s;
-    char *p0 = p + ndim_*64;
+    char *p0 = p + t->ndim*64;
 
-    for( dim = 0; dim < ndim_; ++dim ) {
+    for( dim = 0; dim < t->ndim; ++dim ) {
       cBounds *b = &region->bounds[dim];
       p += sprintf(p, 
         (dim == 0) ? "\nRegion (" REALF ") - (" REALF ")" :
@@ -157,7 +157,7 @@ static void Sample(cnumber nnew, void *voidregion,
         b->lower, b->upper);
     }
 
-    for( comp = 0; comp < ncomp_; ++comp ) {
+    for( comp = 0; comp < t->ncomp; ++comp ) {
       cResult *r = &region->result[comp];
       p += sprintf(p, "%s  \tchisq " REAL " (" COUNT " df)",
         p0, r->chisq, df);

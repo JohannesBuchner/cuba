@@ -29,34 +29,35 @@ typedef struct {
 
 /*********************************************************************/
 
-static void Fluct(Var *var, real flatness,
+static void Fluct(cThis *t, Var *var,
   cBounds *b, creal *w, number n, ccount comp, creal avg, creal err)
 {
-  creal *x = w + n, *f = x + n*ndim_ + comp;
-  creal max = ldexp(1., (int)((XDBL_MAX_EXP - 2)/flatness));
+  creal *x = w + n;
+  creal *f = x + n*t->ndim + comp;
+  creal flat = 2/3./t->flatness;
+  creal max = ldexp(1., (int)((XDBL_MAX_EXP - 2)/t->flatness));
   creal norm = 1/(err*Max(fabs(avg), err));
-  count nvar = 2*ndim_;
+  count nvar = 2*t->ndim;
 
   Clear(var, nvar);
 
   while( n-- ) {
     count dim;
-    const xdouble t =
-      powx(Min(1 + fabs(*w++)*Sq(*f - avg)*norm, max), flatness);
+    const xdouble ft =
+      powx(Min(1 + fabs(*w++)*Sq(*f - avg)*norm, max), t->flatness);
 
-    f += ncomp_;
+    f += t->ncomp;
 
-    for( dim = 0; dim < ndim_; ++dim ) {
+    for( dim = 0; dim < t->ndim; ++dim ) {
       Var *v = &var[2*dim + (*x++ >= b[dim].mid)];
-      const xdouble f = v->fluct + t;
+      const xdouble f = v->fluct + ft;
       v->fluct = (f > XDBL_MAX/2) ? XDBL_MAX/2 : f;
       ++v->n;
     }
   }
 
-  flatness = 2/3./flatness;
   while( nvar-- ) {
-    var->fluct = powx(var->fluct, flatness);
+    var->fluct = powx(var->fluct, flat);
     ++var;
   }
 }

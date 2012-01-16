@@ -49,18 +49,20 @@
 :Begin:
 :Function: Vegas
 :Pattern: MLVegas[ndim_, ncomp_,
-  epsrel_, epsabs_, flags_, mineval_, maxeval_,
-  nstart_, nincrease_,
-  seed_, nbatch_, gridno_, state_]
+  epsrel_, epsabs_, flags_, seed_,
+  mineval_, maxeval_,
+  nstart_, nincrease_, nbatch_,
+  gridno_, statefile_]
 :Arguments: {ndim, ncomp,
-  epsrel, epsabs, flags, mineval, maxeval,
-  nstart, nincrease,
-  seed, nbatch, gridno, state}
+  epsrel, epsabs, flags, seed,
+  mineval, maxeval,
+  nstart, nincrease, nbatch,
+  gridno, statefile}
 :ArgumentTypes: {Integer, Integer,
-  Real, Real, Integer, Integer, Integer,
+  Real, Real, Integer, Integer,
   Integer, Integer,
-  Integer, Integer,
-  Integer, Integer, String}
+  Integer, Integer, Integer,
+  Integer, String}
 :ReturnType: Manual
 :End:
 
@@ -71,7 +73,7 @@
 	NStart -> 1000, NIncrease -> 500,
 	NBatch -> 1000, GridNo -> 0, StateFile -> "",
 	Verbose -> 1, Final -> All,
-	PseudoRandom -> False, PseudoRandomSeed -> Automatic,
+	PseudoRandom -> False, PseudoRandomSeed -> 5489,
 	SharpEdges -> False, Compiled -> True}
 
 :Evaluate: Vegas[f_, v:{_, _, _}.., opt___Rule] :=
@@ -91,12 +93,12 @@
 	  MLVegas[ndim, ncomp[f], 10.^-rel, 10.^-abs,
 	    Min[Max[verbose, 0], 3] +
 	      If[final === Last, 4, 0] +
-	      If[level =!= False, 8, 0] +
-	      If[TrueQ[edges], 16, 0],
-	    mineval, maxeval, nstart, nincrease,
-	    If[IntegerQ[level], level, 0],
-	    If[IntegerQ[seed], seed, 0],
-	    nbatch, gridno, state]
+	      If[TrueQ[edges], 8, 0]
+	      If[IntegerQ[level], 256 level, 0],
+	    If[level =!= False && IntegerQ[seed], seed, 0],
+	    mineval, maxeval,
+	    nstart, nincrease, nbatch,
+	    gridno, state]
 	]
 
 :Evaluate: Attributes[ncomp] = Attributes[fun] = {HoldAll}
@@ -149,15 +151,12 @@
 	Vegas.tm
 		Vegas Monte Carlo integration
 		by Thomas Hahn
-		last modified 12 Feb 10 th
+		last modified 2 Jun 10 th
 */
 
 
-#include <setjmp.h>
 #include "mathlink.h"
-#include "util.c"
-
-jmp_buf abort_;
+#include "decl.h"
 
 /*********************************************************************/
 
@@ -190,7 +189,7 @@ static void Print(MLCONST char *s)
 
 /*********************************************************************/
 
-static void DoSample(cnumber n, real *w, real *x, real *f)
+static void DoSample(This *t, cnumber n, real *w, real *x, real *f)
 {
   int pkt;
   real *mma_f;
@@ -200,7 +199,7 @@ static void DoSample(cnumber n, real *w, real *x, real *f)
 
   MLPutFunction(stdlink, "EvaluatePacket", 1);
   MLPutFunction(stdlink, "Cuba`Vegas`sample", 2);
-  MLPutRealList(stdlink, x, n*ndim_);
+  MLPutRealList(stdlink, x, n*t->ndim);
   MLPutRealList(stdlink, w, n);
   MLEndPacket(stdlink);
 
@@ -212,69 +211,71 @@ static void DoSample(cnumber n, real *w, real *x, real *f)
     MLNewPacket(stdlink);
 abort:
     MLPutFunction(stdlink, "Abort", 0);
-    longjmp(abort_, 1);
+    longjmp(t->abort, 1);
   }
 
-  if( mma_n != n*ncomp_ ) {
+  if( mma_n != n*t->ncomp ) {
     MLDisownRealList(stdlink, mma_f, mma_n);
     MLPutSymbol(stdlink, "$Failed");
-    longjmp(abort_, 1);
+    longjmp(t->abort, 1);
   }
 
-  Copy(f, mma_f, n*ncomp_);
+  Copy(f, mma_f, n*t->ncomp);
   MLDisownRealList(stdlink, mma_f, mma_n);
 
-  neval_ += n;
+  t->neval += n;
 }
 
 /*********************************************************************/
 
 #include "common.c"
 
-void Vegas(cint ndim, cint ncomp,
-  creal epsrel, creal epsabs,
-  cint flags, cnumber mineval, cnumber maxeval,
-  cnumber nstart, cnumber nincrease,
-  cint level, cint seed,
-  cint nbatch, cint gridno, const char *state)
+static inline void DoIntegrate(This *t)
 {
-  ndim_ = ndim;
-  ncomp_ = ncomp;
+  real integral[NCOMP], error[NCOMP], prob[NCOMP];
+  cint fail = Integrate(t, integral, error, prob);
 
-  if( BadComponent(ncomp) ) {
-    Status("badcomp", ncomp);
-    MLPutSymbol(stdlink, "$Failed");
-  }
-  else if( BadDimension(ndim, flags) ) {
-    Status("baddim", ndim);
+  if( fail < 0 ) {
+    if( fail == -1 ) Status("baddim", t->ndim);
+    else Status("badcomp", t->ncomp);
     MLPutSymbol(stdlink, "$Failed");
   }
   else {
-    real integral[NCOMP], error[NCOMP], prob[NCOMP];
-    count comp;
-    int fail;
-
-    neval_ = 0;
-    cubarandom.level = level;
-    cubarandom.seed = seed;
-    vegasnbatch = nbatch;
-    vegasgridno = gridno;
-    strncpy(vegasstate, state, sizeof(vegasstate) - 1);
-    vegasstate[sizeof(vegasstate) - 1] = 0;
-
-    fail = Integrate(epsrel, epsabs,
-      flags, mineval, maxeval, nstart, nincrease,
-      integral, error, prob);
-
-    Status(fail ? "accuracy" : "success", neval_);
-
-    MLPutFunction(stdlink, "List", ncomp);
-    for( comp = 0; comp < ncomp; ++comp ) {
-      real res[] = {integral[comp], error[comp], prob[comp]};
-      MLPutRealList(stdlink, res, Elements(res));
-    }
+    Status(fail ? "accuracy" : "success", t->neval);
+    MLPutFunction(stdlink, "Thread", 1);
+    MLPutFunction(stdlink, "List", 3);
+    MLPutRealList(stdlink, integral, t->ncomp);
+    MLPutRealList(stdlink, error, t->ncomp);
+    MLPutRealList(stdlink, prob, t->ncomp);
   }
+}
 
+/*********************************************************************/
+
+void Vegas(cint ndim, cint ncomp,
+  creal epsrel, creal epsabs,
+  cint flags, cint seed,
+  cnumber mineval, cnumber maxeval,
+  cnumber nstart, cnumber nincrease, cint nbatch,
+  cint gridno, cchar *statefile)
+{
+  This t;
+  t.ndim = ndim;
+  t.ncomp = ncomp;
+  t.epsrel = epsrel;
+  t.epsabs = epsabs;
+  t.flags = flags;
+  t.seed = seed;
+  t.mineval = mineval;
+  t.maxeval = maxeval;
+  t.nstart = nstart;
+  t.nincrease = nincrease;
+  t.nbatch = nbatch;
+  t.gridno = gridno;
+  t.statefile = statefile;
+  t.neval = 0;
+
+  DoIntegrate(&t);
   MLEndPacket(stdlink);
 }
 

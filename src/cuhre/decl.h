@@ -2,12 +2,10 @@
 	decl.h
 		Type declarations
 		this file is part of Cuhre
-		last modified 8 Apr 09 th
-*/
+		last modified 7 Jun 10 th */
 
 
 #include "stddecl.h"
-
 
 typedef struct {
   real avg, err;
@@ -15,7 +13,6 @@ typedef struct {
 } Result;
 
 typedef const Result cResult;
-
 
 typedef struct {
   real avg, err, lastavg, lasterr;
@@ -25,13 +22,11 @@ typedef struct {
 
 typedef const Totals cTotals;
 
-
 typedef struct {
   real lower, upper;
 } Bounds;
 
 typedef const Bounds cBounds;
-
 
 typedef struct {
   real *x, *f;
@@ -42,6 +37,24 @@ typedef struct {
 
 typedef const Rule cRule;
 
+typedef int (*Integrand)(ccount *, creal *, ccount *, real *, void *);
+
+typedef struct _this {
+  count ndim, ncomp;
+#ifndef MLVERSION
+  Integrand integrand;
+  void *userdata;
+#endif
+  real epsrel, epsabs;
+  int flags;
+  number mineval, maxeval;
+  count key, nregions;
+  number neval;
+  Rule rule;
+  jmp_buf abort;
+} This;
+
+typedef const This cThis;
 
 #define TYPEDEFREGION \
   typedef struct region { \
@@ -49,7 +62,4 @@ typedef const Rule cRule;
     Result result[NCOMP]; \
     Bounds bounds[NDIM]; \
   } Region
-
-
-typedef void (*Integrand)(ccount *, creal *, ccount *, real *);
 

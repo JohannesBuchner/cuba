@@ -50,15 +50,17 @@
 :Begin:
 :Function: Suave
 :Pattern: MLSuave[ndim_, ncomp_,
-  epsrel_, epsabs_, flags_, mineval_, maxeval_,
-  nnew_, flatness_, seed_]
+  epsrel_, epsabs_, flags_, seed_,
+  mineval_, maxeval_,
+  nnew_, flatness_]
 :Arguments: {ndim, ncomp,
-  epsrel, epsabs, flags, mineval, maxeval,
-  nnew, flatness, seed}
+  epsrel, epsabs, flags, seed,
+  mineval, maxeval,
+  nnew, flatness}
 :ArgumentTypes: {Integer, Integer,
-  Real, Real, Integer, Integer, Integer,
-  Integer, Real,
-  Integer, Integer}
+  Real, Real, Integer, Integer,
+  Integer, Integer,
+  Integer, Real}
 :ReturnType: Manual
 :End:
 
@@ -67,7 +69,7 @@
 :Evaluate: Options[Suave] = {PrecisionGoal -> 3, AccuracyGoal -> 12,
 	MinPoints -> 0, MaxPoints -> 50000, NNew -> 1000, Flatness -> 50,
 	Verbose -> 1, Final -> Last,
-	PseudoRandom -> False, PseudoRandomSeed -> Automatic,
+	PseudoRandom -> False, PseudoRandomSeed -> 5489,
 	SharpEdges -> False, Regions -> False, Compiled -> True}
 
 :Evaluate: Suave[f_, v:{_, _, _}.., opt___Rule] :=
@@ -87,12 +89,12 @@
 	  MLSuave[ndim, ncomp[f], 10.^-rel, 10.^-abs,
 	    Min[Max[verbose, 0], 3] +
 	      If[final === Last, 4, 0] +
-	      If[level =!= False, 8, 0] +
-	      If[TrueQ[edges], 16, 0] +
-	      If[TrueQ[regions], 256, 0],
-            mineval, maxeval, nnew, flatness,
-	    If[IntegerQ[level], level, 0],
-	    If[IntegerQ[seed], seed, 0]]
+	      If[TrueQ[edges], 8, 0] +
+	      If[TrueQ[regions], 128, 0] +
+	      If[IntegerQ[level], 256 level, 0],
+	    If[level =!= False && IntegerQ[seed], seed, 0],
+            mineval, maxeval,
+	    nnew, flatness]
 	]
 
 :Evaluate: Attributes[ncomp] = Attributes[fun] = {HoldAll}
@@ -148,15 +150,12 @@
 	Suave.tm
 		Subregion-adaptive Vegas Monte-Carlo integration
 		by Thomas Hahn
-		last modified 12 Feb 10 th
+		last modified 7 Jun 10 th
 */
 
 
-#include <setjmp.h>
 #include "mathlink.h"
-#include "util.c"
-
-jmp_buf abort_;
+#include "decl.h"
 
 /*********************************************************************/
 
@@ -190,7 +189,7 @@ static void Print(MLCONST char *s)
 
 /*********************************************************************/
 
-static void DoSample(cnumber n, real *w, real *x, real *f)
+static void DoSample(This *t, cnumber n, real *w, real *x, real *f)
 {
   int pkt;
   real *mma_f;
@@ -200,7 +199,7 @@ static void DoSample(cnumber n, real *w, real *x, real *f)
 
   MLPutFunction(stdlink, "EvaluatePacket", 1);
   MLPutFunction(stdlink, "Cuba`Suave`sample", 2);
-  MLPutRealList(stdlink, x, n*ndim_);
+  MLPutRealList(stdlink, x, n*t->ndim);
   MLPutRealList(stdlink, w, n);
   MLEndPacket(stdlink);
 
@@ -212,64 +211,68 @@ static void DoSample(cnumber n, real *w, real *x, real *f)
     MLNewPacket(stdlink);
 abort:
     MLPutFunction(stdlink, "Abort", 0);
-    longjmp(abort_, 1);
+    longjmp(t->abort, 1);
   }
 
-  if( mma_n != n*ncomp_ ) {
+  if( mma_n != n*t->ncomp ) {
     MLDisownRealList(stdlink, mma_f, mma_n);
     MLPutSymbol(stdlink, "$Failed");
-    longjmp(abort_, 1);
+    longjmp(t->abort, 1);
   }
 
-  Copy(f, mma_f, n*ncomp_);
+  Copy(f, mma_f, n*t->ncomp);
   MLDisownRealList(stdlink, mma_f, mma_n);
 
-  neval_ += n;
+  t->neval += n;
 }
 
 /*********************************************************************/
 
 #include "common.c"
 
-void Suave(cint ndim, cint ncomp,
-  creal epsrel, creal epsabs,
-  cint flags, cnumber mineval, cnumber maxeval,
-  cnumber nnew, creal flatness,
-  cint level, cint seed)
+static inline void DoIntegrate(This *t)
 {
-  ndim_ = ndim;
-  ncomp_ = ncomp;
+  real integral[NCOMP], error[NCOMP], prob[NCOMP];
+  cint fail = Integrate(t, integral, error, prob);
 
-  if( BadComponent(ncomp) ) {
-    Status("badcomp", ncomp, 0);
-    MLPutSymbol(stdlink, "$Failed");
-  }
-  else if( BadDimension(ndim, flags) ) {
-    Status("baddim", ndim, 0);
+  if( fail < 0 ) {
+    if( fail == -1 ) Status("baddim", t->ndim, 0);
+    else Status("badcomp", t->ncomp, 0);
     MLPutSymbol(stdlink, "$Failed");
   }
   else {
-    real integral[NCOMP], error[NCOMP], prob[NCOMP];
-    count comp;
-    int fail;
-
-    neval_ = 0;
-    cubarandom.level = level;
-    cubarandom.seed = seed;
-
-    fail = Integrate(epsrel, Max(epsabs, NOTZERO),
-      flags, mineval, maxeval, nnew, flatness,
-      integral, error, prob);
-
-    Status(fail ? "accuracy" : "success", neval_, nregions_);
-
-    MLPutFunction(stdlink, "List", ncomp);
-    for( comp = 0; comp < ncomp; ++comp ) {
-      real res[] = {integral[comp], error[comp], prob[comp]};
-      MLPutRealList(stdlink, res, Elements(res));
-    }
+    Status(fail ? "accuracy" : "success", t->neval, t->nregions);
+    MLPutFunction(stdlink, "Thread", 1);
+    MLPutFunction(stdlink, "List", 3);
+    MLPutRealList(stdlink, integral, t->ncomp);
+    MLPutRealList(stdlink, error, t->ncomp);
+    MLPutRealList(stdlink, prob, t->ncomp);
   }
+}
 
+/*********************************************************************/
+
+void Suave(cint ndim, cint ncomp,
+  creal epsrel, creal epsabs,
+  cint flags, cint seed,
+  cnumber mineval, cnumber maxeval,
+  cnumber nnew, creal flatness)
+{
+  This t;
+  t.ndim = ndim;
+  t.ncomp = ncomp;
+  t.epsrel = epsrel;
+  t.epsabs = epsabs;
+  t.flags = flags;
+  t.seed = seed;
+  t.mineval = mineval;
+  t.maxeval = maxeval;
+  t.nnew = nnew;
+  t.flatness = flatness;
+  t.nregions = 0;
+  t.neval = 0;
+
+  DoIntegrate(&t);
   MLEndPacket(stdlink);
 }
 

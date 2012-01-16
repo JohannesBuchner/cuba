@@ -2,15 +2,13 @@
 	Integrate.c
 		integrate over the unit hypercube
 		this file is part of Cuhre
-		last modified 8 Apr 09 th
+		last modified 7 Jun 10 th
 */
 
 
 #define POOLSIZE 1024
 
-static int Integrate(creal epsrel, creal epsabs,
-  cint flags, number mineval, cnumber maxeval, ccount key,
-  real *integral, real *error, real *prob)
+static int Integrate(This *t, real *integral, real *error, real *prob)
 {
   TYPEDEFREGION;
   typedef struct pool {
@@ -18,9 +16,8 @@ static int Integrate(creal epsrel, creal epsabs,
     Region region[POOLSIZE];
   } Pool;
 
-  count dim, comp, ncur, nregions, ipool, npool;
-  int fail = 1;
-  Rule rule;
+  count dim, comp, ncur, ipool, npool;
+  int fail = -99;
   Totals totals[NCOMP];
   Pool *cur = NULL, *pool;
   Region *region;
@@ -32,31 +29,21 @@ static int Integrate(creal epsrel, creal epsabs,
       "  epsrel " REAL "\n  epsabs " REAL "\n"
       "  flags %d\n  mineval " NUMBER "\n  maxeval " NUMBER "\n"
       "  key " COUNT,
-      ndim_, ncomp_,
-      epsrel, epsabs,
-      flags, mineval, maxeval,
-      key);
+      t->ndim, t->ncomp,
+      t->epsrel, t->epsabs,
+      t->flags, t->mineval, t->maxeval,
+      t->key);
     Print(s);
   }
 
-#ifdef MLVERSION
-  if( setjmp(abort_) ) goto abort;
-#endif
+  if( BadComponent(t) ) return -2;
+  if( BadDimension(t) ) return -1;
 
-  if( key == 13 && ndim_ == 2 ) Rule13Alloc(&rule);
-  else if( key == 11 && ndim_ == 3 ) Rule11Alloc(&rule);
-  else if( key == 9 ) Rule9Alloc(&rule);
-  else if( key == 7 ) Rule7Alloc(&rule);
-  else {
-    if( ndim_ == 2 ) Rule13Alloc(&rule);
-    else if( ndim_ == 3 ) Rule11Alloc(&rule);
-    else Rule9Alloc(&rule);
-  }
+  RuleAlloc(t);
+  t->epsabs = Max(t->epsabs, NOTZERO);
+  t->mineval = IMax(t->mineval, t->rule.n + 1);
 
-  Alloc(rule.x, rule.n*(ndim_ + ncomp_));
-  rule.f = rule.x + rule.n*ndim_;
-
-  mineval = IMax(mineval, rule.n + 1);
+  if( setjmp(t->abort) ) goto abort;
 
   Alloc(cur, 1);
   cur->next = NULL;
@@ -64,15 +51,15 @@ static int Integrate(creal epsrel, creal epsabs,
 
   region = cur->region;
   region->div = 0;
-  for( dim = 0; dim < ndim_; ++dim ) {
+  for( dim = 0; dim < t->ndim; ++dim ) {
     Bounds *b = &region->bounds[dim];
     b->lower = 0;
     b->upper = 1;
   }
 
-  Sample(&rule, region, flags);
+  Sample(t, region);
 
-  for( comp = 0; comp < ncomp_; ++comp ) {
+  for( comp = 0; comp < t->ncomp; ++comp ) {
     Totals *tot = &totals[comp];
     Result *r = &region->result[comp];
     tot->avg = tot->lastavg = tot->guess = r->avg;
@@ -82,7 +69,7 @@ static int Integrate(creal epsrel, creal epsabs,
     tot->chisq = tot->chisqsum = tot->chisum = 0;
   }
 
-  for( nregions = 1; ; ++nregions ) {
+  for( t->nregions = 1; ; ++t->nregions ) {
     count maxcomp, bisectdim;
     real maxratio, maxerr;
     Result result[NCOMP];
@@ -94,13 +81,13 @@ static int Integrate(creal epsrel, creal epsabs,
 
       p += sprintf(p, "\n"
         "Iteration " COUNT ":  " NUMBER " integrand evaluations so far",
-        nregions, neval_);
+        t->nregions, t->neval);
 
-      for( comp = 0; comp < ncomp_; ++comp ) {
+      for( comp = 0; comp < t->ncomp; ++comp ) {
         cTotals *tot = &totals[comp];
         p += sprintf(p, "\n[" COUNT "] "
           REAL " +- " REAL "  \tchisq " REAL " (" COUNT " df)",
-          comp + 1, tot->avg, tot->err, tot->chisq, nregions - 1);
+          comp + 1, tot->avg, tot->err, tot->chisq, t->nregions - 1);
       }
 
       Print(s);
@@ -108,7 +95,7 @@ static int Integrate(creal epsrel, creal epsabs,
 
     maxratio = -INFTY;
     maxcomp = 0;
-    for( comp = 0; comp < ncomp_; ++comp ) {
+    for( comp = 0; comp < t->ncomp; ++comp ) {
       creal ratio = totals[comp].err/MaxErr(totals[comp].avg);
       if( ratio > maxratio ) {
         maxratio = ratio;
@@ -116,12 +103,12 @@ static int Integrate(creal epsrel, creal epsabs,
       }
     }
 
-    if( maxratio <= 1 && neval_ >= mineval ) {
+    if( maxratio <= 1 && t->neval >= t->mineval ) {
       fail = 0;
       break;
     }
 
-    if( neval_ >= maxeval ) break;
+    if( t->neval >= t->maxeval ) break;
 
     maxerr = -INFTY;
     regionL = cur->region;
@@ -153,10 +140,10 @@ static int Integrate(creal epsrel, creal epsabs,
     bR = &regionR->bounds[bisectdim];
     bL->upper = bR->lower = .5*(bL->upper + bL->lower);
 
-    Sample(&rule, regionL, flags);
-    Sample(&rule, regionR, flags);
+    Sample(t, regionL);
+    Sample(t, regionR);
 
-    for( comp = 0; comp < ncomp_; ++comp ) {
+    for( comp = 0; comp < t->ncomp; ++comp ) {
       cResult *r = &result[comp];
       Result *rL = &regionL->result[comp];
       Result *rR = &regionR->result[comp];
@@ -195,17 +182,17 @@ static int Integrate(creal epsrel, creal epsabs,
     }
   }
 
-  for( comp = 0; comp < ncomp_; ++comp ) {
+  for( comp = 0; comp < t->ncomp; ++comp ) {
     cTotals *tot = &totals[comp];
     integral[comp] = tot->avg;
     error[comp] = tot->err;
-    prob[comp] = ChiSquare(tot->chisq, nregions - 1);
+    prob[comp] = ChiSquare(tot->chisq, t->nregions - 1);
   }
 
 #ifdef MLVERSION
   if( REGIONS ) {
     MLPutFunction(stdlink, "List", 2);
-    MLPutFunction(stdlink, "List", nregions);
+    MLPutFunction(stdlink, "List", t->nregions);
 
     npool = ncur;
     for( pool = cur; pool; npool = POOLSIZE, pool = pool->next )
@@ -213,18 +200,18 @@ static int Integrate(creal epsrel, creal epsabs,
         Region const *region = &pool->region[ipool];
         real lower[NDIM], upper[NDIM];
 
-        for( dim = 0; dim < ndim_; ++dim ) {
+        for( dim = 0; dim < t->ndim; ++dim ) {
           cBounds *b = &region->bounds[dim];
           lower[dim] = b->lower;
           upper[dim] = b->upper;
         }
 
         MLPutFunction(stdlink, "Cuba`Cuhre`region", 3);
-        MLPutRealList(stdlink, lower, ndim_);
-        MLPutRealList(stdlink, upper, ndim_);
+        MLPutRealList(stdlink, lower, t->ndim);
+        MLPutRealList(stdlink, upper, t->ndim);
 
-        MLPutFunction(stdlink, "List", ncomp_);
-        for( comp = 0; comp < ncomp_; ++comp ) {
+        MLPutFunction(stdlink, "List", t->ncomp);
+        for( comp = 0; comp < t->ncomp; ++comp ) {
           cResult *r = &region->result[comp];
           real res[] = {r->avg, r->err};
           MLPutRealList(stdlink, res, Elements(res));
@@ -233,19 +220,13 @@ static int Integrate(creal epsrel, creal epsabs,
   }
 #endif
 
-#ifdef MLVERSION
 abort:
-#endif
-
   while( (pool = cur) ) {
     cur = cur->next;
     free(pool);
   }
 
-  free(rule.x);
-  RuleFree(&rule);
-
-  nregions_ = nregions;
+  RuleFree(t);
 
   return fail;
 }

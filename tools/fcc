@@ -1,17 +1,21 @@
 #! /bin/sh
 # script to compile C programs that are linked 
 # against Fortran libraries
-# last modified 29 May 09 th
+# last modified 16 Jun 10 th
 
 args=""
 ldflags=""
 objs=""
 libs=""
-lcpp=""
 compileonly=""
 
+cc="${REALCC:-cc}"
+cxx="${REALCXX:-c++}"
+[ `basename $0` = f++ ] && cc="$cxx"
+
 case "$@" in
-*-m32*)	toarg='arg=`echo "$1" | sed -e 's/-x86-64//g' -e 's/ML64/ML32/g'`' ;;
+*-m32*)	toarg='arg=`echo "$1" | sed -e "s|Linux-x86-64/|Linux/|g" -e "s|ML64|ML32|g"`' ;;
+*-m64*)	toarg='arg=`echo "$1" | sed -e "s|Linux/|Linux-x86-64/|g" -e "s|ML32|ML64|g"`' ;;
 *)	toarg='arg=$1' ;;
 esac
 
@@ -21,7 +25,7 @@ while [ $# -gt 0 ] ; do
   -arch)
 	shift
 	;;
-  -st)
+  -st | -b32 | -b64)
 	;;
   -[Ll]* | -Wl*)
 	ldflags="$ldflags \"$arg\""
@@ -29,7 +33,7 @@ while [ $# -gt 0 ] ; do
   *.tm.o)
 	objs="\"$arg\" $objs"
 	;;
-  *.a | *.o)
+  *.a | *.o | *.so)
 	objs="$objs \"$arg\""
 	;;
   -Wno-long-double)
@@ -37,7 +41,7 @@ while [ $# -gt 0 ] ; do
 	;;
   *.cc)
 	args="$args \"$arg\""
-	lcpp="-lstdc++"
+	cc="$cxx"
 	;;
   -c)
 	compileonly="-c"
@@ -53,5 +57,5 @@ while [ $# -gt 0 ] ; do
   shift
 done
 
-eval "set -x ; ${REALCC:-cc} $args ${compileonly:-$objs $ldflags $lcpp $libs}"
+eval "set -x ; $cc $args ${compileonly:-$objs $ldflags $libs}"
 

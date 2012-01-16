@@ -11,9 +11,9 @@
 	  Key1 = 9: use a degree-9 cubature rule,\n
 	  Key1 = 11: use a degree-11 cubature rule (available only in 3 dimensions),\n
 	  Key1 = 13: use a degree-13 cubature rule (available only in 2 dimensions),\n
-	otherwise a quasi-random sample of n1 = Abs[Key1] points is used, where the sign of Key1 determines the type of sample:\n
+	otherwise a random sample of n1 = Abs[Key1] points is used, where the sign of Key1 determines the type of sample:\n
 	  Key1 > 0: use a Korobov quasi-random sample,\n
-	  Key1 < 0: use a Sobol quasi-random sample."
+	  Key1 < 0: use a \"standard\" sample."
 
 :Evaluate: Key2::usage = "Key2 is an option of Divonne.
 	It determines sampling in the main integration phase.\n
@@ -22,9 +22,9 @@
 	  Key2 = 9: use a degree-9 cubature rule,\n
 	  Key2 = 11: use a degree-11 cubature rule (available only in 3 dimensions),\n
 	  Key2 = 13: use a degree-13 cubature rule (available only in 2 dimensions),\n
-	otherwise a quasi-random sample is used, where the sign of Key2 determines the type of sample:\n
+	otherwise a random sample is used, where the sign of Key2 determines the type of sample:\n
 	  Key2 > 0: use a Korobov quasi-random sample,\n
-	  Key2 < 0: use a Sobol quasi-random sample,\n
+	  Key2 < 0: use a \"standard\" sample,\n
 	and n2 = Abs[Key2] determines the number of points:\n
 	  n2 >= 40: sample n2 points,\n
 	  n2 < 40: sample n2*nneed points, where nneed is the number of points needed to reach the prescribed accuracy, as estimated by Divonne from the results of the partitioning phase."
@@ -38,9 +38,9 @@
 	  Key3 = 9: use a degree-9 cubature rule,\n
 	  Key3 = 11: use a degree-11 cubature rule (available only in 3 dimensions),\n
 	  Key3 = 13: use a degree-13 cubature rule (available only in 2 dimensions),\n
-	otherwise a quasi-random sample is used, where the sign of Key3 determines the type of sample:\n
+	otherwise a random sample is used, where the sign of Key3 determines the type of sample:\n
 	  Key3 > 0: use a Korobov quasi-random sample,\n
-	  Key3 < 0: use a Sobol quasi-random sample,\n
+	  Key3 < 0: use a \"standard\" sample,\n
 	and n3 = Abs[Key3] determines the number of points:\n
 	  n3 >= 40: sample n3 points,\n
 	  n3 < 40: sample n3*nneed points, where nneed is the number of points needed to reach the prescribed accuracy, as estimated by Divonne from the results of the partitioning phase."
@@ -111,21 +111,23 @@
 :Begin:
 :Function: Divonne
 :Pattern: MLDivonne[ndim_, ncomp_,
-  epsrel_, epsabs_, flags_, mineval_, maxeval_,
+  epsrel_, epsabs_, flags_, seed_,
+  mineval_, maxeval_,
   key1_, key2_, key3_, maxpass_,
   border_, maxchisq_, mindeviation_,
-  xgiven_, fgiven_, nextra_, seed_]
+  xgiven_, fgiven_, nextra_]
 :Arguments: {ndim, ncomp,
-  epsrel, epsabs, flags, mineval, maxeval,
+  epsrel, epsabs, flags, seed,
+  mineval, maxeval,
   key1, key2, key3, maxpass,
   border, maxchisq, mindeviation,
-  xgiven, fgiven, nextra, seed}
+  xgiven, fgiven, nextra}
 :ArgumentTypes: {Integer, Integer,
-  Real, Real, Integer, Integer, Integer,
+  Real, Real, Integer, Integer,
+  Integer, Integer,
   Integer, Integer, Integer, Integer,
   Real, Real, Real,
-  RealList, RealList, Integer,
-  Integer, Integer}
+  RealList, RealList, Integer}
 :ReturnType: Manual
 :End:
 
@@ -137,7 +139,7 @@
 	Border -> 0, MaxChisq -> 10, MinDeviation -> .25,
 	Given -> {}, NExtra -> 0, PeakFinder -> ({}&),
 	Verbose -> 1, Final -> All,
-	PseudoRandom -> True, PseudoRandomSeed -> Automatic,
+	PseudoRandom -> False, PseudoRandomSeed -> 5489,
 	Regions -> False, Compiled -> True}
 
 :Evaluate: Divonne[f_, v:{_, _, _}.., opt___Rule] :=
@@ -160,13 +162,13 @@
 	  MLDivonne[ndim, ncomp[f], 10.^-rel, 10.^-abs,
 	    Min[Max[verbose, 0], 3] +
 	      If[final === Last, 4, 0] +
-	      If[level =!= False, 8, 0] +
-	      If[TrueQ[regions], 256, 0],
-	    mineval, maxeval, key1, key2, key3, maxpass,
+	      If[TrueQ[regions], 128, 0] +
+	      If[IntegerQ[level], 256 level, 0],
+	    If[level =!= False && IntegerQ[seed], seed, 0],
+	    mineval, maxeval,
+	    key1, key2, key3, maxpass,
 	    N[border], N[maxchisq], N[mindeviation],
-	    given, sample[given, 0], nextra,
-	    If[IntegerQ[level], level, 0],
-	    If[IntegerQ[seed], seed, 0]]
+	    given, sample[given, 0], nextra]
 	]
 
 :Evaluate: Attributes[ncomp] = Attributes[fun] = {HoldAll}
@@ -227,15 +229,12 @@
 		originally by J.H. Friedman and M.H. Wright
 		(CERNLIB subroutine D151)
 		this version by Thomas Hahn
-		last modified 5 Dec 08 th
+		last modified 7 Jun 10 th
 */
 
 
-#include <setjmp.h>
 #include "mathlink.h"
-#include "util.c"
-
-jmp_buf abort_;
+#include "decl.h"
 
 /*********************************************************************/
 
@@ -270,7 +269,7 @@ static void Print(MLCONST char *s)
 
 /*********************************************************************/
 
-static void DoSample(cnumber n, ccount ldx, real *x, real *f)
+static void DoSample(This *t, cnumber n, ccount ldx, real *x, real *f)
 {
   int pkt;
   real *mma_f;
@@ -280,8 +279,8 @@ static void DoSample(cnumber n, ccount ldx, real *x, real *f)
 
   MLPutFunction(stdlink, "EvaluatePacket", 1);
   MLPutFunction(stdlink, "Cuba`Divonne`sample", 2);
-  MLPutRealList(stdlink, x, n*ndim_);
-  MLPutInteger(stdlink, phase_);
+  MLPutRealList(stdlink, x, n*t->ndim);
+  MLPutInteger(stdlink, t->phase);
   MLEndPacket(stdlink);
 
   while( (pkt = MLNextPacket(stdlink)) && (pkt != RETURNPKT) )
@@ -292,24 +291,24 @@ static void DoSample(cnumber n, ccount ldx, real *x, real *f)
     MLNewPacket(stdlink);
 abort:
     MLPutFunction(stdlink, "Abort", 0);
-    longjmp(abort_, 1);
+    longjmp(t->abort, 1);
   }
 
-  if( mma_n != n*ncomp_ ) {
+  if( mma_n != n*t->ncomp ) {
     MLDisownRealList(stdlink, mma_f, mma_n);
     MLPutSymbol(stdlink, "$Failed");
-    longjmp(abort_, 1);
+    longjmp(t->abort, 1);
   }
 
-  neval_ += n;
+  t->neval += n;
 
-  Copy(f, mma_f, n*ncomp_);
+  Copy(f, mma_f, n*t->ncomp);
   MLDisownRealList(stdlink, mma_f, mma_n);
 }
 
 /*********************************************************************/
 
-static count SampleExtra(cBounds *b)
+static count SampleExtra(This *t, cBounds *b)
 {
   int pkt;
   count n, nget;
@@ -318,8 +317,8 @@ static count SampleExtra(cBounds *b)
 
   MLPutFunction(stdlink, "EvaluatePacket", 1);
   MLPutFunction(stdlink, "Cuba`Divonne`findpeak", 2);
-  MLPutRealList(stdlink, (real *)b, 2*ndim_);
-  MLPutInteger(stdlink, phase_);
+  MLPutRealList(stdlink, (real *)b, 2*t->ndim);
+  MLPutInteger(stdlink, t->phase);
   MLEndPacket(stdlink);
 
   while( (pkt = MLNextPacket(stdlink)) && (pkt != RETURNPKT) )
@@ -329,15 +328,15 @@ static count SampleExtra(cBounds *b)
     MLClearError(stdlink);
     MLNewPacket(stdlink);
     MLPutFunction(stdlink, "Abort", 0);
-    longjmp(abort_, 1);
+    longjmp(t->abort, 1);
   }
 
-  neval_ += nget = mma_n/(ndim_ + ncomp_);
+  t->neval += nget = mma_n/(t->ndim + t->ncomp);
 
-  n = IMin(nget, nextra_);
+  n = IMin(nget, t->nextra);
   if( n ) {
-    Copy(xextra_, mma_f, n*ndim_);
-    Copy(fextra_, mma_f + nget*ndim_, n*ncomp_);
+    Copy(t->xextra, mma_f, n*t->ndim);
+    Copy(t->fextra, mma_f + nget*t->ndim, n*t->ncomp);
   }
 
   MLDisownRealList(stdlink, mma_f, mma_n);
@@ -349,73 +348,74 @@ static count SampleExtra(cBounds *b)
 
 #include "common.c"
 
-void Divonne(cint ndim, cint ncomp,
-  creal epsrel, creal epsabs,
-  cint flags, cnumber mineval, cnumber maxeval,
-  cint key1, cint key2, cint key3, cint maxpass,
-  creal border, creal maxchisq, creal mindeviation,
-  real *xgiven, clong nxgiven, real *fgiven, clong nfgiven,
-  cnumber nextra,
-  cint level, cint seed)
+static inline void DoIntegrate(This *t)
 {
-  ndim_ = ndim;
-  ncomp_ = ncomp;
+  real integral[NCOMP], error[NCOMP], prob[NCOMP];
+  cint fail = Integrate(t, integral, error, prob);
 
-  if( BadComponent(ncomp) ) {
-    Status("badcomp", ncomp, 0, 0);
-    MLPutSymbol(stdlink, "$Failed");
-  }
-  else if( BadDimension(ndim, flags, key1) ||
-           BadDimension(ndim, flags, key2) ||
-           ((key3 & -2) && BadDimension(ndim, flags, key3)) ) {
-    Status("baddim", ndim, 0, 0);
+  if( fail < 0 ) {
+    if( fail == -1 ) Status("baddim", t->ndim, 0, 0);
+    else Status("badcomp", t->ncomp, 0, 0);
     MLPutSymbol(stdlink, "$Failed");
   }
   else {
-    real integral[NCOMP], error[NCOMP], prob[NCOMP];
-    int fail;
-    ccount nx = nxgiven + nextra*ndim;
-    ccount nf = nfgiven + nextra*ncomp;
+    Status(fail ? "accuracy" : "success", t->neval, t->nregions, fail);
+    MLPutFunction(stdlink, "Thread", 1);
+    MLPutFunction(stdlink, "List", 3);
+    MLPutRealList(stdlink, integral, t->ncomp);
+    MLPutRealList(stdlink, error, t->ncomp);
+    MLPutRealList(stdlink, prob, t->ncomp);
+  }
+}
 
-    neval_ = ngiven_ = nxgiven/ndim;
-    neval_opt_ = neval_cut_ = 0;
-    nextra_ = nextra;
-    ldxgiven_ = ndim;
+/*********************************************************************/
 
-    Alloc(xgiven_, nx + nf);
-    xextra_ = xgiven_ + nxgiven;
-    fgiven_ = xgiven_ + nx;
-    fextra_ = fgiven_ + nfgiven;
+void Divonne(cint ndim, cint ncomp,
+  creal epsrel, creal epsabs,
+  cint flags, cint seed,
+  cnumber mineval, cnumber maxeval,
+  cint key1, cint key2, cint key3, cint maxpass,
+  creal border, creal maxchisq, creal mindeviation,
+  real *xgiven, clong nxgiven, real *fgiven, clong nfgiven,
+  cnumber nextra)
+{
+  This t;
+  t.ldxgiven = t.ndim = ndim;
+  t.ncomp = ncomp;
+  t.epsrel = epsrel;
+  t.epsabs = epsabs;
+  t.flags = flags;
+  t.seed = seed;
+  t.mineval = mineval;
+  t.maxeval = maxeval;
+  t.key1 = key1;
+  t.key2 = key2;
+  t.key3 = key3;
+  t.maxpass = maxpass;
+  t.border.upper = 1 - (t.border.lower = border);
+  t.maxchisq = maxchisq;
+  t.mindeviation = mindeviation;
+  t.xgiven = NULL;
+  t.nextra = nextra;
+  t.nregions = 0;
+  t.neval = t.ngiven = nxgiven/ndim;
 
-    Copy(xgiven_, xgiven, nxgiven);
-    Copy(fgiven_, fgiven, nfgiven);
+  if( t.ngiven | t.nextra ) {
+    cnumber nx = nxgiven + nextra*t.ndim;
+    cnumber nf = nfgiven + nextra*t.ncomp;
 
-    border_.lower = border;
-    border_.upper = 1 - border_.lower;
+    Alloc(t.xgiven, nx + nf);
+    t.xextra = t.xgiven + nxgiven;
+    t.fgiven = t.xgiven + nx;
+    t.fextra = t.fgiven + nfgiven;
 
-    cubarandom.level = level;
-    cubarandom.seed = seed;
-
-    fail = Integrate(epsrel, Max(epsabs, NOTZERO),
-      flags, mineval, maxeval, key1, key2, key3, maxpass,
-      maxchisq, mindeviation,
-      integral, error, prob);
-
-    if( fail >= 0 ) {
-      count comp;
-
-      Status(fail ? "accuracy" : "success", neval_, nregions_, fail);
-
-      MLPutFunction(stdlink, "List", ncomp);
-      for( comp = 0; comp < ncomp; ++comp ) {
-        real res[] = {integral[comp], error[comp], prob[comp]};
-        MLPutRealList(stdlink, res, Elements(res));
-      }
-    }
-
-    free(xgiven_);
+    Copy(t.xgiven, xgiven, nxgiven);
+    Copy(t.fgiven, fgiven, nfgiven);
   }
 
+  DoIntegrate(&t);
+
+  free(t.xgiven);
   MLEndPacket(stdlink);
 }
 

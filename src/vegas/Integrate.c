@@ -2,18 +2,15 @@
 	Integrate.c
 		integrate over the unit hypercube
 		this file is part of Vegas
-		last modified 17 Dec 07 th
+		last modified 8 Jun 10 th
 */
 
 
-static int Integrate(creal epsrel, creal epsabs,
-  cint flags, cnumber mineval, cnumber maxeval,
-  cnumber nstart, cnumber nincrease,
-  real *integral, real *error, real *prob)
+static int Integrate(This *t, real *integral, real *error, real *prob)
 {
   real *sample;
   count dim, comp;
-  int fail = 1;
+  int fail = -99;
   struct {
     count niter;
     number nsamples, neval;
@@ -24,48 +21,55 @@ static int Integrate(creal epsrel, creal epsabs,
   struct stat st;
 
   if( VERBOSE > 1 ) {
-    char s[256];
+    char s[512];
     sprintf(s, "Vegas input parameters:\n"
       "  ndim " COUNT "\n  ncomp " COUNT "\n"
       "  epsrel " REAL "\n  epsabs " REAL "\n"
-      "  flags %d\n  mineval " NUMBER "\n  maxeval " NUMBER "\n"
+      "  flags %d\n  seed %d\n"
+      "  mineval " NUMBER "\n  maxeval " NUMBER "\n"
       "  nstart " NUMBER "\n  nincrease " NUMBER "\n"
-      "  vegasgridno %d\n  vegasstate \"%s\"\n",
-      ndim_, ncomp_,
-      epsrel, epsabs,
-      flags, mineval, maxeval,
-      nstart, nincrease,
-      EXPORT(vegasgridno), EXPORT(vegasstate));
+      "  nbatch " NUMBER "\n  gridno %d\n"
+      "  statefile \"%s\"\n",
+      t->ndim, t->ncomp,
+      t->epsrel, t->epsabs,
+      t->flags, t->seed,
+      t->mineval, t->maxeval,
+      t->nstart, t->nincrease, t->nbatch,
+      t->gridno, t->statefile);
     Print(s);
   }
 
-#ifdef MLVERSION
-  if( setjmp(abort_) ) goto abort;
-#endif
+  if( BadComponent(t) ) return -2;
+  if( BadDimension(t) ) return -1;
 
-  IniRandom(2*maxeval, flags);
+  SamplesAlloc(sample);
 
-  if( *EXPORT(vegasstate) && stat(EXPORT(vegasstate), &st) == 0 &&
-      st.st_size == sizeof(state) && (st.st_mode & 0400) ) {
-    cint h = open(EXPORT(vegasstate), O_RDONLY);
-    read(h, &state, sizeof(state));
-    close(h);
-    SkipRandom(neval_ = state.neval);
+  if( setjmp(t->abort) ) goto abort;
 
-    if( VERBOSE ) {
-      char s[256];
-      sprintf(s, "\nRestoring state from %s.", EXPORT(vegasstate));
-      Print(s);
+  IniRandom(t);
+
+  if( t->statefile && *t->statefile ) {
+    if( stat(t->statefile, &st) == 0 &&
+        st.st_size == sizeof(state) && (st.st_mode & 0400) ) {
+      cint h = open(t->statefile, O_RDONLY);
+      read(h, &state, sizeof(state));
+      close(h);
+      t->rng.skiprandom(t, t->neval = state.neval);
+
+      if( VERBOSE ) {
+        char s[256];
+        sprintf(s, "\nRestoring state from %s.", t->statefile);
+        Print(s);
+      }
     }
   }
   else {
+    t->statefile = NULL;
     state.niter = 0;
-    state.nsamples = nstart;
+    state.nsamples = t->nstart;
     Zap(state.cumul);
-    GetGrid(state.grid);
+    GetGrid(t, state.grid);
   }
-
-  SamplesAlloc(sample, EXPORT(vegasnbatch));
 
   /* main iteration loop */
 
@@ -76,20 +80,20 @@ static int Integrate(creal epsrel, creal epsabs,
 
     Zap(margsum);
 
-    for( ; nsamples > 0; nsamples -= EXPORT(vegasnbatch) ) {
-      cnumber nbatch = IMin(EXPORT(vegasnbatch), nsamples);
+    for( ; nsamples > 0; nsamples -= t->nbatch ) {
+      cnumber n = IMin(t->nbatch, nsamples);
       real *w = sample;
-      real *x = w + nbatch;
-      real *f = x + nbatch*ndim_;
-      real *lastf = f + nbatch*ncomp_;
+      real *x = w + n;
+      real *f = x + n*t->ndim;
+      real *lastf = f + n*t->ncomp;
       bin_t *bin = (bin_t *)lastf;
 
       while( x < f ) {
         real weight = jacobian;
 
-        GetRandom(x);
+        t->rng.getrandom(t, x);
 
-        for( dim = 0; dim < ndim_; ++dim ) {
+        for( dim = 0; dim < t->ndim; ++dim ) {
           creal pos = *x*NBINS;
           ccount ipos = (count)pos;
           creal prev = (ipos == 0) ? 0 : state.grid[dim][ipos - 1];
@@ -102,7 +106,7 @@ static int Integrate(creal epsrel, creal epsabs,
         *w++ = weight;
       }
 
-      DoSample(nbatch, sample, w, f);
+      DoSample(t, n, sample, w, f);
 
       w = sample;
       bin = (bin_t *)lastf;
@@ -110,7 +114,7 @@ static int Integrate(creal epsrel, creal epsabs,
       while( f < lastf ) {
         creal weight = *w++;
 
-        for( comp = 0; comp < ncomp_; ++comp ) {
+        for( comp = 0; comp < t->ncomp; ++comp ) {
           real wfun = weight*(*f++);
           if( wfun ) {
             Cumulants *c = &state.cumul[comp];
@@ -118,12 +122,12 @@ static int Integrate(creal epsrel, creal epsabs,
 
             c->sum += wfun;
             c->sqsum += wfun *= wfun;
-            for( dim = 0; dim < ndim_; ++dim )
+            for( dim = 0; dim < t->ndim; ++dim )
               m[dim][bin[dim]] += wfun;
           }
         }
 
-        bin += ndim_;
+        bin += t->ndim;
       }
     }
 
@@ -131,7 +135,7 @@ static int Integrate(creal epsrel, creal epsabs,
 
     /* compute the integral and error values */
 
-    for( comp = 0; comp < ncomp_; ++comp ) {
+    for( comp = 0; comp < t->ncomp; ++comp ) {
       Cumulants *c = &state.cumul[comp];
       real avg, sigsq;
       real w = Weight(c->sum, c->sqsum, state.nsamples);
@@ -158,9 +162,9 @@ static int Integrate(creal epsrel, creal epsabs,
 
       p += sprintf(p, "\n"
         "Iteration " COUNT ":  " NUMBER " integrand evaluations so far",
-        state.niter + 1, neval_);
+        state.niter + 1, t->neval);
 
-      for( comp = 0; comp < ncomp_; ++comp ) {
+      for( comp = 0; comp < t->ncomp; ++comp ) {
         cCumulants *c = &state.cumul[comp];
         p += sprintf(p, "\n[" COUNT "] "
           REAL " +- " REAL "  \tchisq " REAL " (" COUNT " df)",
@@ -170,21 +174,21 @@ static int Integrate(creal epsrel, creal epsabs,
       Print(s);
     }
 
-    if( fail == 0 && neval_ >= mineval ) {
-      if( *EXPORT(vegasstate) ) unlink(EXPORT(vegasstate));
+    if( fail == 0 && t->neval >= t->mineval ) {
+      if( t->statefile ) unlink(t->statefile);
       break;
     }
 
-    if( neval_ >= maxeval && *EXPORT(vegasstate) == 0 ) break;
+    if( t->neval >= t->maxeval && t->statefile == NULL ) break;
 
-    if( ncomp_ == 1 )
-      for( dim = 0; dim < ndim_; ++dim )
-        RefineGrid(state.grid[dim], margsum[0][dim], flags);
+    if( t->ncomp == 1 )
+      for( dim = 0; dim < t->ndim; ++dim )
+        RefineGrid(t, state.grid[dim], margsum[0][dim]);
     else {
-      for( dim = 0; dim < ndim_; ++dim ) {
+      for( dim = 0; dim < t->ndim; ++dim ) {
         Grid wmargsum;
         Zap(wmargsum);
-        for( comp = 0; comp < ncomp_; ++comp ) {
+        for( comp = 0; comp < t->ncomp; ++comp ) {
           real w = state.cumul[comp].avg;
           if( w != 0 ) {
             creal *m = margsum[comp][dim];
@@ -194,44 +198,41 @@ static int Integrate(creal epsrel, creal epsabs,
               wmargsum[bin] += w*m[bin];
           }
         }
-        RefineGrid(state.grid[dim], wmargsum, flags);
+        RefineGrid(t, state.grid[dim], wmargsum);
       }
     }
 
     ++state.niter;
-    state.nsamples += nincrease;
+    state.nsamples += t->nincrease;
 
-    if( *EXPORT(vegasstate) ) {
-      cint h = creat(EXPORT(vegasstate), 0666);
+    if( t->statefile ) {
+      cint h = creat(t->statefile, 0666);
       if( h != -1 ) {
-        state.neval = neval_;
+        state.neval = t->neval;
         write(h, &state, sizeof(state));
         close(h);
 
         if( statemsg ) {
           char s[256];
-          sprintf(s, "\nSaving state to %s.", EXPORT(vegasstate));
+          sprintf(s, "\nSaving state to %s.", t->statefile);
           Print(s);
           statemsg = false;
         }
       }
-      if( neval_ >= maxeval ) break;
+      if( t->neval >= t->maxeval ) break;
     }
   }
 
-  for( comp = 0; comp < ncomp_; ++comp ) {
+  for( comp = 0; comp < t->ncomp; ++comp ) {
     cCumulants *c = &state.cumul[comp];
     integral[comp] = c->avg;
     error[comp] = c->err;
     prob[comp] = ChiSquare(c->chisq, state.niter);
   }
 
-#ifdef MLVERSION
 abort:
-#endif
-
   free(sample);
-  PutGrid(state.grid);
+  PutGrid(t, state.grid);
 
   return fail;
 }

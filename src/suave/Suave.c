@@ -2,25 +2,24 @@
 	Suave.c
 		Subregion-adaptive Vegas Monte-Carlo integration
 		by Thomas Hahn
-		last modified 30 Aug 07 th
+		last modified 16 Jun 10 th
 */
 
 
-#include "util.c"
+#include "decl.h"
 
 #define Print(s) puts(s); fflush(stdout)
 
-static Integrand integrand_;
-
 /*********************************************************************/
 
-static inline void DoSample(number n, creal *w, creal *x, real *f)
+static inline void DoSample(This *t, number n, creal *w, creal *x, real *f)
 {
-  neval_ += n;
+  t->neval += n;
   while( n-- ) {
-    integrand_(&ndim_, x, &ncomp_, f, w++);
-    x += ndim_;
-    f += ncomp_;
+    if( t->integrand(&t->ndim, x, &t->ncomp, f, t->userdata, w++) == ABORT )
+      longjmp(t->abort, 1);
+    x += t->ndim;
+    f += t->ncomp;
   }
 }
 
@@ -29,45 +28,64 @@ static inline void DoSample(number n, creal *w, creal *x, real *f)
 #include "common.c"
 
 Extern void EXPORT(Suave)(ccount ndim, ccount ncomp,
-  Integrand integrand,
+  Integrand integrand, void *userdata,
   creal epsrel, creal epsabs,
-  cint flags, cnumber mineval, cnumber maxeval,
+  cint flags, cint seed,
+  cnumber mineval, cnumber maxeval,
   cnumber nnew, creal flatness,
   count *pnregions, number *pneval, int *pfail,
   real *integral, real *error, real *prob)
 {
-  ndim_ = ndim;
-  ncomp_ = ncomp;
+  This t;
+  t.ndim = ndim;
+  t.ncomp = ncomp;
+  t.integrand = integrand;
+  t.userdata = userdata;
+  t.epsrel = epsrel;
+  t.epsabs = epsabs;
+  t.flags = flags;
+  t.seed = seed;
+  t.mineval = mineval;
+  t.maxeval = maxeval;
+  t.nnew = nnew;
+  t.flatness = flatness;
+  t.nregions = 0;
+  t.neval = 0;
 
-  if( BadComponent(ncomp) || BadDimension(ndim, flags) ) *pfail = -1;
-  else {
-    neval_ = 0;
-    integrand_ = integrand;
-
-    *pfail = Integrate(epsrel, Max(epsabs, NOTZERO),
-      flags, mineval, maxeval, nnew, flatness,
-      integral, error, prob);
-    *pnregions = nregions_;
-    *pneval = neval_;
-  }
+  *pfail = Integrate(&t, integral, error, prob);
+  *pnregions = t.nregions;
+  *pneval = t.neval;
 }
 
 /*********************************************************************/
 
 Extern void EXPORT(suave)(ccount *pndim, ccount *pncomp,
-  Integrand integrand,
+  Integrand integrand, void *userdata,
   creal *pepsrel, creal *pepsabs,
-  cint *pflags, cnumber *pmineval, cnumber *pmaxeval,
+  cint *pflags, cint *pseed,
+  cnumber *pmineval, cnumber *pmaxeval,
   cnumber *pnnew, creal *pflatness,
   count *pnregions, number *pneval, int *pfail,
   real *integral, real *error, real *prob)
 {
-  EXPORT(Suave)(*pndim, *pncomp,
-    integrand,
-    *pepsrel, *pepsabs,
-    *pflags, *pmineval, *pmaxeval,
-    *pnnew, *pflatness,
-    pnregions, pneval, pfail,
-    integral, error, prob);
+  This t;
+  t.ndim = *pndim;
+  t.ncomp = *pncomp;
+  t.integrand = integrand;
+  t.userdata = userdata;
+  t.epsrel = *pepsrel;
+  t.epsabs = *pepsabs;
+  t.flags = *pflags;
+  t.seed = *pseed;
+  t.mineval = *pmineval;
+  t.maxeval = *pmaxeval;
+  t.nnew = *pnnew;
+  t.flatness = *pflatness;
+  t.nregions = 0;
+  t.neval = 0;
+
+  *pfail = Integrate(&t, integral, error, prob);
+  *pnregions = t.nregions;
+  *pneval = t.neval;
 }
 

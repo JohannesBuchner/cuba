@@ -66,7 +66,7 @@
 	  MLCuhre[ndim, ncomp[f], 10.^-rel, 10.^-abs,
 	    Min[Max[verbose, 0], 3] +
 	      If[final === Last, 4, 0] +
-	      If[TrueQ[regions], 256, 0],
+	      If[TrueQ[regions], 128, 0],
             mineval, maxeval, key]
 	]
 
@@ -122,15 +122,12 @@
 	Cuhre.tm
 		Adaptive integration using cubature rules
 		by Thomas Hahn
-		last modified 5 Dec 08 th
+		last modified 7 Jun 10 th
 */
 
 
-#include <setjmp.h>
 #include "mathlink.h"
-#include "util.c"
-
-jmp_buf abort_;
+#include "decl.h"
 
 /*********************************************************************/
 
@@ -164,7 +161,7 @@ static void Print(MLCONST char *s)
 
 /*********************************************************************/
 
-static void DoSample(cnumber n, real *x, real *f)
+static void DoSample(This *t, cnumber n, real *x, real *f)
 {
   int pkt;
   real *mma_f;
@@ -174,7 +171,7 @@ static void DoSample(cnumber n, real *x, real *f)
 
   MLPutFunction(stdlink, "EvaluatePacket", 1);
   MLPutFunction(stdlink, "Cuba`Cuhre`sample", 1);
-  MLPutRealList(stdlink, x, n*ndim_);
+  MLPutRealList(stdlink, x, n*t->ndim);
   MLEndPacket(stdlink);
 
   while( (pkt = MLNextPacket(stdlink)) && (pkt != RETURNPKT) )
@@ -185,61 +182,65 @@ static void DoSample(cnumber n, real *x, real *f)
     MLNewPacket(stdlink);
 abort:
     MLPutFunction(stdlink, "Abort", 0);
-    longjmp(abort_, 1);
+    longjmp(t->abort, 1);
   }
 
-  if( mma_n != n*ncomp_ ) {
+  if( mma_n != n*t->ncomp ) {
     MLDisownRealList(stdlink, mma_f, mma_n);
     MLPutSymbol(stdlink, "$Failed");
-    longjmp(abort_, 1);
+    longjmp(t->abort, 1);
   }
 
-  Copy(f, mma_f, n*ncomp_);
+  Copy(f, mma_f, n*t->ncomp);
   MLDisownRealList(stdlink, mma_f, mma_n);
 
-  neval_ += n;
+  t->neval += n;
 }
 
 /*********************************************************************/
 
 #include "common.c"
 
+static inline void DoIntegrate(This *t)
+{
+  real integral[NCOMP], error[NCOMP], prob[NCOMP];
+  cint fail = Integrate(t, integral, error, prob);
+
+  if( fail < 0 ) {
+    if( fail == -1 ) Status("baddim", t->ndim, 0);
+    else Status("badcomp", t->ncomp, 0);
+    MLPutSymbol(stdlink, "$Failed");
+  }
+  else {
+    Status(fail ? "accuracy" : "success", t->neval, t->nregions);
+    MLPutFunction(stdlink, "Thread", 1);
+    MLPutFunction(stdlink, "List", 3);
+    MLPutRealList(stdlink, integral, t->ncomp);
+    MLPutRealList(stdlink, error, t->ncomp);
+    MLPutRealList(stdlink, prob, t->ncomp);
+  }
+}
+
+/*********************************************************************/
+
 void Cuhre(cint ndim, cint ncomp,
   creal epsrel, creal epsabs,
   cint flags, cnumber mineval, cnumber maxeval,
   cint key)
 {
-  ndim_ = ndim;
-  ncomp_ = ncomp;
+  This t;
+  t.ndim = ndim;
+  t.ncomp = ncomp;
+  t.epsrel = epsrel;
+  t.epsabs = epsabs;
+  t.flags = flags;
+  t.mineval = mineval;
+  t.maxeval = maxeval;
+  t.key = key;
+  t.nregions = 0;
+  t.neval = 0;
 
-  if( BadComponent(ncomp) ) {
-    Status("badcomp", ncomp, 0);
-    MLPutSymbol(stdlink, "$Failed");
-  }
-  else if( BadDimension(ndim) ) {
-    Status("baddim", ndim, 0);
-    MLPutSymbol(stdlink, "$Failed");
-  }
-  else {
-    real integral[NCOMP], error[NCOMP], prob[NCOMP];
-    count comp;
-    int fail;
-
-    neval_ = 0;
-
-    fail = Integrate(epsrel, Max(epsabs, NOTZERO),
-      flags, mineval, maxeval, key,
-      integral, error, prob);
-
-    Status(fail ? "accuracy" : "success", neval_, nregions_);
-
-    MLPutFunction(stdlink, "List", ncomp);
-    for( comp = 0; comp < ncomp; ++comp ) {
-      real res[] = {integral[comp], error[comp], prob[comp]};
-      MLPutRealList(stdlink, res, Elements(res));
-    }
-  }
-
+  DoIntegrate(&t);
   MLEndPacket(stdlink);
 }
 

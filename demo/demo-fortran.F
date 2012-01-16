@@ -1,25 +1,31 @@
 * demo-fortran.F
 * test program for the Cuba library
-* last modified 2 Feb 05 th
+* last modified 19 May 10 th
 
 
 	program CubaTest
 	implicit none
 
-	integer ndim, ncomp, mineval, maxeval, verbose, last
-	double precision epsrel, epsabs
+	integer ndim, ncomp, verbose, last, seed, mineval, maxeval
+	double precision epsrel, epsabs, userdata
 	parameter (ndim = 3)
 	parameter (ncomp = 1)
+	parameter (userdata = 0)
 	parameter (epsrel = 1D-3)
 	parameter (epsabs = 1D-12)
 	parameter (verbose = 2)
 	parameter (last = 4)
+	parameter (seed = 0)
 	parameter (mineval = 0)
 	parameter (maxeval = 50000)
 
-	integer nstart, nincrease
+	integer nstart, nincrease, nbatch, gridno
+	character*(*) statefile	
 	parameter (nstart = 1000)
 	parameter (nincrease = 500)
+	parameter (nbatch = 1000)
+	parameter (gridno = 0)
+	parameter (statefile = "")
 
 	integer nnew
 	double precision flatness
@@ -52,9 +58,10 @@
 
 	print *, "-------------------- Vegas test --------------------"
 
-	call vegas(ndim, ncomp, integrand,
-     &    epsrel, epsabs, verbose, mineval, maxeval,
-     &    nstart, nincrease,
+	call vegas(ndim, ncomp, integrand, userdata,
+     &    epsrel, epsabs, verbose, seed,
+     &    mineval, maxeval, nstart, nincrease, nbatch,
+     &    gridno, statefile,
      &    neval, fail, integral, error, prob)
 
 	print *, "neval    =", neval
@@ -65,9 +72,9 @@
 	print *, " "
 	print *, "-------------------- Suave test --------------------"
 
-	call suave(ndim, ncomp, integrand,
-     &    epsrel, epsabs, verbose + last, mineval, maxeval,
-     &    nnew, flatness,
+	call suave(ndim, ncomp, integrand, userdata,
+     &    epsrel, epsabs, verbose + last, seed,
+     &    mineval, maxeval, nnew, flatness,
      &    nregions, neval, fail, integral, error, prob)
 
 	print *, "nregions =", nregions
@@ -79,9 +86,9 @@
 	print *, " "
 	print *, "------------------- Divonne test -------------------"
 
-	call divonne(ndim, ncomp, integrand,
-     &    epsrel, epsabs, verbose, mineval, maxeval,
-     &    key1, key2, key3, maxpass,
+	call divonne(ndim, ncomp, integrand, userdata,
+     &    epsrel, epsabs, verbose, seed,
+     &    mineval, maxeval, key1, key2, key3, maxpass,
      &    border, maxchisq, mindeviation,
      &    ngiven, ldxgiven, 0, nextra, 0,
      &    nregions, neval, fail, integral, error, prob)
@@ -95,9 +102,9 @@
 	print *, " "
 	print *, "-------------------- Cuhre test --------------------"
 
-	call cuhre(ndim, ncomp, integrand,
-     &    epsrel, epsabs, verbose + last, mineval, maxeval,
-     &    key,
+	call cuhre(ndim, ncomp, integrand, userdata,
+     &    epsrel, epsabs, verbose + last,
+     &    mineval, maxeval, key,
      &    nregions, neval, fail, integral, error, prob)
 
 	print *, "nregions =", nregions
@@ -110,7 +117,7 @@
 
 ************************************************************************
 
-	subroutine integrand(ndim, xx, ncomp, ff)
+	integer function integrand(ndim, xx, ncomp, ff)
 	implicit none
 	integer ndim, ncomp
 	double precision xx(*), ff(*)
@@ -158,5 +165,7 @@
 	  f = 0
 	endif
 #endif
+
+	integrand = 0
 	end
 
