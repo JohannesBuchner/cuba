@@ -92,7 +92,7 @@
 
 :Evaluate: Cuhre::badsample = "`` is not a real-valued function at ``."
 
-:Evaluate: Cuhre::baddim = "Can integrate only in dimensions `` through ``."
+:Evaluate: Cuhre::baddim = "Cannot integrate in `` dimensions."
 
 :Evaluate: Cuhre::accuracy =
 	"Desired accuracy was not reached within `` function evaluations on `` subregions."
@@ -108,7 +108,7 @@
 	Cuhre.tm
 		Adaptive integration using cubature rules
 		by Thomas Hahn
-		last modified 13 Apr 04
+		last modified 17 Jan 05 th
 */
 
 
@@ -150,7 +150,7 @@ static void Print(MLCONST char *s)
 
 /*********************************************************************/
 
-static void DoSample(ccount n, real *x, real *f)
+static void DoSample(cnumber n, real *x, real *f)
 {
   int pkt;
   real *mma_f;
@@ -190,15 +190,15 @@ abort:
 
 #include "common.c"
 
-void Cuhre(ccount ndim, ccount ncomp,
-  creal epsrel, creal epsabs, cint flags, ccount mineval, ccount maxeval,
-  ccount key)
+void Cuhre(cint ndim, cint ncomp,
+  creal epsrel, creal epsabs, cint flags, cint mineval, cint maxeval,
+  cint key)
 {
   ndim_ = ndim;
   ncomp_ = ncomp;
 
-  if( ndim < MINDIM || ndim > MAXDIM ) {
-    Status("baddim", MINDIM, MAXDIM);
+  if( BadDimension(ndim) ) {
+    Status("baddim", ndim, 0);
     MLPutSymbol(stdlink, "$Failed");
   }
   else {

@@ -2,17 +2,18 @@
 	vegas-f.c
 		Fortran interface for Vegas
 		this file is part of Vegas
-		last modified 18 Nov 04 th
+		last modified 19 Jan 05 th
 */
 
 
 #include "decl.h"
 
-extern char vegasstate_[];
+extern char vegasstate_[MAXSTATESIZE];
 
 #ifdef HAVE_UNDERSCORE
 #define vegas vegas_
 #endif
+
 
 void Vegas(ccount ndim, ccount ncomp, Integrand integrand,
   creal epsrel, creal epsabs,
@@ -32,7 +33,7 @@ void vegas(ccount *pndim, ccount *pncomp, Integrand integrand,
   /* make sure the filename is null-terminated */
   if( *vegasstate_ ) {
     char *p;
-    vegasstate_[STATESIZE - 1] = 0;
+    vegasstate_[sizeof(vegasstate_) - 1] = 0;
     if( (p = strchr(vegasstate_, ' ')) ) *p = 0;
   }
 

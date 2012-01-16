@@ -63,3 +63,23 @@ static inline void DEBRegion(const char *s, cBounds *b)
 }
 */
 
+
+static inline void DEBMem(const char *s)
+{
+  int kbytes = -1;
+  FILE *f;
+  char procfile[128];
+
+  sprintf(procfile, "/proc/%d/status", getpid());
+  f = fopen(procfile, "r");
+  while( !feof(f) ) {
+    char s[128];
+    *s = 0;
+    fgets(s, sizeof(s), f);
+    if( sscanf(s, "VmSize: %d", &kbytes) == 1 ) break;
+  }
+  fclose(f);
+
+  DEB("MEM %s: %d kbytes\n", s, kbytes);
+}
+

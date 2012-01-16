@@ -2,17 +2,17 @@
 	Integrate.c
 		integrate over the unit hypercube
 		this file is part of Cuhre
-		last modified 23 Dec 04
+		last modified 17 Jan 05 th
 */
 
 
 static int Integrate(creal epsrel, creal epsabs,
-  cint flags, count mineval, ccount maxeval, ccount key,
+  cint flags, number mineval, cnumber maxeval, ccount key,
   real *integral, real *error, real *prob)
 {
   TYPEDEFREGION;
 
-  count dim, comp, minregions;
+  count dim, comp;
   int fail = 1;
   Rule rule;
   Totals totals[NCOMP];
@@ -21,12 +21,14 @@ static int Integrate(creal epsrel, creal epsabs,
   if( VERBOSE > 1 ) {
     char s[256];
     sprintf(s, "Cuhre input parameters:\n"
-      "  ndim %d\n  ncomp %d\n"
-      "  epsrel %g\n  epsabs %g\n"
-      "  flags %d\n  mineval %d\n  maxeval %d\n  key %d",
+      "  ndim " COUNT "\n  ncomp " COUNT "\n"
+      "  epsrel " REAL "\n  epsabs " REAL "\n"
+      "  flags %d\n  mineval " NUMBER"\n  maxeval " NUMBER "\n"
+      "  key " COUNT,
       ndim_, ncomp_,
       epsrel, epsabs,
-      flags, mineval, maxeval, key);
+      flags, mineval, maxeval,
+      key);
     Print(s);
   }
 
@@ -80,12 +82,14 @@ static int Integrate(creal epsrel, creal epsabs,
     if( VERBOSE ) {
       char s[128 + 128*NCOMP], *p = s;
 
-      p += sprintf(p, "\nIteration %d:  %d integrand evaluations so far",
+      p += sprintf(p, "\n"
+        "Iteration " COUNT ":  " NUMBER " integrand evaluations so far",
         nregions_, neval_);
 
       for( comp = 0; comp < ncomp_; ++comp ) {
         cTotals *tot = &totals[comp];
-        p += sprintf(p, "\n[%d] %g +- %g  \tchisq %g (%d df)",
+        p += sprintf(p, "\n[" COUNT "] "
+          REAL " +- " REAL "  \tchisq " REAL " (" COUNT " df)",
           comp + 1, tot->avg, tot->err, tot->chisq, nregions_ - 1);
       }
 
@@ -93,6 +97,7 @@ static int Integrate(creal epsrel, creal epsabs,
     }
 
     maxratio = -INFTY;
+    maxcomp = 0;
     for( comp = 0; comp < ncomp_; ++comp ) {
       creal ratio = totals[comp].err/
         Max(epsabs, fabs(totals[comp].avg)*epsrel);
@@ -110,6 +115,8 @@ static int Integrate(creal epsrel, creal epsabs,
     if( neval_ >= maxeval ) break;
 
     maxerr = -INFTY;
+    parent = &anchor;
+    region = anchor;
     for( par = &anchor; (reg = *par); par = &reg->next ) {
       creal err = reg->result[maxcomp].err;
       if( err > maxerr ) {
@@ -127,8 +134,8 @@ static int Integrate(creal epsrel, creal epsabs,
     regionR->next = region->next;
     regionL->div = regionR->div = region->div + 1;
 
-    Copy(regionL->bounds, region->bounds, ndim_);
-    Copy(regionR->bounds, region->bounds, ndim_);
+    VecCopy(regionL->bounds, region->bounds);
+    VecCopy(regionR->bounds, region->bounds);
 
     bisectdim = region->result[maxcomp].bisectdim;
     bL = &regionL->bounds[bisectdim];

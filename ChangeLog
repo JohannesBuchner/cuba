@@ -1,0 +1,47 @@
+27 Jan 05
+
+- Added a preprocessor flag NO_LONG_DOUBLE to disable the use
+  of long doubles on systems that don't have it.
+
+25 Jan 05
+
+- Rearranged Vegas to sample in batches of NBATCH points to
+  reduce memory consumption.
+
+21 Jan 05
+
+- Fixed bug in Divonne: Final result was wrong if not enough
+  samples left for Phase 3.
+
+19 Jan 05
+
+- Updated manual re pseudo-random sampling.
+
+17 Jan 05
+
+- Introduced "number" typedef, might be useful when using wide ints.
+  Not well tested, though.
+- Substituted [sd]rand48 by Mersenne Twister generator.
+
+14 Jan 05
+
+- Added pseudo-rng (bit 3 in flags).
+- Collected common declarations in stddecl.h.
+- Better checking of dimension (e.g. in Divonne, all cases).
+
+12 Jan 05
+
+- Updated manual re vegas{grid,state}.
+
+23 Dec 04
+
+- Fixed a memory leak in Cuhre.
+
+18 Nov 04
+
+- Added vegasstate load/restore of internal state.
+
+16 Jul 04
+
+- Added vegasgrid.
+

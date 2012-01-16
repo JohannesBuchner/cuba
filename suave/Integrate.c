@@ -2,13 +2,13 @@
 	Integrate.c
 		integrate over the unit hypercube
 		this file is part of Suave
-		last modified 20 Dec 04
+		last modified 25 Jan 05 th
 */
 
 
 static int Integrate(creal epsrel, creal epsabs,
-  cint flags, ccount mineval, ccount maxeval,
-  ccount nnew, creal flatness,
+  cint flags, cnumber mineval, cnumber maxeval,
+  cnumber nnew, creal flatness,
   real *integral, real *error, real *prob)
 {
   TYPEDEFREGION;
@@ -21,10 +21,10 @@ static int Integrate(creal epsrel, creal epsabs,
   if( VERBOSE > 1 ) {
     char s[256];
     sprintf(s, "Suave input parameters:\n"
-      "  ndim %d\n  ncomp %d\n"
-      "  epsrel %g\n  epsabs %g\n"
-      "  flags %d\n  mineval %d\n  maxeval %d\n"
-      "  nnew %d\n  flatness %g",
+      "  ndim " COUNT "\n  ncomp " COUNT "\n"
+      "  epsrel " REAL "\n  epsabs " REAL "\n"
+      "  flags %d\n  mineval " NUMBER "\n  maxeval " NUMBER "\n"
+      "  nnew " NUMBER "\n  flatness " REAL,
       ndim_, ncomp_,
       epsrel, epsabs,
       flags, mineval, maxeval,
@@ -60,25 +60,28 @@ static int Integrate(creal epsrel, creal epsabs,
   Sample(nnew, anchor, anchor->w,
     anchor->w + nnew, anchor->w + (ndim_ + 1)*nnew, flags);
   df = anchor->df;
-  Copy(totals, anchor->result, ncomp_);
+  ResCopy(totals, anchor->result);
 
   for( nregions_ = 1; ; ++nregions_ ) {
     Var var[NDIM][2], *vLR;
     real maxratio, maxerr, minfluct, bias, mid;
     Region *regionL, *regionR, *reg, **parent, **par;
     Bounds *bounds, *boundsL, *boundsR;
-    count maxcomp, bisectdim, n, nL, nR, nnewL, nnewR;
+    count maxcomp, bisectdim;
+    number n, nL, nR, nnewL, nnewR;
     real *w, *wL, *wR, *x, *xL, *xR, *f, *fL, *fR, *wlast, *flast;
 
     if( VERBOSE ) {
       char s[128 + 128*NCOMP], *p = s;
 
-      p += sprintf(p, "\nIteration %d:  %d integrand evaluations so far",
+      p += sprintf(p, "\n"
+        "Iteration " COUNT ":  " NUMBER " integrand evaluations so far",
         nregions_, neval_);
 
       for( comp = 0; comp < ncomp_; ++comp ) {
         cResult *tot = &totals[comp];
-        p += sprintf(p, "\n[%d] %g +- %g  \tchisq %g (%d df)",
+        p += sprintf(p, "\n[" COUNT "] " 
+          REAL " +- " REAL "  \tchisq " REAL " (" COUNT " df)",
           comp + 1, tot->avg, tot->err, tot->chisq, df);
       }
 
@@ -86,8 +89,10 @@ static int Integrate(creal epsrel, creal epsabs,
     }
 
     maxratio = -INFTY;
+    maxcomp = 0;
     for( comp = 0; comp < ncomp_; ++comp ) {
-      creal ratio = totals[comp].err/Max(epsabs, fabs(totals[comp].avg)*epsrel);
+      creal ratio = totals[comp].err/
+        Max(epsabs, fabs(totals[comp].avg)*epsrel);
       if( ratio > maxratio ) {
         maxratio = ratio;
         maxcomp = comp;
@@ -102,6 +107,8 @@ static int Integrate(creal epsrel, creal epsabs,
     if( neval_ >= maxeval ) break;
 
     maxerr = -INFTY;
+    parent = &anchor;
+    region = anchor;
     for( par = &anchor; (reg = *par); par = &reg->next ) {
       creal err = reg->result[maxcomp].err;
       if( err > maxerr ) {
@@ -158,17 +165,17 @@ static int Integrate(creal epsrel, creal epsabs,
       if( x[bisectdim] < mid ) {
         if( final && wR > regionR->w ) *(wR - 1) = -fabs(*(wR - 1));
         *wL++ = *w++;
-        Copy(xL, x, ndim_);
-        Copy(fL, f, ncomp_);
+        VecCopy(xL, x);
         xL += ndim_;
+        ResCopy(fL, f);
         fL += ncomp_;
       }
       else {
         if( final && wL > regionL->w ) *(wL - 1) = -fabs(*(wL - 1));
         *wR++ = *w++;
-        Copy(xR, x, ndim_);
-        Copy(fR, f, ncomp_);
+        VecCopy(xR, x);
         xR += ndim_;
+        ResCopy(fR, f);
         fR += ncomp_;
       }
       x += ndim_;
@@ -177,8 +184,8 @@ static int Integrate(creal epsrel, creal epsabs,
     }
 
     Reweight(region->bounds, wlast, flast, f, totals);
-    Copy(regionL->bounds, region->bounds, ndim_);
-    Copy(regionR->bounds, region->bounds, ndim_);
+    VecCopy(regionL->bounds, region->bounds);
+    VecCopy(regionR->bounds, region->bounds);
 
     boundsL = &regionL->bounds[bisectdim];
     boundsR = &regionR->bounds[bisectdim];

@@ -4,7 +4,7 @@
 		has approximately equal spread = 1/2 vol (max - min),
 		then do a final integration over all regions
 		this file is part of Divonne
-		last modified 16 Dec 04 th
+		last modified 21 Jan 05 th
 */
 
 
@@ -14,7 +14,7 @@
 /*********************************************************************/
 
 static int Integrate(creal epsrel, creal epsabs,
-  cint flags, ccount mineval, ccount maxeval,
+  cint flags, cnumber mineval, cnumber maxeval,
   int key1, int key2, int key3, ccount maxpass, 
   creal maxchisq, creal mindeviation,
   real *integral, real *error, real *prob)
@@ -24,19 +24,19 @@ static int Integrate(creal epsrel, creal epsabs,
   Region anchor, *region;
   Totals totals[NCOMP];
   real nneed, weight;
-  count dim, comp, iter, pass = 0, nwant, err;
-  count nmin = INT_MAX;
+  count dim, comp, iter, pass = 0, err;
+  number nwant, nmin = INT_MAX;
   int fail = -1;
 
   if( VERBOSE > 1 ) {
     char s[512];
     sprintf(s, "Divonne input parameters:\n"
-      "  ndim %d\n  ncomp %d\n"
-      "  epsrel %g\n  epsabs %g\n"
-      "  flags %d\n  mineval %d\n  maxeval %d\n"
-      "  key1 %d\n  key2 %d\n  key3 %d\n  maxpass %d\n"
-      "  border %g\n  maxchisq %g\n  mindeviation %g\n"
-      "  ngiven %d\n  nextra %d\n",
+      "  ndim " COUNT "\n  ncomp " COUNT "\n"
+      "  epsrel " REAL "\n  epsabs " REAL "\n"
+      "  flags %d\n  mineval " NUMBER "\n  maxeval " NUMBER "\n"
+      "  key1 %d\n  key2 %d\n  key3 %d\n  maxpass " COUNT "\n"
+      "  border " REAL "\n  maxchisq " REAL "\n  mindeviation " REAL "\n"
+      "  ngiven " NUMBER "\n  nextra " NUMBER "\n",
       ndim_, ncomp_,
       epsrel, epsabs,
       flags, mineval, maxeval,
@@ -69,10 +69,11 @@ static int Integrate(creal epsrel, creal epsabs,
 
   if( VERBOSE ) Print("Partitioning phase:");
 
-  if( SOBOL(key1) || SOBOL(key2) || SOBOL(key3) )
-    IniRandom(2*maxeval, ndim_);
+  if( IsSobol(key1) || IsSobol(key2) || IsSobol(key3) )
+    IniRandom(2*maxeval, flags);
 
-  SamplesLookup(&samples_[0], key1, 47, INT_MAX, 0);
+  SamplesLookup(&samples_[0], key1,
+    (number)47, (number)INT_MAX, (number)0);
   SamplesAlloc(&samples_[0]);
 
   totals_ = totals;
@@ -121,14 +122,15 @@ static int Integrate(creal epsrel, creal epsabs,
       char s[128 + 64*NCOMP], *p = s;
 
       p += sprintf(p, "\n"
-        "Iteration %d:  %d regions\n"
-        "%7d integrand evaluations so far,\n"
-        "%7d in optimizing regions,\n"
-        "%7d in finding cuts",
+        "Iteration " COUNT ":  " COUNT " regions\n"
+        NUMBER7 " integrand evaluations so far,\n"
+        NUMBER7 " in optimizing regions,\n"
+        NUMBER7 " in finding cuts",
         iter, nregions_, neval_, neval_opt_, neval_cut_);
 
       for( comp = 0; comp < ncomp_; ++comp )
-        p += sprintf(p, "\n[%d] %g +- %g",
+        p += sprintf(p, "\n[" COUNT "] "
+          REAL " +- " REAL,
           comp + 1, integral[comp], error[comp]);
 
       Print(s);
@@ -138,7 +140,7 @@ static int Integrate(creal epsrel, creal epsabs,
 
     nneed = maxtot->spread/Max(fabs(maxtot->avg)*epsrel, epsabs);
     if( nneed < MAXPRIME ) {
-      ccount n = neval_ + nregions_*(count)(nneed + .5);
+      cnumber n = neval_ + nregions_*(number)(nneed + .5);
       if( n < nmin ) {
         nmin = n;
         pass = 0;
@@ -180,7 +182,7 @@ static int Integrate(creal epsrel, creal epsabs,
 
     if( VERBOSE ) {
       char s[128];
-      sprintf(s, "\nFinal integration on %d regions with %d samples per region.",
+      sprintf(s, "\nFinal integration on " COUNT " regions with " NUMBER " samples per region.",
         nregions_, samples_[1].neff);
       Print(s);
     }
@@ -202,17 +204,17 @@ refine:
       nlimit += samples_[1].n;
       todo = 0;
 
-      if( neval_ < nlimit ) {
-        for( comp = 0; comp < ncomp_; ++comp ) {
-          cResult *r = &region->result[comp];
-          Totals *tot = &totals[comp];
+      for( comp = 0; comp < ncomp_; ++comp ) {
+        cResult *r = &region->result[comp];
+        Totals *tot = &totals[comp];
 
+        samples_[0].avg[comp] = r->avg;
+        samples_[0].err[comp] = r->err;
+
+        if( neval_ < nlimit ) {
           creal avg2 = samples_[1].avg[comp];
           creal err2 = samples_[1].err[comp];
           creal diffsq = Sq(avg2 - r->avg);
-
-          samples_[0].avg[comp] = r->avg;
-          samples_[0].err[comp] = r->err;
 
 #define Var(s) Sq((s.err[comp] == 0) ? r->spread*s.weight : s.err[comp])
 
@@ -231,23 +233,24 @@ refine:
             todo |= 1;
           }
         }
+      }
 
-        switch( todo ) {
-        case 1:	/* get spread right */
-          Explore(region, &samples_[1], 0, 2);
-          break;
+      switch( todo ) {
+      case 1:	/* get spread right */
+        Explore(region, &samples_[1], 0, 2);
+        break;
 
-        case 3:	/* sample region again with more points */
-          if( MEM(&samples_[2]) == NULL ) {
-            SamplesLookup(&samples_[2], key3, nwant, INT_MAX, 0);
-            SamplesAlloc(&samples_[2]);
-          }
-          phase_ = 3;
-          samples_[2].sampler(&samples_[2], region->bounds, region->vol);
-          Explore(region, &samples_[2], 0, 2);
-          ++region->depth;	/* misused for df here */
-          ++df;
+      case 3:	/* sample region again with more points */
+        if( MEM(&samples_[2]) == NULL ) {
+          SamplesLookup(&samples_[2], key3,
+            nwant, (number)INT_MAX, (number)0);
+          SamplesAlloc(&samples_[2]);
         }
+        phase_ = 3;
+        samples_[2].sampler(&samples_[2], region->bounds, region->vol);
+        Explore(region, &samples_[2], 0, 2);
+        ++region->depth;	/* misused for df here */
+        ++df;
       }
 
       ++region->depth;	/* misused for df here */
@@ -257,8 +260,8 @@ refine:
         for( dim = 0; dim < ndim_; ++dim ) {
           cBounds *b = &region->bounds[dim];
           p += sprintf(p,
-            (dim == 0) ? "\nRegion (%f) - (%f)" :
-                         "\n       (%f) - (%f)",
+            (dim == 0) ? "\nRegion (" REALF ") - (" REALF ")" :
+                         "\n       (" REALF ") - (" REALF ")",
             b->lower, b->upper);
         }
       }
@@ -296,10 +299,14 @@ refine:
 #define Out(s) s.avg[comp], r->spread*s.weight, s.err[comp]
 
         if( VERBOSE > 2 ) {
-          p += sprintf(p, "\n[%d] %g +- %g(%g)\n    %g +- %g(%g)",
+          p += sprintf(p, "\n[" COUNT "] "
+            REAL " +- " REAL "(" REAL ")\n    "
+            REAL " +- " REAL "(" REAL ")",
             comp + 1, Out(samples_[0]), Out(samples_[1]));
-          if( todo == 3 ) p += sprintf(p, "\n    %g +- %g(%g)", Out(samples_[2]));
-          p += sprintf(p, "  \tchisq %g", chisq);
+          if( todo == 3 ) p += sprintf(p, "\n    "
+            REAL " +- " REAL "(" REAL ")",
+            Out(samples_[2]));
+          p += sprintf(p, "  \tchisq " REAL, chisq);
         }
 
         integral[comp] += avg;
@@ -325,7 +332,8 @@ refine:
       p += sprintf(p, "\nTotals:");
 
       for( comp = 0; comp < ncomp_; ++comp )
-        p += sprintf(p, "\n[%d] %g +- %g  \tchisq %g (%d df)",
+        p += sprintf(p, "\n[" COUNT "] "
+          REAL " +- " REAL "  \tchisq " REAL " (" COUNT " df)",
           comp + 1, integral[comp], error[comp], prob[comp], df);
 
       Print(s);

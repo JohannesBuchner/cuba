@@ -2,7 +2,7 @@
 	Sample.c
 		most of what is related to sampling
 		this file is part of Divonne
-		last modified 3 Jun 04 th
+		last modified 17 Jan 05 th
 */
 
 
@@ -32,8 +32,9 @@ static void SampleSobol(cSamples *samples, cBounds *b, creal vol)
 {
   creal norm = vol*samples->weight;
   real *x = samples->x, *f = samples->f, *avg = samples->avg;
-  ccount n = samples->n;
-  count i, dim, comp;
+  cnumber n = samples->n;
+  number i;
+  count dim, comp;
 
   for( i = 0; i < n; ++i ) {
     GetRandom(x);
@@ -61,13 +62,13 @@ static void SampleKorobov(cSamples *samples, cBounds *b, creal vol)
   real *x = samples->x, *xlast = x + ndim_;
   real *f = samples->f, *flast = f + ncomp_;
   real *avg = samples->avg;
-  ccount n = samples->n, neff = samples->neff;
-  count nextra = n;
+  cnumber n = samples->n, neff = samples->neff;
+  number nextra = n, i;
   real dist = 0;
-  count i, dim, comp;
+  count dim, comp;
 
   for( i = 1; i < n; ++i ) {
-    count c = i;
+    number c = i;
     for( dim = 0; dim < ndim_; ++dim ) {
       creal dx = abs(2*c - neff)*samples->weight;
       *xlast++ = b[dim].lower + dx*(b[dim].upper - b[dim].lower);
@@ -114,7 +115,8 @@ static void SampleKorobov(cSamples *samples, cBounds *b, creal vol)
 
 /*********************************************************************/
 
-#define SOBOL(n) (n < 0)
+#define IsSobol(k) NegQ(k)
+#define IsRule(k, d) (k == 9 || k == 7 || (k == 11 && d == 3) || (k == 13 && d == 2))
 
 /* The following coding is used for n1, n2, n3:
              0 = for n1, n2: use default,
@@ -130,9 +132,9 @@ static void SampleKorobov(cSamples *samples, cBounds *b, creal vol)
        40..inf = absolute # of points, Korobov numbers.  */
 
 static count SamplesLookup(Samples *samples, int key,
-  ccount nwant, ccount nmax, count nmin)
+  cnumber nwant, cnumber nmax, number nmin)
 {
-  count n;
+  number n;
 
   if( key == 13 && ndim_ == 2 ) {
     if( rule13_.first == NULL ) Rule13Alloc(&rule13_);
@@ -180,7 +182,7 @@ static void SamplesAlloc(Samples *samples)
 
 #include "KorobovCoeff.c"
 
-  count nx, nf;
+  number nx, nf;
 
   if( samples->sampler == SampleKorobov ) {
     enum { max = Elements(prime) - 2 };
@@ -217,7 +219,8 @@ static real Sample(creal *x0)
 {
   real xtmp[2*NDIM], ftmp[2*NCOMP], *xlast = xtmp, f;
   real dist = 0;
-  count dim, nextra = 1;
+  count dim;
+  number nextra = 1;
 
   for( dim = 0; dim < ndim_; ++dim ) {
     creal x1 = *xlast++ = Min(Max(*x0++, 0), 1);

@@ -2,7 +2,7 @@ static void Explore(void *voidregion, cSamples *samples, cint depth, cint flags)
 
 static void Split(void *voidregion, int depth);
 
-#include "Sobol.c"
+#include "Random.c"
 #include "ChiSquare.c"
 #include "Rule.c"
 #include "Sample.c"
@@ -11,20 +11,14 @@ static void Split(void *voidregion, int depth);
 #include "Split.c"
 #include "Integrate.c"
 
-#if KOROBOV_MINDIM > SOBOL_MINDIM
-#define MINDIM KOROBOV_MINDIM
-#else
-#define MINDIM SOBOL_MINDIM
+static inline bool BadDimension(ccount ndim, cint flags, ccount key)
+{
+#if NDIM > 0
+  if( ndim > NDIM ) return true;
 #endif
-
-#if KOROBOV_MAXDIM < SOBOL_MAXDIM
-#define MAXDIM KOROBOV_MAXDIM
-#else
-#define MAXDIM SOBOL_MAXDIM
-#endif
-
-#if NDIM > 0 && NDIM < MAXDIM
-#undef MAXDIM
-#define MAXDIM NDIM
-#endif
+  if( IsSobol(key) ) return
+    ndim < SOBOL_MINDIM || (!PSEUDORNG && ndim > SOBOL_MAXDIM);
+  if( IsRule(key, ndim) ) return ndim < 1;
+  return ndim < KOROBOV_MINDIM || ndim > KOROBOV_MAXDIM;
+}
 

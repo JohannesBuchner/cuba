@@ -2,7 +2,7 @@
 	Vegas.c
 		Vegas Monte-Carlo integration
 		by Thomas Hahn
-		last modified 13 Apr 04
+		last modified 17 Jan 05 th
 */
 
 
@@ -14,7 +14,7 @@ static Integrand integrand_;
 
 /*********************************************************************/
 
-static inline void DoSample(count n, creal *x, real *f)
+static inline void DoSample(number n, creal *x, real *f)
 {
   neval_ += n;
   while( n-- ) {
@@ -30,15 +30,15 @@ static inline void DoSample(count n, creal *x, real *f)
 
 void Vegas(ccount ndim, ccount ncomp, Integrand integrand,
   creal epsrel, creal epsabs,
-  cint flags, ccount mineval, ccount maxeval,
-  ccount nstart, ccount nincrease, 
-  count *pneval, int *pfail,
+  cint flags, cnumber mineval, cnumber maxeval,
+  cnumber nstart, cnumber nincrease,
+  number *pneval, int *pfail,
   real *integral, real *error, real *prob)
 {
   ndim_ = ndim;
   ncomp_ = ncomp;
 
-  if( ndim < MINDIM || ndim > MAXDIM ) *pfail = -1;
+  if( BadDimension(ndim, flags) ) *pfail = -1;
   else {
     neval_ = 0;
     integrand_ = integrand;

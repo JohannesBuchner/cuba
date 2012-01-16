@@ -80,6 +80,9 @@
 :Evaluate: System`Final::usage = "Final is an option of Divonne.
 	It can take the values Last or All which determine whether only the last (largest) or all sets of samples collected on a subregion over the integration phases contribute to the final result."
 
+:Evaluate: System`PseudoRandom::usage = "PseudoRandom is an option of Divonne.
+	If set to True, pseudo-random numbers are used instead of Sobol quasi-random numbers."
+
 :Evaluate: System`Regions::usage = "Regions is an option of Divonne.
 	It specifies whether the regions into which the integration region has been cut are returned together with the integration results."
 
@@ -112,19 +115,20 @@
 	Key1 -> 47, Key2 -> 1, Key3 -> 1, MaxPass -> 5,
 	Border -> 0, MaxChisq -> 10, MinDeviation -> .25,
 	Given -> {}, NExtra -> 0, PeakFinder -> ({}&),
-	Verbose -> 1, Final -> All, Regions -> False, Compiled -> True}
+	Verbose -> 1, Final -> All, PseudoRandom -> True,
+	Regions -> False, Compiled -> True}
 
 :Evaluate: Divonne[f_, v:{_, _, _}.., opt___Rule] :=
 	Block[ {ff = HoldForm[f], ndim = Length[{v}],
 	tags, vars, lower, range, jac, tmp, defs, integrand,
 	rel, abs, mineval, maxeval, key1, key2, key3, maxpass, border,
 	maxchisq, mindeviation,	given, nextra, peakfinder,
-	final, verbose, regions, compiled},
+	final, verbose, pseudo, regions, compiled},
 	  Message[Divonne::optx, #, Divonne]&/@
 	    Complement[First/@ {opt}, tags = First/@ Options[Divonne]];
 	  {rel, abs, mineval, maxeval, key1, key2, key3, maxpass, border,
 	    maxchisq, mindeviation, given, nextra, peakfinder,
-	    verbose, final, regions, compiled} =
+	    verbose, final, pseudo, regions, compiled} =
 	    tags /. {opt} /. Options[Divonne];
 	  {vars, lower, range} = Transpose[{v}];
 	  jac = Simplify[Times@@ (range -= lower)];
@@ -136,6 +140,7 @@
 	  MLDivonne[ndim, ncomp[f], 10.^-rel, 10.^-abs,
 	    Min[Max[verbose, 0], 3] +
 	      If[final === Last, 4, 0] +
+	      If[TrueQ[pseudo], 8, 0] +
 	      If[TrueQ[regions], 256, 0],
 	    mineval, maxeval, key1, key2, key3, maxpass,
 	    N[border], N[maxchisq], N[mindeviation],
@@ -176,7 +181,7 @@
 
 :Evaluate: Divonne::badsample = "`` is not a real-valued function at ``."
 
-:Evaluate: Divonne::baddim = "Can integrate only in dimensions `` through ``."
+:Evaluate: Divonne::baddim = "Cannot integrate in `` dimensions."
 
 :Evaluate: Divonne::accuracy =
 	"Desired accuracy was not reached within `` integrand evaluations on `` subregions.
@@ -195,7 +200,7 @@
 		originally by J.H. Friedman and M.H. Wright
 		(CERNLIB subroutine D151)
 		this version by Thomas Hahn
-		last modified 13 Apr 04
+		last modified 17 Jan 05 th
 */
 
 
@@ -238,7 +243,7 @@ static void Print(MLCONST char *s)
 
 /*********************************************************************/
 
-static void DoSample(ccount n, ccount ldx, real *x, real *f)
+static void DoSample(cnumber n, ccount ldx, real *x, real *f)
 {
   int pkt;
   real *mma_f;
@@ -315,10 +320,10 @@ static count SampleExtra(cBounds *b)
 
 #include "common.c"
 
-void Divonne(ccount ndim, ccount ncomp,
+void Divonne(cint ndim, cint ncomp,
   creal epsrel, creal epsabs,
-  cint flags, ccount mineval, ccount maxeval,
-  ccount key1, ccount key2, ccount key3, ccount maxpass,
+  cint flags, cint mineval, cint maxeval,
+  cint key1, cint key2, cint key3, cint maxpass,
   creal border, creal maxchisq, creal mindeviation,
   real *xgiven, clong nxgiven, real *fgiven, clong nfgiven,
   cint nextra)
@@ -326,8 +331,10 @@ void Divonne(ccount ndim, ccount ncomp,
   ndim_ = ndim;
   ncomp_ = ncomp;
 
-  if( ndim < MINDIM || ndim > MAXDIM ) {
-    Status("baddim", MINDIM, MAXDIM, 0);
+  if( BadDimension(ndim, flags, key1) ||
+      BadDimension(ndim, flags, key2) ||
+      ((key3 & -2) && BadDimension(ndim, flags, key3)) ) {
+    Status("baddim", ndim, 0, 0);
     MLPutSymbol(stdlink, "$Failed");
   }
   else {

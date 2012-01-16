@@ -4,7 +4,7 @@
 		code lifted with minor modifications from DCUHRE
 		by J. Berntsen, T. Espelid, and A. Genz
 		this file is part of Divonne
-		last modified 23 Dec 04 th
+		last modified 17 Jan 05 th
 */
 
 
@@ -634,7 +634,7 @@ static void Sample(cRule *rule, void *voidregion, cint flags)
   creal ratio = Sq(first[2].gen[0]/first[1].gen[0]);
 
   ccount offset = 2*ndim_*ncomp_;
-  count dim, comp, rul, n, maxdim;
+  count dim, comp, rul, n, maxdim = 0;
   real maxrange = 0;
 
   for( dim = 0; dim < ndim_; ++dim ) {

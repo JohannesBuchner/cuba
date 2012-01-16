@@ -88,9 +88,10 @@ int main()
     NSTART, NINCREASE,
     &neval, &fail, integral, error, prob);
 
-  printf("neval %d   fail %d\n", neval, fail);
+  printf("VEGAS RESULT:\tneval %d\tfail %d\n",
+    neval, fail);
   for( comp = 0; comp < NCOMP; ++comp )
-    printf("%20.12f +- %20.12f   p = %8.3f\n",
+    printf("VEGAS RESULT:\t%.8f +- %.8f\tp = %.3f\n",
       integral[comp], error[comp], prob[comp]);
 
   printf("\n-------------------- Suave test --------------------\n");
@@ -100,9 +101,10 @@ int main()
     NNEW, FLATNESS,
     &nregions, &neval, &fail, integral, error, prob);
 
-  printf("nregions %d   neval %d   fail %d\n", nregions, neval, fail);
+  printf("SUAVE RESULT:\tnregions %d\tneval %d\tfail %d\n",
+    nregions, neval, fail);
   for( comp = 0; comp < NCOMP; ++comp )
-    printf("%20.12f +- %20.12f   p = %8.3f\n",
+    printf("SUAVE RESULT:\t%.8f +- %.8f\tp = %.3f\n",
       integral[comp], error[comp], prob[comp]);
 
   printf("\n------------------- Divonne test -------------------\n");
@@ -113,9 +115,10 @@ int main()
     NGIVEN, LDXGIVEN, NULL, NEXTRA, NULL,
     &nregions, &neval, &fail, integral, error, prob);
 
-  printf("nregions %d   neval %d   fail %d\n", nregions, neval, fail);
+  printf("DIVONNE RESULT:\tnregions %d\tneval %d\tfail %d\n",
+    nregions, neval, fail);
   for( comp = 0; comp < NCOMP; ++comp )
-    printf("%20.12f +- %20.12f   p = %8.3f\n",
+    printf("DIVONNE RESULT:\t%.8f +- %.8f\tp = %.3f\n",
       integral[comp], error[comp], prob[comp]);
 
   printf("\n-------------------- Cuhre test --------------------\n");
@@ -125,9 +128,12 @@ int main()
     KEY,
     &nregions, &neval, &fail, integral, error, prob);
 
-  printf("nregions %d   neval %d   fail %d\n", nregions, neval, fail);
+  printf("CUHRE RESULT:\tnregions %d\tneval %d\tfail %d\n",
+    nregions, neval, fail);
   for( comp = 0; comp < NCOMP; ++comp )
-    printf("%20.12f +- %20.12f   p = %8.3f\n",
+    printf("CUHRE RESULT:\t%.8f +- %.8f\tp = %.3f\n",
       integral[comp], error[comp], prob[comp]);
+
+  return 0;
 }
 

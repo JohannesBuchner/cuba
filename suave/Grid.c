@@ -2,15 +2,15 @@
 	Grid.c
 		utility functions for the Vegas grid
 		this file is part of Suave
-		last modified 16 Jul 04 th
+		last modified 25 Jan 05 th
 */
 
 
-static void RefineGrid(Grid grid, real *margsum)
+static void RefineGrid(Grid grid, Grid margsum)
 {
   real avgperbin, thisbin;
   Grid imp, newgrid;
-  count bin, newbin;
+  int bin, newbin;
 
   /* smooth the f^2 value stored for each bin */
   real prev = margsum[0];
@@ -61,7 +61,8 @@ static void RefineGrid(Grid grid, real *margsum)
 static void Reweight(Bounds *b,
   creal *w, creal *f, creal *lastf, cResult *total)
 {
-  real margsum[NDIM][NBINS], scale[NCOMP];
+  Grid margsum[NDIM];
+  real scale[NCOMP];
   cbin_t *bin = (cbin_t *)lastf;
   count dim, comp;
 
@@ -74,13 +75,13 @@ static void Reweight(Bounds *b,
   Zap(margsum);
 
   while( f < lastf ) {
-    creal weight = *w++;
-    for( comp = 0; comp < ncomp_; ++comp ) {
-      creal fsq = Sq(*f++*weight*scale[comp]);
-      if( fsq == 0 ) continue;
+    real fsq = 0;
+    for( comp = 0; comp < ncomp_; ++comp )
+      fsq += Sq(*f++*scale[comp]);
+    fsq *= Sq(*w++);
+    if( fsq != 0 )
       for( dim = 0; dim < ndim_; ++dim )
         margsum[dim][bin[dim]] += fsq;
-    }
     bin += ndim_;
   }
 
@@ -93,8 +94,8 @@ static void Reweight(Bounds *b,
 static void StretchGrid(cGrid grid, Grid gridL, Grid gridR)
 {
   real prev = 0, cur, step, x;
-
   count bin = 0;
+
   while( bin < NBINS ) {
     cur = grid[bin++];
     if( cur >= .5 ) break;

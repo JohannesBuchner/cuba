@@ -2,7 +2,7 @@
 	Cuhre.c
 		Adaptive integration using cubature rules
 		by Thomas Hahn
-		last modified 13 Apr 04
+		last modified 14 Jan 05 th
 */
 
 
@@ -30,15 +30,15 @@ static inline void DoSample(count n, creal *x, real *f)
 
 void Cuhre(ccount ndim, ccount ncomp, Integrand integrand,
   creal epsrel, creal epsabs,
-  cint flags, ccount mineval, ccount maxeval,
+  cint flags, cnumber mineval, cnumber maxeval,
   ccount key,
-  count *pnregions, count *pneval, int *pfail,
+  count *pnregions, number *pneval, int *pfail,
   real *integral, real *error, real *prob)
 {
   ndim_ = ndim;
   ncomp_ = ncomp;
 
-  if( ndim < MINDIM || ndim > MAXDIM ) *pfail = -1;
+  if( BadDimension(ndim) ) *pfail = -1;
   else {
     neval_ = 0;
     integrand_ = integrand;

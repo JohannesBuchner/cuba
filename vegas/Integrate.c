@@ -2,20 +2,21 @@
 	Integrate.c
 		integrate over the unit hypercube
 		this file is part of Vegas
-		last modified 26 Nov 04
+		last modified 25 Jan 05 th
 */
 
 
 static int Integrate(creal epsrel, creal epsabs,
-  cint flags, ccount mineval, ccount maxeval,
-  ccount nstart, ccount nincrease,
+  cint flags, cnumber mineval, cnumber maxeval,
+  cnumber nstart, cnumber nincrease,
   real *integral, real *error, real *prob)
 {
   real *sample;
   count dim, comp;
   int fail = 1;
   struct {
-    count niter, nsamples, neval;
+    count niter;
+    number nsamples, neval;
     Cumulants cumul[NCOMP];
     Grid grid[NDIM];
   } state;
@@ -25,14 +26,16 @@ static int Integrate(creal epsrel, creal epsabs,
   if( VERBOSE > 1 ) {
     char s[256];
     sprintf(s, "Vegas input parameters:\n"
-      "  ndim %d\n  ncomp %d\n"
-      "  epsrel %g\n  epsabs %g\n"
-      "  flags %d\n  mineval %d\n  maxeval %d\n"
-      "  nstart %d\n  nincrease %d",
+      "  ndim " COUNT "\n  ncomp " COUNT "\n"
+      "  epsrel " REAL "\n  epsabs " REAL "\n"
+      "  flags %d\n  mineval " NUMBER "\n  maxeval " NUMBER "\n"
+      "  nstart " NUMBER "\n  nincrease " NUMBER "\n"
+      "  vegasgridno %d\n  vegasstate \"%s\"\n",
       ndim_, ncomp_,
       epsrel, epsabs,
       flags, mineval, maxeval,
-      nstart, nincrease);
+      nstart, nincrease,
+      vegasgridno_, vegasstate_);
     Print(s);
   }
 
@@ -40,7 +43,7 @@ static int Integrate(creal epsrel, creal epsabs,
   if( setjmp(abort_) ) goto abort;
 #endif
 
-  IniRandom(2*maxeval, ndim_);
+  IniRandom(2*maxeval, flags);
 
   if( *vegasstate_ && stat(vegasstate_, &st) == 0 &&
       st.st_size == sizeof(state) && (st.st_mode & 0400) ) {
@@ -62,51 +65,65 @@ static int Integrate(creal epsrel, creal epsabs,
     GetGrid(state.grid);
   }
 
+  SamplesAlloc(sample, NBATCH);
+
   /* main iteration loop */
 
   for( ; ; ) {
-    count n;
-    creal jacobian = 1./state.nsamples;
-    real *w, *x, *f, *lastf;
-    bin_t *bins;
+    number nsamples = state.nsamples;
+    creal jacobian = 1./nsamples;
+    Grid margsum[NCOMP][NDIM];
 
-    SamplesAlloc(sample, state.nsamples);
-    w = sample;
-    x = w + state.nsamples;
-    f = x + state.nsamples*ndim_;
-    lastf = f + state.nsamples*ncomp_;
-    bins = (bin_t *)lastf;
+    Zap(margsum);
 
-    for( n = state.nsamples; n; --n ) {
-      real weight = jacobian;
+    for( ; nsamples > 0; nsamples -= NBATCH ) {
+      cnumber nbatch = IMin(NBATCH, nsamples);
+      real *w = sample;
+      real *x = w + nbatch;
+      real *f = x + nbatch*ndim_;
+      real *lastf = f + nbatch*ncomp_;
+      bin_t *bin = (bin_t *)lastf;
 
-      GetRandom(x);
+      while( x < f ) {
+        real weight = jacobian;
 
-      for( dim = 0; dim < ndim_; ++dim ) {
-        creal pos = *x*NBINS;
-        ccount bin = pos;
-        creal prev = (bin == 0) ? 0 : state.grid[dim][bin - 1];
-        creal diff = state.grid[dim][bin] - prev; 
-        *x++ = prev + (pos - bin)*diff;
-        *bins++ = bin;
-        weight *= diff*NBINS;
+        GetRandom(x);
+
+        for( dim = 0; dim < ndim_; ++dim ) {
+          creal pos = *x*NBINS;
+          ccount ipos = pos;
+          creal prev = (ipos == 0) ? 0 : state.grid[dim][ipos - 1];
+          creal diff = state.grid[dim][ipos] - prev; 
+          *x++ = prev + (pos - ipos)*diff;
+          *bin++ = ipos;
+          weight *= diff*NBINS;
+        }
+
+        *w++ = weight;
       }
 
-      *w++ = weight;
-    }
+      DoSample(nbatch, w, f);
 
-    DoSample(state.nsamples, w, f);
+      w = sample;
+      bin = (bin_t *)lastf;
 
-    w = sample;
+      while( f < lastf ) {
+        creal weight = *w++;
 
-    while( f < lastf ) {
-      creal weight = *w++;
+        for( comp = 0; comp < ncomp_; ++comp ) {
+          real wfun = weight*(*f++);
+          if( wfun ) {
+            Cumulants *c = &state.cumul[comp];
+            Grid *m = margsum[comp];
 
-      for( comp = 0; comp < ncomp_; ++comp ) {
-        Cumulants *c = &state.cumul[comp];
-        creal wfun = weight*(*f++);
-        c->sum += wfun;
-        c->sqsum += Sq(wfun);
+            c->sum += wfun;
+            c->sqsum += wfun *= wfun;
+            for( dim = 0; dim < ndim_; ++dim )
+              m[dim][bin[dim]] += wfun;
+          }
+        }
+
+        bin += ndim_;
       }
     }
 
@@ -140,12 +157,13 @@ static int Integrate(creal epsrel, creal epsabs,
       char s[128 + 128*NCOMP], *p = s;
 
       p += sprintf(p, "\n"
-        "Iteration %d:  %d integrand evaluations so far",
+        "Iteration " COUNT ":  " NUMBER " integrand evaluations so far",
         state.niter + 1, neval_);
 
       for( comp = 0; comp < ncomp_; ++comp ) {
         cCumulants *c = &state.cumul[comp];
-        p += sprintf(p, "\n[%d] %g +- %g  \tchisq %g (%d df)",
+        p += sprintf(p, "\n[" COUNT "] "
+          REAL " +- " REAL "  \tchisq " REAL " (" COUNT " df)",
           comp + 1, c->avg, c->err, c->chisq, state.niter);
       }
 
@@ -159,7 +177,26 @@ static int Integrate(creal epsrel, creal epsabs,
 
     if( neval_ >= maxeval && *vegasstate_ == 0 ) break;
 
-    Reweight(state.grid, sample, x, f, state.cumul);
+    if( ncomp_ == 1 )
+      for( dim = 0; dim < ndim_; ++dim )
+        RefineGrid(state.grid[dim], margsum[0][dim]);
+    else {
+      for( dim = 0; dim < ndim_; ++dim ) {
+        Grid wmargsum;
+        Zap(wmargsum);
+        for( comp = 0; comp < ncomp_; ++comp ) {
+          real w = state.cumul[comp].avg;
+          if( w != 0 ) {
+            creal *m = margsum[comp][dim];
+            count bin;
+            w = 1/Sq(w);
+            for( bin = 0; bin < NBINS; ++bin )
+              wmargsum[bin] += w*m[bin];
+          }
+        }
+        RefineGrid(state.grid[dim], wmargsum);
+      }
+    }
 
     ++state.niter;
     state.nsamples += nincrease;
@@ -178,11 +215,8 @@ static int Integrate(creal epsrel, creal epsabs,
           statemsg = false;
         }
       }
+      if( neval_ >= maxeval ) break;
     }
-
-    if( neval_ >= maxeval ) break;
-
-    free(sample);
   }
 
   for( comp = 0; comp < ncomp_; ++comp ) {

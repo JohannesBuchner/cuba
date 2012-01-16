@@ -5,25 +5,51 @@ CFLAGS = -O3 -fomit-frame-pointer -ffast-math
 # or if the code segfaults
 #CFLAGS += -DNDIM=8 -DNCOMP=2
 
+# if long double and/or powl are not available (even though C99
+# requires them), uncomment the following line
+#CFLAGS += -DNO_LONG_DOUBLE
+
+HEADERS = cuba.h
+
 LIB = libcuba.a
 
-LIBTARGETS = $(LIB) demo-fortran demo-c
-MMATARGETS = Vegas Suave Divonne Cuhre
+DEMO = demo-c demo-fortran
 
-all: lib mma
+MMA = Vegas Suave Divonne Cuhre
 
-lib: $(LIBTARGETS)
+all: lib demo mma
 
-mma: $(MMATARGETS)
+lib: $(LIB)
+
+demo: $(DEMO)
+
+mma: $(MMA)
+
+
+PREFIX = /usr/local
+LIBDIR = $(PREFIX)/lib
+INCLUDEDIR = $(PREFIX)/include
+BINDIR = $(PREFIX)/bin
+
+install:
+	-mkdir -p $(LIBDIR) $(INCLUDEDIR) $(BINDIR)
+	install -m 644 $(LIB) $(LIBDIR)
+	install -m 644 $(HEADERS) $(INCLUDEDIR)
+	install -s $(MMA) $(BINDIR)
+
+
+check: demo
+	./demo-c | grep RESULT > demo-c.out
+	diff demo-c.out demo-c.out.ok
 
 
 VEGAS_C = vegas/Vegas.c
 VEGAS_F1 = vegas/vegas-f.c
 VEGAS_F2 = vegas/vegas_f.c
 VEGAS_MMA = vegas/Vegas.tm
-VEGAS_H = vegas/decl.h
+VEGAS_H = vegas/decl.h vegas/stddecl.h
 VEGAS_SRCS = $(VEGAS_H) vegas/util.c vegas/debug.c vegas/common.c \
-  vegas/Sobol.c vegas/ChiSquare.c vegas/Grid.c vegas/Integrate.c
+  vegas/Random.c vegas/ChiSquare.c vegas/Grid.c vegas/Integrate.c
 
 $(LIB)(Vegas.o): $(VEGAS_C) $(VEGAS_SRCS)
 	$(CC) $(CFLAGS) -c -o Vegas.o $(VEGAS_C)
@@ -49,9 +75,9 @@ SUAVE_C = suave/Suave.c
 SUAVE_F1 = suave/suave-f.c
 SUAVE_F2 = suave/suave_f.c
 SUAVE_MMA = suave/Suave.tm
-SUAVE_H = suave/decl.h
+SUAVE_H = suave/decl.h suave/stddecl.h
 SUAVE_SRCS = $(SUAVE_H) suave/util.c suave/debug.c suave/common.c \
-  suave/Sobol.c suave/ChiSquare.c suave/Grid.c suave/Fluct.c \
+  suave/Random.c suave/ChiSquare.c suave/Grid.c suave/Fluct.c \
   suave/Sample.c suave/Integrate.c
  
 $(LIB)(Suave.o): $(SUAVE_C) $(SUAVE_SRCS)
@@ -78,9 +104,9 @@ DIVONNE_C = divonne/Divonne.c
 DIVONNE_F1 = divonne/divonne-f.c
 DIVONNE_F2 = divonne/divonne_f.c
 DIVONNE_MMA = divonne/Divonne.tm
-DIVONNE_H = divonne/decl.h
+DIVONNE_H = divonne/decl.h divonne/stddecl.h
 DIVONNE_SRCS = $(DIVONNE_H) divonne/util.c divonne/debug.c divonne/common.c \
-  divonne/KorobovCoeff.c divonne/Sobol.c divonne/ChiSquare.c \
+  divonne/KorobovCoeff.c divonne/Random.c divonne/ChiSquare.c \
   divonne/Rule.c divonne/Sample.c divonne/FindMinimum.c \
   divonne/Explore.c divonne/Split.c divonne/Integrate.c \
 
@@ -108,7 +134,7 @@ CUHRE_C = cuhre/Cuhre.c
 CUHRE_F1 = cuhre/cuhre-f.c
 CUHRE_F2 = cuhre/cuhre_f.c
 CUHRE_MMA = cuhre/Cuhre.tm
-CUHRE_H = cuhre/decl.h
+CUHRE_H = cuhre/decl.h cuhre/stddecl.h
 CUHRE_SRCS = $(CUHRE_H) cuhre/util.c cuhre/debug.c cuhre/common.c \
   cuhre/ChiSquare.c cuhre/Rule.c cuhre/Integrate.c
 
@@ -150,12 +176,12 @@ demo-c: demo-c.c cuba.h $(LIB)
 	$(CC) $(CFLAGS) -o demo-c demo-c.c $(LIB) -lm
 
 
-TARFILE = cuba10.tar.gz
+TARFILE = Cuba11.tar.gz
 
-TARDIR = Cuba-1.0
+TARDIR = Cuba-1.1
 
-TARCONTENTS = cuba.pdf makefile cuba.h \
-  demo-fortran.F demo-c.c demo-math.m testsuite.m \
+TARCONTENTS = ChangeLog cuba.pdf makefile cuba.h \
+  demo-fortran.F demo-c.c demo-c.out.ok demo-math.m testsuite.m \
   $(VEGAS_C) $(VEGAS_F1) $(VEGAS_F2) $(VEGAS_MMA) $(VEGAS_SRCS) \
   $(SUAVE_C) $(SUAVE_F1) $(SUAVE_F2) $(SUAVE_MMA) $(SUAVE_SRCS) \
   $(DIVONNE_C) $(DIVONNE_F1) $(DIVONNE_F2) $(DIVONNE_MMA) $(DIVONNE_SRCS) \
@@ -171,5 +197,5 @@ pub: tar
 	./mkwebpage
 
 clean:
-	-$(RM) $(LIBTARGETS) $(MMATARGETS) $(LIBOBJS) $(TARFILE) $(TARDIR)
+	-$(RM) $(LIB) $(DEMO) $(MMA) $(LIBOBJS) $(TARFILE) $(TARDIR) demo-c.out
 

@@ -2,17 +2,29 @@
 	util.c
 		Utility functions
 		this file is part of Vegas
-		last modified 18 Nov 04 th
+		last modified 20 Jan 05 th
 */
 
 
 #include "decl.h"
 
-static count ndim_, ncomp_, neval_;
+static count ndim_, ncomp_;
+static number neval_;
 static Grid *gridptr_[MAXGRIDS];
 static count griddim_[MAXGRIDS];
-char vegasstate_[STATESIZE];
-int vegasgridno_;
+int vegasgridno_ = 0;
+char vegasstate_[MAXSTATESIZE] = "";
+
+
+#ifdef __GNUC__
+
+extern char vegasstate[MAXSTATESIZE]
+  __attribute__ ((weak, alias("vegasstate_")));
+
+extern int vegasgridno
+  __attribute__ ((weak, alias("vegasgridno_")));
+
+#endif
 
 
 #define Allocate(p, n) \
@@ -24,30 +36,6 @@ int vegasgridno_;
 #define SamplesAlloc(p, n) \
   Allocate(p, (n)*((ndim_ + ncomp_ + 1)*sizeof(real) + ndim_*sizeof(bin_t)))
 
-#define Elements(x) (sizeof(x)/sizeof(*x))
-
-#define Copy(d, s, n) memcpy(d, s, (n)*sizeof(*(d)))
-
-#define Clear(d, n) memset(d, 0, (n)*sizeof(*(d)))
-
-#define Zap(d) memset(d, 0, sizeof(d))
-
-
-static inline real Max(creal a, creal b)
-{
-  return (a > b) ? a : b;
-}
-
-static inline real Sq(creal x)
-{
-  return x*x;
-}
-
-static inline real Weight(creal sum, creal sqsum, ccount n)
-{
-  creal w = sqrt(sqsum*n);
-  return (n - 1)/Max((w + sum)*(w - sum), NOTZERO);
-}
 
 #ifdef DEBUG
 #include "debug.c"

@@ -2,7 +2,7 @@
 	Grid.c
 		utility functions for the Vegas grid
 		this file is part of Vegas
-		last modified 18 Nov 04 th
+		last modified 25 Jan 05 th
 */
 
 
@@ -13,7 +13,7 @@ static inline void GetGrid(Grid *grid)
 
   if( slot < MAXGRIDS && gridptr_[slot] ) {
     if( griddim_[slot] == ndim_ ) {
-      Copy(grid, gridptr_[slot], ndim_);
+      VecCopy(grid, gridptr_[slot]);
       return;
     }
     free(gridptr_[slot]);
@@ -42,11 +42,11 @@ static inline void PutGrid(Grid *grid)
 
 /*********************************************************************/
 
-static void RefineGrid(Grid grid, real *margsum)
+static void RefineGrid(Grid grid, Grid margsum)
 {
   real avgperbin, thisbin;
   Grid imp, newgrid;
-  count bin, newbin;
+  int bin, newbin;
 
   /* smooth the f^2 value stored for each bin */
   real prev = margsum[0];
@@ -90,37 +90,5 @@ static void RefineGrid(Grid grid, real *margsum)
   }
   Copy(grid, newgrid, NBINS - 1);
   grid[NBINS - 1] = 1;
-}
-
-/*********************************************************************/
-
-static void Reweight(Grid *grid,
-  creal *w, creal *f, creal *lastf, cCumulants *total)
-{
-  real margsum[NDIM][NBINS], scale[NCOMP];
-  cbin_t *bin = (cbin_t *)lastf;
-  count dim, comp;
-
-  if( ncomp_ == 1 ) scale[0] = 1;
-  else {
-    for( comp = 0; comp < ncomp_; ++comp )
-      scale[comp] = (total[comp].avg == 0) ? 0 : 1/total[comp].avg;
-  }
-
-  Zap(margsum);
-
-  while( f < lastf ) {
-    creal weight = *w++;
-    for( comp = 0; comp < ncomp_; ++comp ) {
-      creal fsq = Sq(*f++*weight*scale[comp]);
-      if( fsq == 0 ) continue;
-      for( dim = 0; dim < ndim_; ++dim )
-        margsum[dim][bin[dim]] += fsq;
-    }
-    bin += ndim_;
-  }
-
-  for( dim = 0; dim < ndim_; ++dim )
-    RefineGrid(grid[dim], margsum[dim]);
 }
 

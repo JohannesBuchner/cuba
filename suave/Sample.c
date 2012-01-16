@@ -2,7 +2,7 @@
 	Sample.c
 		the sampling step of Suave
 		this file is part of Suave
-		last modified 9 Apr 04
+		last modified 25 Jan 05 th
 */
 
 
@@ -14,20 +14,21 @@ typedef struct {
 
 /*********************************************************************/
 
-static void Sample(ccount nnew, void *voidregion,
+static void Sample(cnumber nnew, void *voidregion,
   real *lastw, real *lastx, real *lastf, cint flags)
 {
   TYPEDEFREGION;
 
   Region *const region = voidregion;
-  count comp, dim, n, df;
+  count comp, dim, df;
+  number n;
   Cumulants cumul[NCOMP];
   char **ss, *s;
   ccount chars = 128*(region->div + 1);
 
   creal jacobian = 1/ldexp(nnew, region->div);
   real *w = region->w, *f = lastx;
-  bin_t *bins = (bin_t *)(lastf + nnew*ncomp_);
+  bin_t *bin = (bin_t *)(lastf + nnew*ncomp_);
 
   for( n = nnew; n; --n ) {
     real weight = jacobian;
@@ -37,11 +38,11 @@ static void Sample(ccount nnew, void *voidregion,
     for( dim = 0; dim < ndim_; ++dim ) {
       cBounds *b = &region->bounds[dim];
       creal pos = *f*NBINS;
-      ccount bin = pos;
-      creal prev = (bin == 0) ? 0 : b->grid[bin - 1];
-      creal diff = b->grid[bin] - prev;
-      *f++ = b->lower + (prev + (pos - bin)*diff)*(b->upper - b->lower);
-      *bins++ = bin;
+      ccount ipos = pos;
+      creal prev = (ipos == 0) ? 0 : b->grid[ipos - 1];
+      creal diff = b->grid[ipos] - prev;
+      *f++ = b->lower + (prev + (pos - ipos)*diff)*(b->upper - b->lower);
+      *bin++ = ipos;
       weight *= diff*NBINS;
     }
 
@@ -88,9 +89,11 @@ static void Sample(ccount nnew, void *voidregion,
           if( VERBOSE > 2 ) {
             creal sig = sqrt(1/w);
             ss[comp] += (df == 0) ?
-              sprintf(ss[comp], "\n[%d] %g +- %g (%d)", comp + 1,
+              sprintf(ss[comp], "\n[" COUNT "] "
+                REAL " +- " REAL " (" NUMBER ")", comp + 1,
                 c->sum, sig, n) :
-              sprintf(ss[comp], "\n    %g +- %g (%d)",
+              sprintf(ss[comp], "\n    "
+                REAL " +- " REAL " (" NUMBER ")",
                 c->sum, sig, n);
           }
 
@@ -147,14 +150,15 @@ static void Sample(ccount nnew, void *voidregion,
     for( dim = 0; dim < ndim_; ++dim ) {
       cBounds *b = &region->bounds[dim];
       p += sprintf(p, 
-        (dim == 0) ? "\nRegion (%f) - (%f)" :
-                     "\n       (%f) - (%f)",
+        (dim == 0) ? "\nRegion (" REALF ") - (" REALF ")" :
+                     "\n       (" REALF ") - (" REALF" )",
         b->lower, b->upper);
     }
 
     for( comp = 0; comp < ncomp_; ++comp ) {
       cResult *r = &region->result[comp];
-      p += sprintf(p, "%s  \tchisq %g (%d df)", p0, r->chisq, df);
+      p += sprintf(p, "%s  \tchisq " REAL " (" COUNT " df)",
+        p0, r->chisq, df);
       p0 += chars;
     }
 

@@ -20,6 +20,9 @@
 :Evaluate: System`Final::usage = "Final is an option of Suave.
 	It can take the values Last or All which determine whether only the last (largest) or all sets of samples collected on a subregion over the iterations contribute to the final result."
 
+:Evaluate: System`PseudoRandom::usage = "PseudoRandom is an option of Suave.
+	If set to True, pseudo-random numbers are used instead of Sobol quasi-random numbers."
+
 :Evaluate: System`Regions::usage = "Regions is an option of Suave.
 	It specifies whether the regions into which the integration region has been cut are returned together with the integration results."
 
@@ -43,17 +46,18 @@
 
 :Evaluate: Options[Suave] = {PrecisionGoal -> 3, AccuracyGoal -> 12,
 	MinPoints -> 0, MaxPoints -> 50000, NNew -> 1000, Flatness -> 50,
-	Verbose -> 1, Final -> Last, Regions -> False, Compiled -> True}
+	Verbose -> 1, Final -> Last, PseudoRandom -> False,
+	Regions -> False, Compiled -> True}
 
 :Evaluate: Suave[f_, v:{_, _, _}.., opt___Rule] :=
 	Block[ {ff = HoldForm[f], ndim = Length[{v}],
 	tags, vars, lower, range, jac, tmp, defs, integrand,
 	rel, abs, mineval, maxeval, nnew, flatness,
-	verbose, final, regions, compiled},
+	verbose, final, pseudo, regions, compiled},
 	  Message[Suave::optx, #, Suave]&/@
 	    Complement[First/@ {opt}, tags = First/@ Options[Suave]];
 	  {rel, abs, mineval, maxeval, nnew, flatness,
-	    verbose, final, regions, compiled} =
+	    verbose, final, pseudo, regions, compiled} =
 	    tags /. {opt} /. Options[Suave];
 	  {vars, lower, range} = Transpose[{v}];
 	  jac = Simplify[Times@@ (range -= lower)];
@@ -64,6 +68,7 @@
 	  MLSuave[ndim, ncomp[f], 10.^-rel, 10.^-abs,
 	    Min[Max[verbose, 0], 3] +
 	      If[final === Last, 4, 0] +
+	      If[TrueQ[pseudo], 8, 0] +
 	      If[TrueQ[regions], 256, 0],
             mineval, maxeval, nnew, flatness]
 	]
@@ -96,7 +101,7 @@
 
 :Evaluate: Suave::badsample = "`` is not a real-valued function at ``."
 
-:Evaluate: Suave::baddim = "Can integrate only in dimensions `` through ``."
+:Evaluate: Suave::baddim = "Dimension too large."
 
 :Evaluate: Suave::accuracy =
 	"Desired accuracy was not reached within `` function evaluations on `` subregions."
@@ -112,7 +117,7 @@
 	Suave.tm
 		Subregion-adaptive Vegas Monte-Carlo integration
 		by Thomas Hahn
-		last modified 13 Apr 04
+		last modified 17 Jan 05 th
 */
 
 
@@ -154,7 +159,7 @@ static void Print(MLCONST char *s)
 
 /*********************************************************************/
 
-static void DoSample(ccount n, real *x, real *f)
+static void DoSample(cnumber n, real *x, real *f)
 {
   int pkt;
   real *mma_f;
@@ -194,15 +199,15 @@ abort:
 
 #include "common.c"
 
-void Suave(ccount ndim, ccount ncomp,
-  creal epsrel, creal epsabs, cint flags, ccount mineval, ccount maxeval,
-  ccount nnew, creal flatness)
+void Suave(cint ndim, cint ncomp,
+  creal epsrel, creal epsabs, cint flags, cint mineval, cint maxeval,
+  cint nnew, creal flatness)
 {
   ndim_ = ndim;
   ncomp_ = ncomp;
 
-  if( ndim < MINDIM || ndim > MAXDIM ) {
-    Status("baddim", MINDIM, MAXDIM);
+  if( BadDimension(ndim, flags) ) {
+    Status("baddim", 0, 0);
     MLPutSymbol(stdlink, "$Failed");
   }
   else {

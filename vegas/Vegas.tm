@@ -14,7 +14,7 @@
 	A GridNo between 1 and 10 selects the slot in this internal table.
 	For other values the grid is initialized from scratch and discarded at the end of the integration."
 
-:Evaluate: State::usage = "State is an option of Vegas.
+:Evaluate: StateFile::usage = "StateFile is an option of Vegas.
 	It specifies a file in which the internal state is stored after each iteration and from which it can be restored on a subsequent run.
 	The state file is removed once the prescribed accuracy has been reached."
 
@@ -23,6 +23,9 @@
 
 :Evaluate: System`Final::usage = "Final is an option of Vegas.
 	It can take the values Last or All which determine whether only the last (largest) or all of the samples collected on a subregion over the iterations contribute to the final result."
+
+:Evaluate: System`PseudoRandom::usage = "PseudoRandom is an option of Vegas.
+	If set to True, pseudo-random numbers are used instead of Sobol quasi-random numbers."
 
 :Evaluate: Begin["`Private`"]
 
@@ -40,17 +43,21 @@
 :Evaluate: Attributes[Vegas] = {HoldFirst}
 
 :Evaluate: Options[Vegas] = {PrecisionGoal -> 3, AccuracyGoal -> 12,
-	MinPoints -> 0, MaxPoints -> 50000, NStart -> 1000, NIncrease -> 500,
-	GridNo -> 0, State -> "", Verbose -> 1, Final -> All, Compiled -> True}
+	MinPoints -> 0, MaxPoints -> 50000,
+	NStart -> 1000, NIncrease -> 500,
+	GridNo -> 0, StateFile -> "",
+	Verbose -> 1, Final -> All, PseudoRandom -> False,
+	Compiled -> True}
 
 :Evaluate: Vegas[f_, v:{_, _, _}.., opt___Rule] :=
 	Block[ {ff = HoldForm[f], ndim = Length[{v}],
-	vars, lower, range, jac, tmp, defs, integrand, tags, rel, abs,
-	mineval, maxeval, nstart, nincrease, gridno, verbose, final},
+	vars, lower, range, jac, tmp, defs, integrand, tags,
+	rel, abs, mineval, maxeval, nstart, nincrease, gridno,
+	verbose, final, pseudo},
 	  Message[Vegas::optx, #, Vegas]&/@
 	    Complement[First/@ {opt}, tags = First/@ Options[Vegas]];
 	  {rel, abs, mineval, maxeval, nstart, nincrease, gridno, state,
-	    verbose, final, compiled} =
+	    verbose, final, pseudo, compiled} =
 	    tags /. {opt} /. Options[Vegas];
 	  {vars, lower, range} = Transpose[{v}];
 	  jac = Simplify[Times@@ (range -= lower)];
@@ -60,7 +67,8 @@
 	  integrand = fun[f];
 	  MLVegas[ndim, ncomp[f], 10.^-rel, 10.^-abs,
 	    Min[Max[verbose, 0], 3] +
-	      If[final === Last, 4, 0],
+	      If[final === Last, 4, 0] +
+	      If[TrueQ[pseudo], 8, 0],
 	    mineval, maxeval, nstart, nincrease, gridno, state]
 	]
 
@@ -89,7 +97,7 @@
 
 :Evaluate: Vegas::badsample = "`` is not a real-valued function at ``."
 
-:Evaluate: Vegas::baddim = "Can integrate only in dimensions `` through ``."
+:Evaluate: Vegas::baddim = "Cannot integrate in `` dimensions."
 
 :Evaluate: Vegas::accuracy =
 	"Desired accuracy was not reached within `` function evaluations."
@@ -105,7 +113,7 @@
 	Vegas.tm
 		Vegas Monte-Carlo integration
 		by Thomas Hahn
-		last modified 18 Nov 04
+		last modified 17 Jan 05 th
 */
 
 
@@ -117,15 +125,14 @@ jmp_buf abort_;
 
 /*********************************************************************/
 
-static void Status(MLCONST char *msg, cint n1, cint n2)
+static void Status(MLCONST char *msg, cint n)
 {
   MLPutFunction(stdlink, "CompoundExpression", 2);
-  MLPutFunction(stdlink, "Message", 3);
+  MLPutFunction(stdlink, "Message", 2);
   MLPutFunction(stdlink, "MessageName", 2);
   MLPutSymbol(stdlink, "Vegas");
   MLPutString(stdlink, msg);
-  MLPutInteger(stdlink, n1);
-  MLPutInteger(stdlink, n2);
+  MLPutInteger(stdlink, n);
 }
 
 /*********************************************************************/
@@ -147,7 +154,7 @@ static void Print(MLCONST char *s)
 
 /*********************************************************************/
 
-static void DoSample(ccount n, real *x, real *f)
+static void DoSample(cnumber n, real *x, real *f)
 {
   int pkt;
   real *mma_f;
@@ -187,15 +194,15 @@ abort:
 
 #include "common.c"
 
-void Vegas(ccount ndim, ccount ncomp,
-  creal epsrel, creal epsabs, cint flags, ccount mineval, ccount maxeval,
-  ccount nstart, ccount nincrease, ccount gridno, const char *state)
+void Vegas(cint ndim, cint ncomp,
+  creal epsrel, creal epsabs, cint flags, cint mineval, cint maxeval,
+  cint nstart, cint nincrease, cint gridno, const char *state)
 {
   ndim_ = ndim;
   ncomp_ = ncomp;
 
-  if( ndim < MINDIM || ndim > MAXDIM ) {
-    Status("baddim", MINDIM, MAXDIM);
+  if( BadDimension(ndim, flags) ) {
+    Status("baddim", ndim);
     MLPutSymbol(stdlink, "$Failed");
   }
   else {
@@ -205,14 +212,14 @@ void Vegas(ccount ndim, ccount ncomp,
 
     neval_ = 0;
     vegasgridno_ = gridno;
-    strncpy(vegasstate_, state, STATESIZE - 1);
-    vegasstate_[STATESIZE - 1] = 0;
+    strncpy(vegasstate_, state, sizeof(vegasstate_) - 1);
+    vegasstate_[sizeof(vegasstate_) - 1] = 0;
 
     fail = Integrate(epsrel, epsabs,
       flags, mineval, maxeval, nstart, nincrease,
       integral, error, prob);
 
-    Status(fail ? "accuracy" : "success", neval_, 0);
+    Status(fail ? "accuracy" : "success", neval_);
 
     MLPutFunction(stdlink, "List", ncomp);
     for( comp = 0; comp < ncomp; ++comp ) {

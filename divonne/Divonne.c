@@ -4,7 +4,7 @@
 		originally by J.H. Friedman and M.H. Wright
 		(CERNLIB subroutine D151)
 		this version by Thomas Hahn
-		last modified 13 Apr 04
+		last modified 17 Jan 05
 */
 
 #include "util.c"
@@ -16,7 +16,7 @@ static PeakFinder peakfinder_;
 
 /*********************************************************************/
 
-static inline void DoSample(count n, ccount ldx, creal *x, real *f)
+static inline void DoSample(number n, ccount ldx, creal *x, real *f)
 {
   neval_ += n;
   while( n-- ) {
@@ -30,7 +30,7 @@ static inline void DoSample(count n, ccount ldx, creal *x, real *f)
 
 static inline count SampleExtra(cBounds *b)
 {
-  count n = nextra_;
+  number n = nextra_;
   peakfinder_(&ndim_, b, &n, xextra_);
   DoSample(n, ldxgiven_, xextra_, fextra_);
   return n;
@@ -42,18 +42,20 @@ static inline count SampleExtra(cBounds *b)
 
 void Divonne(ccount ndim, ccount ncomp, Integrand integrand,
   creal epsrel, creal epsabs,
-  cint flags, ccount mineval, ccount maxeval,
+  cint flags, cnumber mineval, cnumber maxeval,
   cint key1, cint key2, cint key3, ccount maxpass,
   creal border, creal maxchisq, creal mindeviation,
-  ccount ngiven, ccount ldxgiven, real *xgiven,
-  ccount nextra, PeakFinder peakfinder,
-  int *pnregions, int *pneval, int *pfail,
+  cnumber ngiven, ccount ldxgiven, real *xgiven,
+  cnumber nextra, PeakFinder peakfinder,
+  int *pnregions, number *pneval, int *pfail,
   real *integral, real *error, real *prob)
 {
   ndim_ = ndim;
   ncomp_ = ncomp;
 
-  if( ndim < MINDIM || ndim > MAXDIM ) *pfail = -1;
+  if( BadDimension(ndim, flags, key1) ||
+      BadDimension(ndim, flags, key2) ||
+      ((key3 & -2) && BadDimension(ndim, flags, key3)) ) *pfail = -1;
   else {
     neval_ = neval_opt_ = neval_cut_ = 0;
     integrand_ = integrand;
@@ -66,10 +68,10 @@ void Divonne(ccount ndim, ccount ncomp, Integrand integrand,
     nextra_ = nextra;
 
     if( ngiven + nextra ) {
-      ccount nxgiven = ngiven*ldxgiven;
-      ccount nxextra = nextra*ldxgiven;
-      ccount nfgiven = ngiven*ncomp;
-      ccount nfextra = nextra*ncomp;
+      cnumber nxgiven = ngiven*ldxgiven;
+      cnumber nxextra = nextra*ldxgiven;
+      cnumber nfgiven = ngiven*ncomp;
+      cnumber nfextra = nextra*ncomp;
 
       Allocate(xgiven_, nxgiven + nxextra + nfgiven + nfextra);
       xextra_ = xgiven_ + nxgiven;
