@@ -1,7 +1,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.59)
-AC_INIT([Cuba], [1.2], [hahn@feynarts.de])
+AC_INIT([Cuba], [1.3], [hahn@feynarts.de])
 AC_CONFIG_SRCDIR([cuba.h])
 
 LIBS=-lm
@@ -40,12 +40,12 @@ AC_ARG_WITH(maxcomp,
   [MAXCOMP=$withval])
 
 AC_MSG_CHECKING([for variable-size arrays])
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM(,
+AC_COMPILE_IFELSE([AC_LANG_SOURCE(,[[
 	void test(int n)
 	{
 	  char s[n];
 	}
-  )],
+  ]])],
   [AC_MSG_RESULT([yes])],
   [AC_MSG_RESULT([no, using MAXDIM=$MAXDIM and MAXCOMP=$MAXCOMP])
    AC_DEFINE_UNQUOTED([NDIM], [$MAXDIM], [Maximum number of components])

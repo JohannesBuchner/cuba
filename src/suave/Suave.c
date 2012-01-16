@@ -2,7 +2,7 @@
 	Suave.c
 		Subregion-adaptive Vegas Monte-Carlo integration
 		by Thomas Hahn
-		last modified 4 Jan 06 th
+		last modified 30 Aug 07 th
 */
 
 
@@ -14,11 +14,11 @@ static Integrand integrand_;
 
 /*********************************************************************/
 
-static inline void DoSample(number n, creal *x, real *f)
+static inline void DoSample(number n, creal *w, creal *x, real *f)
 {
   neval_ += n;
   while( n-- ) {
-    integrand_(&ndim_, x, &ncomp_, f);
+    integrand_(&ndim_, x, &ncomp_, f, w++);
     x += ndim_;
     f += ncomp_;
   }
@@ -28,7 +28,8 @@ static inline void DoSample(number n, creal *x, real *f)
 
 #include "common.c"
 
-Extern void Suave(ccount ndim, ccount ncomp, Integrand integrand,
+Extern void EXPORT(Suave)(ccount ndim, ccount ncomp,
+  Integrand integrand,
   creal epsrel, creal epsabs,
   cint flags, cnumber mineval, cnumber maxeval,
   cnumber nnew, creal flatness,
@@ -49,5 +50,24 @@ Extern void Suave(ccount ndim, ccount ncomp, Integrand integrand,
     *pnregions = nregions_;
     *pneval = neval_;
   }
+}
+
+/*********************************************************************/
+
+Extern void EXPORT(suave)(ccount *pndim, ccount *pncomp,
+  Integrand integrand,
+  creal *pepsrel, creal *pepsabs,
+  cint *pflags, cnumber *pmineval, cnumber *pmaxeval,
+  cnumber *pnnew, creal *pflatness,
+  count *pnregions, number *pneval, int *pfail,
+  real *integral, real *error, real *prob)
+{
+  EXPORT(Suave)(*pndim, *pncomp,
+    integrand,
+    *pepsrel, *pepsabs,
+    *pflags, *pmineval, *pmaxeval,
+    *pnnew, *pflatness,
+    pnregions, pneval, pfail,
+    integral, error, prob);
 }
 

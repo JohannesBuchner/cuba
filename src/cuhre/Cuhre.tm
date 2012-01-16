@@ -115,7 +115,7 @@
 	Cuhre.tm
 		Adaptive integration using cubature rules
 		by Thomas Hahn
-		last modified 3 Feb 05 th
+		last modified 1 Mar 06 th
 */
 
 
@@ -198,7 +198,8 @@ abort:
 #include "common.c"
 
 void Cuhre(cint ndim, cint ncomp,
-  creal epsrel, creal epsabs, cint flags, cint mineval, cint maxeval,
+  creal epsrel, creal epsabs,
+  cint flags, cnumber mineval, cnumber maxeval,
   cint key)
 {
   ndim_ = ndim;

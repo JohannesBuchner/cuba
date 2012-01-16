@@ -1,7 +1,7 @@
 /*
 	stddecl.h
 		Type declarations common to all Cuba routines
-		last modified 2 Jun 05 th
+		last modified 2 Mar 06 th
 */
 
 
@@ -88,9 +88,17 @@ typedef const long clong;
 typedef /*unsigned*/ int count;
 typedef const count ccount;
 
+#ifdef LONGLONGINT
+#define PREFIX(s) ll##s
+#define NUMBER "%lld"
+#define NUMBER7 "%7lld"
+typedef long long int number;
+#else
+#define PREFIX(s) s
 #define NUMBER "%d"
 #define NUMBER7 "%7d"
-typedef /*long long*/ int number;
+typedef int number;
+#endif
 typedef const number cnumber;
 
 #define REAL "%g"
@@ -104,6 +112,13 @@ typedef /*long*/ double real;
 	   quite another matter, too. */
 
 typedef const real creal;
+
+
+#ifdef UNDERSCORE
+#define EXPORT(s) PREFIX(s##_)
+#else
+#define EXPORT(s) PREFIX(s)
+#endif
 
 
 static inline real Sq(creal x)

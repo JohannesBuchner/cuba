@@ -2,7 +2,7 @@
 	Cuhre.c
 		Adaptive integration using cubature rules
 		by Thomas Hahn
-		last modified 9 Feb 05 th
+		last modified 2 Mar 06 th
 */
 
 
@@ -28,7 +28,8 @@ static inline void DoSample(count n, creal *x, real *f)
 
 #include "common.c"
 
-Extern void Cuhre(ccount ndim, ccount ncomp, Integrand integrand,
+Extern void EXPORT(Cuhre)(ccount ndim, ccount ncomp,
+  Integrand integrand,
   creal epsrel, creal epsabs,
   cint flags, cnumber mineval, cnumber maxeval,
   ccount key,
@@ -49,5 +50,23 @@ Extern void Cuhre(ccount ndim, ccount ncomp, Integrand integrand,
     *pnregions = nregions_;
     *pneval = neval_;
   }
+}
+
+/*********************************************************************/
+
+Extern void EXPORT(cuhre)(ccount *pndim, ccount *pncomp,
+  Integrand integrand,
+  creal *pepsrel, creal *pepsabs,
+  cint *pflags, cnumber *pmineval, cnumber *pmaxeval,
+  ccount *pkey,
+  count *pnregions, number *pneval, int *pfail,
+  real *integral, real *error, real *prob)
+{
+  EXPORT(Cuhre)(*pndim, *pncomp, integrand,
+    *pepsrel, *pepsabs,
+    *pflags, *pmineval, *pmaxeval,
+    *pkey,
+    pnregions, pneval, pfail,
+    integral, error, prob);
 }
 

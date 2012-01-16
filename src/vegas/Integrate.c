@@ -2,7 +2,7 @@
 	Integrate.c
 		integrate over the unit hypercube
 		this file is part of Vegas
-		last modified 2 Jun 05 th
+		last modified 30 Aug 07 th
 */
 
 
@@ -35,7 +35,7 @@ static int Integrate(creal epsrel, creal epsabs,
       epsrel, epsabs,
       flags, mineval, maxeval,
       nstart, nincrease,
-      vegasgridno_, vegasstate_);
+      EXPORT(vegasgridno), EXPORT(vegasstate));
     Print(s);
   }
 
@@ -45,16 +45,16 @@ static int Integrate(creal epsrel, creal epsabs,
 
   IniRandom(2*maxeval, flags);
 
-  if( *vegasstate_ && stat(vegasstate_, &st) == 0 &&
+  if( *EXPORT(vegasstate) && stat(EXPORT(vegasstate), &st) == 0 &&
       st.st_size == sizeof(state) && (st.st_mode & 0400) ) {
-    cint h = open(vegasstate_, O_RDONLY);
+    cint h = open(EXPORT(vegasstate), O_RDONLY);
     read(h, &state, sizeof(state));
     close(h);
     SkipRandom(neval_ = state.neval);
 
     if( VERBOSE ) {
       char s[256];
-      sprintf(s, "\nRestoring state from %s.", vegasstate_);
+      sprintf(s, "\nRestoring state from %s.", EXPORT(vegasstate));
       Print(s);
     }
   }
@@ -65,7 +65,7 @@ static int Integrate(creal epsrel, creal epsabs,
     GetGrid(state.grid);
   }
 
-  SamplesAlloc(sample, vegasnbatch_);
+  SamplesAlloc(sample, EXPORT(vegasnbatch));
 
   /* main iteration loop */
 
@@ -76,8 +76,8 @@ static int Integrate(creal epsrel, creal epsabs,
 
     Zap(margsum);
 
-    for( ; nsamples > 0; nsamples -= vegasnbatch_ ) {
-      cnumber nbatch = IMin(vegasnbatch_, nsamples);
+    for( ; nsamples > 0; nsamples -= EXPORT(vegasnbatch) ) {
+      cnumber nbatch = IMin(EXPORT(vegasnbatch), nsamples);
       real *w = sample;
       real *x = w + nbatch;
       real *f = x + nbatch*ndim_;
@@ -102,7 +102,7 @@ static int Integrate(creal epsrel, creal epsabs,
         *w++ = weight;
       }
 
-      DoSample(nbatch, w, f);
+      DoSample(nbatch, sample, w, f);
 
       w = sample;
       bin = (bin_t *)lastf;
@@ -171,11 +171,11 @@ static int Integrate(creal epsrel, creal epsabs,
     }
 
     if( fail == 0 && neval_ >= mineval ) {
-      if( *vegasstate_ ) unlink(vegasstate_);
+      if( *EXPORT(vegasstate) ) unlink(EXPORT(vegasstate));
       break;
     }
 
-    if( neval_ >= maxeval && *vegasstate_ == 0 ) break;
+    if( neval_ >= maxeval && *EXPORT(vegasstate) == 0 ) break;
 
     if( ncomp_ == 1 )
       for( dim = 0; dim < ndim_; ++dim )
@@ -201,8 +201,8 @@ static int Integrate(creal epsrel, creal epsabs,
     ++state.niter;
     state.nsamples += nincrease;
 
-    if( *vegasstate_ ) {
-      cint h = creat(vegasstate_, 0666);
+    if( *EXPORT(vegasstate) ) {
+      cint h = creat(EXPORT(vegasstate), 0666);
       if( h != -1 ) {
         state.neval = neval_;
         write(h, &state, sizeof(state));
@@ -210,7 +210,7 @@ static int Integrate(creal epsrel, creal epsabs,
 
         if( statemsg ) {
           char s[256];
-          sprintf(s, "\nSaving state to %s.", vegasstate_);
+          sprintf(s, "\nSaving state to %s.", EXPORT(vegasstate));
           Print(s);
           statemsg = false;
         }

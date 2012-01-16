@@ -204,7 +204,7 @@
 		originally by J.H. Friedman and M.H. Wright
 		(CERNLIB subroutine D151)
 		this version by Thomas Hahn
-		last modified 9 Feb 05 th
+		last modified 1 Mar 06 th
 */
 
 
@@ -326,11 +326,11 @@ static count SampleExtra(cBounds *b)
 
 void Divonne(cint ndim, cint ncomp,
   creal epsrel, creal epsabs,
-  cint flags, cint mineval, cint maxeval,
+  cint flags, cnumber mineval, cnumber maxeval,
   cint key1, cint key2, cint key3, cint maxpass,
   creal border, creal maxchisq, creal mindeviation,
   real *xgiven, clong nxgiven, real *fgiven, clong nfgiven,
-  cint nextra)
+  cnumber nextra)
 {
   ndim_ = ndim;
   ncomp_ = ncomp;

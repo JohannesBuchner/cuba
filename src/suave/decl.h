@@ -2,7 +2,7 @@
 	decl.h
 		Type declarations
 		this file is part of Suave
-		last modified 19 Jan 05 th
+		last modified 30 Aug 07 th
 */
 
 
@@ -48,5 +48,5 @@ typedef const Bounds cBounds;
   } Region
 
 
-typedef void (*Integrand)(ccount *, creal *, ccount *, real *);
+typedef void (*Integrand)(ccount *, creal *, ccount *, real *, creal *);
 

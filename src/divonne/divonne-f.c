@@ -2,18 +2,14 @@
 	divonne-f.c
 		Fortran interface for Divonne
 		this file is part of Divonne
-		last modified 4 Jan 06 th
+		last modified 1 Mar 06 th
 */
 
 
 #include "decl.h"
 
-#ifdef HAVE_UNDERSCORE
-#define divonne divonne_
-#endif
-
-
-Extern void Divonne(ccount ndim, ccount ncomp, Integrand integrand,
+Extern void PREFIX(Divonne)(ccount ndim, ccount ncomp,
+  Integrand integrand,
   creal epsrel, creal epsabs,
   cint flags, cnumber mineval, cnumber maxeval,
   cint key1, cint key2, cint key3, ccount maxpass,
@@ -24,7 +20,8 @@ Extern void Divonne(ccount ndim, ccount ncomp, Integrand integrand,
   real *integral, real *error, real *prob);
 
 
-Extern void divonne(ccount *pndim, ccount *pncomp, Integrand integrand,
+Extern void USCORE(divonne)(ccount *pndim, ccount *pncomp,
+  Integrand integrand,
   creal *pepsrel, creal *pepsabs,
   cint *pflags, cnumber *pmineval, cnumber *pmaxeval,
   cint *pkey1, cint *pkey2, cint *pkey3, ccount *pmaxpass,
@@ -34,7 +31,8 @@ Extern void divonne(ccount *pndim, ccount *pncomp, Integrand integrand,
   int *pnregions, number *pneval, int *pfail,
   real *integral, real *error, real *prob)
 {
-  Divonne(*pndim, *pncomp, integrand,
+  PREFIX(Divonne)(*pndim, *pncomp,
+    integrand,
     *pepsrel, *pepsabs,
     *pflags, *pmineval, *pmaxeval,
     *pkey1, *pkey2, *pkey3, *pmaxpass,

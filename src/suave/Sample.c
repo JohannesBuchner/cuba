@@ -27,7 +27,7 @@ static void Sample(cnumber nnew, void *voidregion,
   ccount chars = 128*(region->div + 1);
 
   creal jacobian = 1/ldexp((real)nnew, region->div);
-  real *w = region->w, *f = lastx;
+  real *w = lastw, *f = lastx;
   bin_t *bin = (bin_t *)(lastf + nnew*ncomp_);
 
   for( n = nnew; n; --n ) {
@@ -46,12 +46,14 @@ static void Sample(cnumber nnew, void *voidregion,
       weight *= diff*NBINS;
     }
 
-    *lastw++ = weight;
+    *w++ = weight;
   }
 
-  DoSample(nnew, lastx, lastf);
+  DoSample(nnew, lastw, lastx, lastf);
 
-  *(lastw - 1) = -*(lastw - 1);
+  *(w - 1) = -*(w - 1);
+  lastw = w;
+  w = region->w;
   region->n = lastw - w;
 
   if( VERBOSE > 2 ) {

@@ -2,7 +2,7 @@
 	util.c
 		Utility functions
 		this file is part of Vegas
-		last modified 9 Feb 05 th
+		last modified 2 Mar 06 th
 */
 
 
@@ -12,23 +12,9 @@ static count ndim_, ncomp_;
 static number neval_;
 static Grid *gridptr_[MAXGRIDS];
 static count griddim_[MAXGRIDS];
-int vegasnbatch_ = 1000;
-int vegasgridno_ = 0;
-char vegasstate_[MAXSTATESIZE] = "";
-
-
-#ifdef __GNUC__
-
-Extern char vegasstate[MAXSTATESIZE]
-  __attribute__ ((weak, alias("vegasstate_")));
-
-Extern int vegasgridno
-  __attribute__ ((weak, alias("vegasgridno_")));
-
-Extern int vegasnbatch
-  __attribute__ ((weak, alias("vegasnbatch_")));
-
-#endif
+int EXPORT(vegasnbatch) = 1000;
+int EXPORT(vegasgridno) = 0;
+char EXPORT(vegasstate)[MAXSTATESIZE] = "";
 
 
 #define SamplesAlloc(p, n) \

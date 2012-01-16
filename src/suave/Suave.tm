@@ -31,6 +31,8 @@
 	res gives the integration results for the region in a list with entries of the form {integral, error, chi-square} for each component of the integrand.
 	df is the number of degrees of freedom corresponding to the chi-square values in res."
 
+:Evaluate: $Weight::usage = "$Weight is a global variable set by Suave during the evaluation of the integrand to the weight of the point being sampled."
+
 :Evaluate: Begin["`Suave`"]
 
 :Begin:
@@ -98,8 +100,9 @@
 
 :Evaluate: check[x_, _] := (Message[Suave::badsample, ff, x]; {})
 
-:Evaluate: sample[x_] :=
-	Check[Apply[integrand, Partition[x, ndim], 1]//Flatten, {}]
+:Evaluate: sample[w_, x_] :=
+	Check[ MapThread[Block[{$Weight = #1}, integrand@@ #2]&,
+	  {w, Partition[x, ndim]}] //Flatten, {} ]
 
 :Evaluate: region[ll_, ur_, r___] :=
 	Region[lower + range ll, lower + range ur, r]
@@ -124,7 +127,7 @@
 	Suave.tm
 		Subregion-adaptive Vegas Monte-Carlo integration
 		by Thomas Hahn
-		last modified 3 Feb 05 th
+		last modified 30 Aug 07 th
 */
 
 
@@ -166,7 +169,7 @@ static void Print(MLCONST char *s)
 
 /*********************************************************************/
 
-static void DoSample(cnumber n, real *x, real *f)
+static void DoSample(cnumber n, real *w, real *x, real *f)
 {
   int pkt;
   real *mma_f;
@@ -175,7 +178,8 @@ static void DoSample(cnumber n, real *x, real *f)
   if( MLAbort ) goto abort;
 
   MLPutFunction(stdlink, "EvaluatePacket", 1);
-  MLPutFunction(stdlink, "Cuba`Suave`sample", 1);
+  MLPutFunction(stdlink, "Cuba`Suave`sample", 2);
+  MLPutRealList(stdlink, w, n);
   MLPutRealList(stdlink, x, n*ndim_);
   MLEndPacket(stdlink);
 
@@ -207,8 +211,9 @@ abort:
 #include "common.c"
 
 void Suave(cint ndim, cint ncomp,
-  creal epsrel, creal epsabs, cint flags, cint mineval, cint maxeval,
-  cint nnew, creal flatness)
+  creal epsrel, creal epsabs,
+  cint flags, cnumber mineval, cnumber maxeval,
+  cnumber nnew, creal flatness)
 {
   ndim_ = ndim;
   ncomp_ = ncomp;

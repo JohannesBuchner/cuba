@@ -15,10 +15,13 @@ bindir = $(DESTDIR)@bindir@
 libdir = $(DESTDIR)@libdir@
 includedir = $(DESTDIR)@includedir@
 datadir = $(DESTDIR)@datadir@
+datarootdir = $(DESTDIR)@datarootdir@
 
 MATH_DEFAULT = @MATH_DEFAULT@
 TOOLS_DEFAULT = @TOOLS_DEFAULT@
 DEMO_FORTRAN_DEFAULT = @DEMO_FORTRAN_DEFAULT@
+
+MCC = CC=$(CC) PATH=$(PATH):tools mcc
 
 TARDIR = @PACKAGE_NAME@-@PACKAGE_VERSION@
 TARFILE = $(TARDIR).tar.gz
@@ -71,69 +74,74 @@ tools = $(srcdir)/tools
 
 
 VEGAS_C = $(vegas)/Vegas.c
-VEGAS_F1 = $(vegas)/vegas-f.c
-VEGAS_F2 = $(vegas)/vegas_f.c
 VEGAS_TM = $(vegas)/Vegas.tm
 VEGAS_H = $(vegas)/decl.h $(common)/stddecl.h
 VEGAS_SRCS = $(VEGAS_H) $(common)/debug.c \
   $(common)/Random.c $(common)/ChiSquare.c $(common)/Erf.c \
   $(vegas)/util.c $(vegas)/common.c $(vegas)/Grid.c $(vegas)/Integrate.c
-VEGAS = $(VEGAS_C) $(VEGAS_F1) $(VEGAS_F2) $(VEGAS_TM) $(VEGAS_SRCS)
+VEGAS = $(VEGAS_C) $(VEGAS_TM) $(VEGAS_SRCS)
 
 $(LIB)(Vegas.o): $(VEGAS_C) $(VEGAS_SRCS)
 	$(CC) $(CFLAGS) -c -o Vegas.o $(VEGAS_C)
 	$(AR) $(ARFLAGS) $(LIB) Vegas.o
 	$(RM) Vegas.o
 
-$(LIB)(vegas-f.o): $(VEGAS_F1) $(VEGAS_H)
-	$(CC) $(CFLAGS) -c -o vegas-f.o $(VEGAS_F1)
-	$(AR) $(ARFLAGS) $(LIB) vegas-f.o
-	$(RM) vegas-f.o
+$(LIB)(llVegas.o): $(VEGAS_C) $(VEGAS_SRCS)
+	$(CC) $(CFLAGS) -DLONGLONGINT -c -o llVegas.o $(VEGAS_C)
+	$(AR) $(ARFLAGS) $(LIB) llVegas.o
+	$(RM) llVegas.o
 
-$(LIB)(vegas_f.o): $(VEGAS_F2) $(VEGAS_H)
-	$(CC) $(CFLAGS) -c -o vegas_f.o $(VEGAS_F2)
-	$(AR) $(ARFLAGS) $(LIB) vegas_f.o
-	$(RM) vegas_f.o
+$(LIB)(Vegas_.o): $(VEGAS_C) $(VEGAS_SRCS)
+	$(CC) $(CFLAGS) -DUNDERSCORE -c -o Vegas_.o $(VEGAS_C)
+	$(AR) $(ARFLAGS) $(LIB) Vegas_.o
+	$(RM) Vegas_.o
+
+$(LIB)(llVegas_.o): $(VEGAS_C) $(VEGAS_SRCS)
+	$(CC) $(CFLAGS) -DLONGLONGINT -DUNDERSCORE -c -o llVegas_.o $(VEGAS_C)
+	$(AR) $(ARFLAGS) $(LIB) llVegas_.o
+	$(RM) llVegas_.o
 
 Vegas: $(VEGAS_TM) $(VEGAS_SRCS)
-	CC=$(CC) mcc $(CFLAGS) -o Vegas $(VEGAS_TM)
+	$(MCC) $(CFLAGS) -o Vegas $(VEGAS_TM)
 	strip Vegas
 
 
 SUAVE_C = $(suave)/Suave.c
-SUAVE_F1 = $(suave)/suave-f.c
-SUAVE_F2 = $(suave)/suave_f.c
 SUAVE_TM = $(suave)/Suave.tm
 SUAVE_H = $(suave)/decl.h $(common)/stddecl.h
 SUAVE_SRCS = $(SUAVE_H) $(common)/debug.c \
   $(common)/Random.c $(common)/ChiSquare.c $(common)/Erf.c \
   $(suave)/util.c $(suave)/common.c $(suave)/Grid.c \
   $(suave)/Fluct.c $(suave)/Sample.c $(suave)/Integrate.c
-SUAVE = $(SUAVE_C) $(SUAVE_F1) $(SUAVE_F2) $(SUAVE_TM) $(SUAVE_SRCS)
+SUAVE = $(SUAVE_C) $(SUAVE_TM) $(SUAVE_SRCS)
 
 $(LIB)(Suave.o): $(SUAVE_C) $(SUAVE_SRCS)
 	$(CC) $(CFLAGS) -c -o Suave.o $(SUAVE_C)
 	$(AR) $(ARFLAGS) $(LIB) Suave.o
 	$(RM) Suave.o
 
-$(LIB)(suave-f.o): $(SUAVE_F1) $(SUAVE_H)
-	$(CC) $(CFLAGS) -c -o suave-f.o $(SUAVE_F1)
-	$(AR) $(ARFLAGS) $(LIB) suave-f.o
-	$(RM) suave-f.o
+$(LIB)(llSuave.o): $(SUAVE_C) $(SUAVE_SRCS)
+	$(CC) $(CFLAGS) -DLONGLONGINT -c -o llSuave.o $(SUAVE_C)
+	$(AR) $(ARFLAGS) $(LIB) llSuave.o
+	$(RM) llSuave.o
 
-$(LIB)(suave_f.o): $(SUAVE_F2) $(SUAVE_H)
-	$(CC) $(CFLAGS) -c -o suave_f.o $(SUAVE_F2)
-	$(AR) $(ARFLAGS) $(LIB) suave_f.o
-	$(RM) suave_f.o
+$(LIB)(Suave_.o): $(SUAVE_C) $(SUAVE_SRCS)
+	$(CC) $(CFLAGS) -DUNDERSCORE -c -o Suave_.o $(SUAVE_C)
+	$(AR) $(ARFLAGS) $(LIB) Suave_.o
+	$(RM) Suave_.o
+
+$(LIB)(llSuave_.o): $(SUAVE_C) $(SUAVE_SRCS)
+	$(CC) $(CFLAGS) -DLONGLONGINT -DUNDERSCORE -c -o llSuave_.o $(SUAVE_C)
+	$(AR) $(ARFLAGS) $(LIB) llSuave_.o
+	$(RM) llSuave_.o
 
 Suave: $(SUAVE_TM) $(SUAVE_SRCS)
-	CC=$(CC) mcc $(CFLAGS) -o Suave $(SUAVE_TM)
+	$(MCC) $(CFLAGS) -o Suave $(SUAVE_TM)
 	strip Suave
 
 
 DIVONNE_C = $(divonne)/Divonne.c
-DIVONNE_F1 = $(divonne)/divonne-f.c
-DIVONNE_F2 = $(divonne)/divonne_f.c
+DIVONNE_F = $(divonne)/divonne-f.c
 DIVONNE_TM = $(divonne)/Divonne.tm
 DIVONNE_H = $(divonne)/decl.h $(common)/stddecl.h
 DIVONNE_SRCS = $(DIVONNE_H) $(common)/debug.c \
@@ -141,62 +149,75 @@ DIVONNE_SRCS = $(DIVONNE_H) $(common)/debug.c \
   $(divonne)/util.c $(divonne)/common.c $(divonne)/KorobovCoeff.c \
   $(divonne)/Rule.c $(divonne)/Sample.c $(divonne)/FindMinimum.c \
   $(divonne)/Explore.c $(divonne)/Split.c $(divonne)/Integrate.c
-DIVONNE = $(DIVONNE_C) $(DIVONNE_F1) $(DIVONNE_F2) $(DIVONNE_TM) $(DIVONNE_SRCS)
+DIVONNE = $(DIVONNE_C) $(DIVONNE_F) $(DIVONNE_TM) $(DIVONNE_SRCS)
 
 $(LIB)(Divonne.o): $(DIVONNE_C) $(DIVONNE_SRCS)
 	$(CC) $(CFLAGS) -c -o Divonne.o $(DIVONNE_C)
 	$(AR) $(ARFLAGS) $(LIB) Divonne.o
 	$(RM) Divonne.o
 
-$(LIB)(divonne-f.o): $(DIVONNE_F1) $(DIVONNE_H)
-	$(CC) $(CFLAGS) -c -o divonne-f.o $(DIVONNE_F1)
-	$(AR) $(ARFLAGS) $(LIB) divonne-f.o
-	$(RM) divonne-f.o
+$(LIB)(llDivonne.o): $(DIVONNE_C) $(DIVONNE_SRCS)
+	$(CC) $(CFLAGS) -DLONGLONGINT -c -o llDivonne.o $(DIVONNE_C)
+	$(AR) $(ARFLAGS) $(LIB) llDivonne.o
+	$(RM) llDivonne.o
 
-$(LIB)(divonne_f.o): $(DIVONNE_F2) $(DIVONNE_H)
-	$(CC) $(CFLAGS) -c -o divonne_f.o $(DIVONNE_F2)
-	$(AR) $(ARFLAGS) $(LIB) divonne_f.o
-	$(RM) divonne_f.o
+$(LIB)(Divonne_.o): $(DIVONNE_C) $(DIVONNE_SRCS)
+	$(CC) $(CFLAGS) -DUNDERSCORE -c -o Divonne_.o $(DIVONNE_C)
+	$(AR) $(ARFLAGS) $(LIB) Divonne_.o
+	$(RM) Divonne_.o
+
+$(LIB)(llDivonne_.o): $(DIVONNE_C) $(DIVONNE_SRCS)
+	$(CC) $(CFLAGS) -DLONGLONGINT -DUNDERSCORE -c -o llDivonne_.o $(DIVONNE_C)
+	$(AR) $(ARFLAGS) $(LIB) llDivonne_.o
+	$(RM) llDivonne_.o
 
 Divonne: $(DIVONNE_TM) $(DIVONNE_SRCS)
-	CC=$(CC) mcc $(CFLAGS) -o Divonne $(DIVONNE_TM)
+	$(MCC) $(CFLAGS) -o Divonne $(DIVONNE_TM)
 	strip Divonne
 
 
 CUHRE_C = $(cuhre)/Cuhre.c
-CUHRE_F1 = $(cuhre)/cuhre-f.c
-CUHRE_F2 = $(cuhre)/cuhre_f.c
+CUHRE_F = $(cuhre)/cuhre-f.c
 CUHRE_TM = $(cuhre)/Cuhre.tm
 CUHRE_H = $(cuhre)/decl.h $(common)/stddecl.h
 CUHRE_SRCS = $(CUHRE_H) $(common)/debug.c \
   $(common)/ChiSquare.c $(common)/Erf.c \
   $(cuhre)/util.c $(cuhre)/common.c $(cuhre)/Rule.c $(cuhre)/Integrate.c
-CUHRE = $(CUHRE_C) $(CUHRE_F1) $(CUHRE_F2) $(CUHRE_TM) $(CUHRE_SRCS)
+CUHRE = $(CUHRE_C) $(CUHRE_F) $(CUHRE_TM) $(CUHRE_SRCS)
 
 $(LIB)(Cuhre.o): $(CUHRE_C) $(CUHRE_SRCS)
 	$(CC) $(CFLAGS) -c -o Cuhre.o $(CUHRE_C)
 	$(AR) $(ARFLAGS) $(LIB) Cuhre.o
 	$(RM) Cuhre.o
 
-$(LIB)(cuhre-f.o): $(CUHRE_F1) $(CUHRE_H)
-	$(CC) $(CFLAGS) -c -o cuhre-f.o $(CUHRE_F1)
-	$(AR) $(ARFLAGS) $(LIB) cuhre-f.o
-	$(RM) cuhre-f.o
+$(LIB)(llCuhre.o): $(CUHRE_C) $(CUHRE_SRCS)
+	$(CC) $(CFLAGS) -DLONGLONGINT -c -o llCuhre.o $(CUHRE_C)
+	$(AR) $(ARFLAGS) $(LIB) llCuhre.o
+	$(RM) llCuhre.o
 
-$(LIB)(cuhre_f.o): $(CUHRE_F2) $(CUHRE_H)
-	$(CC) $(CFLAGS) -c -o cuhre_f.o $(CUHRE_F2)
-	$(AR) $(ARFLAGS) $(LIB) cuhre_f.o
-	$(RM) cuhre_f.o
+$(LIB)(Cuhre_.o): $(CUHRE_C) $(CUHRE_SRCS)
+	$(CC) $(CFLAGS) -DUNDERSCORE -c -o Cuhre_.o $(CUHRE_C)
+	$(AR) $(ARFLAGS) $(LIB) Cuhre_.o
+	$(RM) Cuhre_.o
+
+$(LIB)(llCuhre_.o): $(CUHRE_C) $(CUHRE_SRCS)
+	$(CC) $(CFLAGS) -DLONGLONGINT -DUNDERSCORE -c -o llCuhre_.o $(CUHRE_C)
+	$(AR) $(ARFLAGS) $(LIB) llCuhre_.o
+	$(RM) llCuhre_.o
 
 Cuhre: $(CUHRE_TM) $(CUHRE_SRCS)
-	CC=$(CC) mcc $(CFLAGS) -o Cuhre $(CUHRE_TM)
+	$(MCC) $(CFLAGS) -o Cuhre $(CUHRE_TM)
 	strip Cuhre
 
 
-$(LIB): $(LIB)(Vegas.o) $(LIB)(vegas-f.o) $(LIB)(vegas_f.o) \
-        $(LIB)(Suave.o) $(LIB)(suave-f.o) $(LIB)(suave_f.o) \
-        $(LIB)(Divonne.o) $(LIB)(divonne-f.o) $(LIB)(divonne_f.o) \
-        $(LIB)(Cuhre.o) $(LIB)(cuhre-f.o) $(LIB)(cuhre_f.o)
+$(LIB): $(LIB)(Vegas.o)     $(LIB)(llVegas.o)    \
+        $(LIB)(Vegas_.o)    $(LIB)(llVegas_.o)   \
+        $(LIB)(Suave.o)     $(LIB)(llSuave.o)    \
+        $(LIB)(Suave_.o)    $(LIB)(llSuave_.o)   \
+        $(LIB)(Divonne.o)   $(LIB)(llDivonne.o)  \
+        $(LIB)(Divonne_.o)  $(LIB)(llDivonne_.o) \
+        $(LIB)(Cuhre.o)     $(LIB)(llCuhre.o)    \
+        $(LIB)(Cuhre_.o)    $(LIB)(llCuhre_.o)
 	-$(RANLIB) $(LIB)
 
 
@@ -226,15 +247,15 @@ TARCONTENTS = $(srcdir)/ChangeLog $(srcdir)/configure \
   $(srcdir)/makefile.in $(srcdir)/config.h.in \
   $(srcdir)/cuba.pdf $(srcdir)/cuba.h \
   $(VEGAS) $(SUAVE) $(DIVONNE) $(CUHRE) \
-  $(DEMO) $(PARTVIEW) $(tools)/partview.m
+  $(DEMO) $(PARTVIEW) $(tools)/partview.m $(tools)/mcc
 
 
-tar:
+dist:
 	ln -s . $(TARDIR)
 	tar cvfzh $(TARFILE) $(patsubst $(srcdir)/%,$(TARDIR)/%, $(sort $(TARCONTENTS)))
 	$(RM) $(TARDIR)
 
-pub: tar
+pub: dist
 	mv -f $(TARFILE) web/
 	./mkwebpage
 

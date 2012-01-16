@@ -4,7 +4,7 @@
 		originally by J.H. Friedman and M.H. Wright
 		(CERNLIB subroutine D151)
 		this version by Thomas Hahn
-		last modified 9 Feb 05
+		last modified 2 Mar 06 th
 */
 
 #include "util.c"
@@ -40,7 +40,8 @@ static inline count SampleExtra(cBounds *b)
 
 #include "common.c"
 
-Extern void Divonne(ccount ndim, ccount ncomp, Integrand integrand,
+Extern void EXPORT(Divonne)(ccount ndim, ccount ncomp,
+  Integrand integrand,
   creal epsrel, creal epsabs,
   cint flags, cnumber mineval, cnumber maxeval,
   cint key1, cint key2, cint key3, ccount maxpass,
@@ -95,5 +96,30 @@ Extern void Divonne(ccount ndim, ccount ncomp, Integrand integrand,
 
     if( xgiven_ ) free(xgiven_);
   }
+}
+
+/*********************************************************************/
+
+Extern void EXPORT(divonne)(ccount *pndim, ccount *pncomp,
+  Integrand integrand,
+  creal *pepsrel, creal *pepsabs,
+  cint *pflags, cnumber *pmineval, cnumber *pmaxeval,
+  cint *pkey1, cint *pkey2, cint *pkey3, ccount *pmaxpass,
+  creal *pborder, creal *pmaxchisq, creal *pmindeviation,
+  cnumber *pngiven, ccount *pldxgiven, real *xgiven,
+  cnumber *pnextra, PeakFinder peakfinder,
+  int *pnregions, number *pneval, int *pfail,
+  real *integral, real *error, real *prob)
+{
+  EXPORT(Divonne)(*pndim, *pncomp,
+    integrand,
+    *pepsrel, *pepsabs,
+    *pflags, *pmineval, *pmaxeval,
+    *pkey1, *pkey2, *pkey3, *pmaxpass,
+    *pborder, *pmaxchisq, *pmindeviation,
+    *pngiven, *pldxgiven, xgiven,
+    *pnextra, peakfinder,
+    pnregions, pneval, pfail,
+    integral, error, prob);
 }
 

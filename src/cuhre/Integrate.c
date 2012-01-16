@@ -23,7 +23,7 @@ static int Integrate(creal epsrel, creal epsabs,
     sprintf(s, "Cuhre input parameters:\n"
       "  ndim " COUNT "\n  ncomp " COUNT "\n"
       "  epsrel " REAL "\n  epsabs " REAL "\n"
-      "  flags %d\n  mineval " NUMBER"\n  maxeval " NUMBER "\n"
+      "  flags %d\n  mineval " NUMBER "\n  maxeval " NUMBER "\n"
       "  key " COUNT,
       ndim_, ncomp_,
       epsrel, epsabs,
