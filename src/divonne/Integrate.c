@@ -4,7 +4,7 @@
 		has approximately equal spread = 1/2 vol (max - min),
 		then do a main integration over all regions
 		this file is part of Divonne
-		last modified 8 Jun 10 th
+		last modified 15 Feb 11 th
 */
 
 
@@ -22,7 +22,7 @@ static int Integrate(This *t, real *integral, real *error, real *prob)
   real nneed, weight;
   count dim, comp, iter, pass = 0, err, iregion;
   number nwant, nmin = INT_MAX;
-  int fail = -99;
+  int fail;
 
   if( VERBOSE > 1 ) {
     char s[512];
@@ -33,7 +33,7 @@ static int Integrate(This *t, real *integral, real *error, real *prob)
       "  mineval " NUMBER "\n  maxeval " NUMBER "\n"
       "  key1 %d\n  key2 %d\n  key3 %d\n  maxpass " COUNT "\n"
       "  border " REAL "\n  maxchisq " REAL "\n  mindeviation " REAL "\n"
-      "  ngiven " NUMBER "\n  nextra " NUMBER "\n",
+      "  ngiven " NUMBER "\n  nextra " NUMBER,
       t->ndim, t->ncomp,
       t->epsrel, t->epsabs,
       t->flags, t->seed,
@@ -67,7 +67,7 @@ static int Integrate(This *t, real *integral, real *error, real *prob)
   SamplesIni(&t->samples[1]);
   SamplesIni(&t->samples[2]);
 
-  if( setjmp(t->abort) ) goto abort;
+  if( (fail = setjmp(t->abort)) ) goto abort;
 
   t->epsabs = Max(t->epsabs, NOTZERO);
 

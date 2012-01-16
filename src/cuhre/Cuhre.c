@@ -2,7 +2,7 @@
 	Cuhre.c
 		Adaptive integration using cubature rules
 		by Thomas Hahn
-		last modified 16 Jun 10 th
+		last modified 15 Feb 11 th
 */
 
 
@@ -17,7 +17,7 @@ static inline void DoSample(This *t, count n, creal *x, real *f)
   t->neval += n;
   while( n-- ) {
     if( t->integrand(&t->ndim, x, &t->ncomp, f, t->userdata) == ABORT )
-      longjmp(t->abort, 1);
+      longjmp(t->abort, -99);
     x += t->ndim;
     f += t->ncomp;
   }

@@ -2,7 +2,7 @@
 	decl.h
 		Type declarations
 		this file is part of Vegas
-		last modified 6 Jun 10 th
+		last modified 13 Sep 10 th
 */
 
 
@@ -28,7 +28,8 @@ typedef struct {
 
 typedef const Cumulants cCumulants;
 
-typedef int (*Integrand)(ccount *, creal *, ccount *, real *, void *, creal *);
+typedef int (*Integrand)(ccount *, creal *, ccount *, real *,
+  void *, creal *, cint *);
 
 typedef struct _this {
   count ndim, ncomp;

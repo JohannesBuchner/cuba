@@ -4,7 +4,7 @@
 		originally by J.H. Friedman and M.H. Wright
 		(CERNLIB subroutine D151)
 		this version by Thomas Hahn
-		last modified 16 Jun 10 th
+		last modified 15 Feb 11 th
 */
 
 #include "decl.h"
@@ -18,7 +18,7 @@ static inline void DoSample(This *t, number n, ccount ldx, creal *x, real *f)
   t->neval += n;
   while( n-- ) {
     if( t->integrand(&t->ndim, x, &t->ncomp, f, t->userdata, &t->phase) == ABORT )
-      longjmp(t->abort, 1);
+      longjmp(t->abort, -99);
     x += ldx;
     f += t->ncomp;
   }

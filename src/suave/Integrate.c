@@ -2,7 +2,7 @@
 	Integrate.c
 		integrate over the unit hypercube
 		this file is part of Suave
-		last modified 16 Jun 10 th
+		last modified 15 Feb 11 th
 */
 
 
@@ -11,7 +11,7 @@ static int Integrate(This *t, real *integral, real *error, real *prob)
   TYPEDEFREGION;
 
   count dim, comp, df;
-  int fail = -99;
+  int fail;
   Result totals[NCOMP];
   Region *anchor = NULL, *region = NULL;
 
@@ -34,7 +34,7 @@ static int Integrate(This *t, real *integral, real *error, real *prob)
   if( BadComponent(t) ) return -2;
   if( BadDimension(t) ) return -1;
 
-  if( setjmp(t->abort) ) goto abort;
+  if( (fail = setjmp(t->abort)) ) goto abort;
 
   t->epsabs = Max(t->epsabs, NOTZERO);
   IniRandom(t);

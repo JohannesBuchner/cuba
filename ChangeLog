@@ -1,3 +1,28 @@
+18 Jun 11:
+
+- Fixed problem with inner integration bounds depending on outer
+  ones in the MathLink executables.
+
+
+15 Feb 11:
+
+- Moved partview to Qt 4.
+
+- Rectified error reporting via longjmp, in particular avoiding
+  sending $Failed twice in MathLink which would upset the
+  following communications.
+
+
+13 Sep 10:
+
+- Added iteration number to integrand's optional parameters
+  (Vegas and Suave).
+
+- Fixed initialization problem when using state file in Vegas.
+
+- Added tests for MathLink to configure.
+
+
 20 Jul 10:
 
 - Fixed severe bug in divonne/Split.c (wrong sign in SignedDelta

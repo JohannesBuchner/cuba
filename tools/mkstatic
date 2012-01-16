@@ -1,22 +1,22 @@
 #! /bin/sh
 
-st="-static"
-exe=""
-pre=""
-mach=""
+st=-static
+exe=
+mach=
+mlmach=
 case `uname -s` in
 Linux)	tag=Linux
-	pre=linux32
-	mach="-m32" ;;
+	mach=-m32
+	mlmach=-b32 ;;
 Darwin)	tag=Mac
-	st="-static-libgcc" ;;
+	st=-static-libgcc ;;
 CYG*)	tag=Windows
 	exe=.exe ;;
 esac
 
-$pre ./configure CFLAGS="-O3 -fomit-frame-pointer -ffast-math $st $mach"
+./configure CFLAGS="-O3 -fomit-frame-pointer -ffast-math $st $mach" MCFLAGS="-st $mlmach"
 
-$pre make MCFLAGS=-st math
+make math
 
 for file in Vegas Suave Divonne Cuhre ; do
   gzip $file$exe

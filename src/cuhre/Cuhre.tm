@@ -51,8 +51,8 @@
 	Verbose -> 1, Final -> Last, Regions -> False, Compiled -> True}
 
 :Evaluate: Cuhre[f_, v:{_, _, _}.., opt___Rule] :=
-	Block[ {ff = HoldForm[f], ndim = Length[{v}],
-	tags, vars, lower, range, integrand,
+	Block[ {ff = HoldForm[f], ndim = Length[{v}], ncomp,
+	tags, vars, lower, range, jac, tmp, defs, intT,
 	rel, abs, mineval, maxeval, key, verbose, final, regions, compiled},
 	  Message[Cuhre::optx, #, Cuhre]&/@
 	    Complement[First/@ {opt}, tags = First/@ Options[Cuhre]];
@@ -60,47 +60,46 @@
 	    verbose, final, regions, compiled} =
 	    tags /. {opt} /. Options[Cuhre];
 	  {vars, lower, range} = Transpose[{v}];
-	  range -= lower;
-	  define[compiled, vars, lower, range, Simplify[Times@@ range]];
-	  integrand = fun[f];
-	  MLCuhre[ndim, ncomp[f], 10.^-rel, 10.^-abs,
-	    Min[Max[verbose, 0], 3] +
-	      If[final === Last, 4, 0] +
-	      If[TrueQ[regions], 128, 0],
-            mineval, maxeval, key]
+	  jac = Simplify[Times@@ (range -= lower)];
+	  tmp = Array[tmpvar, ndim];
+	  defs = Simplify[lower + range tmp];
+	  Block[{Set}, define[compiled, tmp, Thread[vars = defs], jac]];
+	  intT = integrandT[f];
+	  Block[#,
+	    ncomp = Length[intT@@ RandomReal[1, ndim]];
+	    MLCuhre[ndim, ncomp, 10.^-rel, 10.^-abs,
+	      Min[Max[verbose, 0], 3] +
+	        If[final === Last, 4, 0] +
+	        If[TrueQ[regions], 128, 0],
+	      mineval, maxeval, key]
+	  ]& @ vars
 	]
 
-:Evaluate: Attributes[ncomp] = Attributes[fun] = {HoldAll}
+:Evaluate: tmpvar[n_] := ToExpression["Cuba`Cuhre`t" <> ToString[n]]
 
-:Evaluate: ncomp[f_List] := Length[f]
+:Evaluate: Attributes[foo] = {HoldAll}
 
-:Evaluate: _ncomp = 1
+:Evaluate: define[True, tmp_, defs_, jac_] := (
+	TtoX := TtoX = Compile[tmp, defs];
+	integrandT[f_] := Compile[tmp, eval[defs, Chop[f jac]//N],
+	  {{_eval, _Real, 1}}] )
 
-:Evaluate: define[True, vars_, lower_, range_, jac_] :=
-	fun[f_] := Compile[{{t, _Real, 1}},
-	  Block[vars,
-	    vars = lower + range t;
-	    check[vars, Chop[f jac]//N] ]]
+:Evaluate: define[_, tmp_, defs_, jac_] := (
+	TtoX := TtoX = Function[tmp, defs];
+	integrandT[f_] := Function[tmp, eval[defs, Chop[f jac]//N]] )
 
-:Evaluate: define[_, vars_, lower_, range_, jac_] :=
-	fun[f_] := Function[{t},
-	  Block[vars,
-	    vars = lower + range t;
-	    check[vars, Chop[f jac]//N] ]]
+:Evaluate: eval[_, f_Real] = {f}
 
-:Evaluate: check[_, f_Real] = {f}
+:Evaluate: eval[_, f:{__Real}] = f
 
-:Evaluate: check[_, f:{__Real}] = f
-
-:Evaluate: check[x_, _] := (Message[Cuhre::badsample, ff, x]; {})
+:Evaluate: eval[x_, _] := (Message[Cuhre::badsample, ff, x]; {})
 
 :Evaluate: sample[x_] :=
-	Check[Flatten @ MapSample[integrand, Partition[x, ndim]], {}]
+	Check[Flatten @ MapSample[intT@@ # &, Partition[x, ndim]], {}]
 
 :Evaluate: MapSample = Map
 
-:Evaluate: region[ll_, ur_, r___] :=
-	Region[lower + range ll, lower + range ur, r]
+:Evaluate: region[ll_, ur_, r___] := Region[TtoX@@ ll, TtoX@@ ur, r]
 
 :Evaluate: Cuhre::badsample = "`` is not a real-valued function at ``."
 
@@ -122,7 +121,7 @@
 	Cuhre.tm
 		Adaptive integration using cubature rules
 		by Thomas Hahn
-		last modified 7 Jun 10 th
+		last modified 20 Jun 11 th
 */
 
 
@@ -167,7 +166,7 @@ static void DoSample(This *t, cnumber n, real *x, real *f)
   real *mma_f;
   long mma_n;
 
-  if( MLAbort ) goto abort;
+  if( MLAbort ) longjmp(t->abort, -99);
 
   MLPutFunction(stdlink, "EvaluatePacket", 1);
   MLPutFunction(stdlink, "Cuba`Cuhre`sample", 1);
@@ -180,15 +179,12 @@ static void DoSample(This *t, cnumber n, real *x, real *f)
   if( !MLGetRealList(stdlink, &mma_f, &mma_n) ) {
     MLClearError(stdlink);
     MLNewPacket(stdlink);
-abort:
-    MLPutFunction(stdlink, "Abort", 0);
-    longjmp(t->abort, 1);
+    longjmp(t->abort, -99);
   }
 
   if( mma_n != n*t->ncomp ) {
     MLDisownRealList(stdlink, mma_f, mma_n);
-    MLPutSymbol(stdlink, "$Failed");
-    longjmp(t->abort, 1);
+    longjmp(t->abort, -3);
   }
 
   Copy(f, mma_f, n*t->ncomp);
@@ -207,8 +203,17 @@ static inline void DoIntegrate(This *t)
   cint fail = Integrate(t, integral, error, prob);
 
   if( fail < 0 ) {
-    if( fail == -1 ) Status("baddim", t->ndim, 0);
-    else Status("badcomp", t->ncomp, 0);
+    switch( fail ) {
+    case -99:
+      MLPutFunction(stdlink, "Abort", 0);
+      return;
+    case -1:
+      Status("baddim", t->ndim, 0);
+      break;
+    case -2:
+      Status("badcomp", t->ncomp, 0);
+      break;
+    }
     MLPutSymbol(stdlink, "$Failed");
   }
   else {

@@ -1,12 +1,12 @@
 /*
 	stddecl.h
 		Type declarations common to all Cuba routines
-		last modified 16 Jun 10 th
+		last modified 6 Dec 10 th
 */
 
 
-#ifndef __stddecl_h__
-#define __stddecl_h__
+#ifndef _stddecl_h_
+#define _stddecl_h_
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"

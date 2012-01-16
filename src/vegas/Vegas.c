@@ -2,7 +2,7 @@
 	Vegas.c
 		Vegas Monte-Carlo integration
 		by Thomas Hahn
-		last modified 16 Jun 10 th
+		last modified 15 Feb 11 th
 */
 
 
@@ -12,12 +12,14 @@
 
 /*********************************************************************/
 
-static inline void DoSample(This *t, number n, creal *w, creal *x, real *f)
+static inline void DoSample(This *t, number n,
+  creal *w, creal *x, real *f, cint iter)
 {
   t->neval += n;
   while( n-- ) {
-    if( t->integrand(&t->ndim, x, &t->ncomp, f, t->userdata, w++) == ABORT )
-      longjmp(t->abort, 1);
+    if( t->integrand(&t->ndim, x, &t->ncomp, f, t->userdata,
+          w++, &iter) == ABORT )
+      longjmp(t->abort, -99);
     x += t->ndim;
     f += t->ncomp;
   }

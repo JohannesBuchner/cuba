@@ -143,11 +143,12 @@
 	Regions -> False, Compiled -> True}
 
 :Evaluate: Divonne[f_, v:{_, _, _}.., opt___Rule] :=
-	Block[ {ff = HoldForm[f], ndim = Length[{v}],
-	tags, vars, lower, range, integrand,
+	Block[ {ff = HoldForm[f], ndim = Length[{v}], ncomp,
+	tags, vars, lower, range, jac, tmp, defs, intT, intX,
 	rel, abs, mineval, maxeval, key1, key2, key3, maxpass, border,
 	maxchisq, mindeviation,	given, nextra, peakfinder,
-	final, verbose, level, seed, regions, compiled},
+	final, verbose, level, seed, regions, compiled,
+	$Phase},
 	  Message[Divonne::optx, #, Divonne]&/@
 	    Complement[First/@ {opt}, tags = First/@ Options[Divonne]];
 	  {rel, abs, mineval, maxeval, key1, key2, key3, maxpass, border,
@@ -155,56 +156,59 @@
 	    verbose, final, level, seed, regions, compiled} =
 	    tags /. {opt} /. Options[Divonne];
 	  {vars, lower, range} = Transpose[{v}];
-	  range -= lower;
-	  define[compiled, vars, lower, range, Simplify[Times@@ range]];
-	  integrand = fun[f];
-	  given = Flatten[N[(# - lower)/range]&/@ given];
-	  MLDivonne[ndim, ncomp[f], 10.^-rel, 10.^-abs,
-	    Min[Max[verbose, 0], 3] +
-	      If[final === Last, 4, 0] +
-	      If[TrueQ[regions], 128, 0] +
-	      If[IntegerQ[level], 256 level, 0],
-	    If[level =!= False && IntegerQ[seed], seed, 0],
-	    mineval, maxeval,
-	    key1, key2, key3, maxpass,
-	    N[border], N[maxchisq], N[mindeviation],
-	    given, sample[given, 0], nextra]
+	  jac = Simplify[Times@@ (range -= lower)];
+	  tmp = Array[tmpvar, ndim];
+	  defs = Simplify[lower + range tmp];
+	  Block[{Set}, define[compiled, tmp, vars, Thread[vars = defs], jac]];
+	  intT = integrandT[f];
+	  intX = integrandX[f];
+	  Block[#,
+	    ncomp = Length[intT@@ RandomReal[1, ndim]];
+	    MLDivonne[ndim, ncomp, 10.^-rel, 10.^-abs,
+	      Min[Max[verbose, 0], 3] +
+	        If[final === Last, 4, 0] +
+	        If[TrueQ[regions], 128, 0] +
+	        If[IntegerQ[level], 256 level, 0],
+	      If[level =!= False && IntegerQ[seed], seed, 0],
+	      mineval, maxeval,
+	      key1, key2, key3, maxpass,
+	      N[border], N[maxchisq], N[mindeviation],
+	      given, sample[given, 0, intX], nextra]
+	  ]& @ vars
 	]
 
-:Evaluate: Attributes[ncomp] = Attributes[fun] = {HoldAll}
+:Evaluate: tmpvar[n_] := ToExpression["Cuba`Divonne`t" <> ToString[n]]
 
-:Evaluate: ncomp[f_List] := Length[f]
+:Evaluate: Attributes[foo] = {HoldAll}
 
-:Evaluate: _ncomp = 1
+:Evaluate: define[True, tmp_, vars_, defs_, jac_] := (
+	TtoX := TtoX = Compile[tmp, defs];
+	integrandT[f_] := Compile[tmp, eval[defs, Chop[f jac]//N],
+	  {{_eval, _Real, 1}}];
+	integrandX[f_] := Compile[vars, eval[vars, Chop[f jac]//N],
+	  {{_eval, _Real, 1}}] )
 
-:Evaluate: define[True, vars_, lower_, range_, jac_] :=
-	fun[f_] := Compile[{{t, _Real, 1}},
-	  Block[vars,
-	    vars = lower + range t;
-	    check[vars, Chop[f jac]//N] ]]
+:Evaluate: define[_, tmp_, vars_, defs_, jac_] := (
+	TtoX := TtoX = Function[tmp, defs];
+	integrandT[f_] := Function[tmp, eval[defs, Chop[f jac]//N]];
+	integrandX[f_] := Function[vars, eval[vars, Chop[f jac]//N]] )
 
-:Evaluate: define[_, vars_, lower_, range_, jac_] :=
-	fun[f_] := Function[{t},
-	  Block[vars,
-	    vars = lower + range t;
-	    check[vars, Chop[f jac]//N] ]]
+:Evaluate: eval[_, f_Real] := {f}
 
-:Evaluate: check[_, f_Real] = {f}
+:Evaluate: eval[_, f:{__Real}] := f
 
-:Evaluate: check[_, f:{__Real}] = f
+:Evaluate: eval[x_, _] := (Message[Divonne::badsample, ff, x]; {})
 
-:Evaluate: check[x_, _] := (Message[Divonne::badsample, ff, x]; {})
-
-:Evaluate: sample[x_, p_] := Block[ {$Phase = p},
-	Check[Flatten @ MapSample[integrand, Partition[x, ndim]], {}] ]
+:Evaluate: sample[x_, p_, i_:intT] := (
+	$Phase = p;
+	Check[Flatten @ MapSample[i@@ # &, Partition[x, ndim]], {}] )
 
 :Evaluate: MapSample = Map
 
-:Evaluate: findpeak[b_, p_] := Check[Join[#, sample[#, p]]& @
-	N[Flatten[peakfinder@@ Transpose[lower + range Partition[b, 2]]]], {}]
+:Evaluate: findpeak[b_, p_] := Check[Join[#, sample[#, p, intX]]& @
+	N[Flatten[peakfinder@@ MapThread[TtoX, Partition[b, 2]]]], {}]
 
-:Evaluate: region[ll_, ur_, r___] :=
-	Region[lower + range ll, lower + range ur, r]
+:Evaluate: region[ll_, ur_, r___] := Region[TtoX@@ ll, TtoX@@ ur, r]
 
 :Evaluate: Divonne::badsample = "`` is not a real-valued function at ``."
 
@@ -229,7 +233,7 @@
 		originally by J.H. Friedman and M.H. Wright
 		(CERNLIB subroutine D151)
 		this version by Thomas Hahn
-		last modified 7 Jun 10 th
+		last modified 20 Jun 11 th
 */
 
 
@@ -275,7 +279,7 @@ static void DoSample(This *t, cnumber n, ccount ldx, real *x, real *f)
   real *mma_f;
   long mma_n;
 
-  if( MLAbort ) goto abort;
+  if( MLAbort ) longjmp(t->abort, -99);
 
   MLPutFunction(stdlink, "EvaluatePacket", 1);
   MLPutFunction(stdlink, "Cuba`Divonne`sample", 2);
@@ -289,15 +293,12 @@ static void DoSample(This *t, cnumber n, ccount ldx, real *x, real *f)
   if( !MLGetRealList(stdlink, &mma_f, &mma_n) ) {
     MLClearError(stdlink);
     MLNewPacket(stdlink);
-abort:
-    MLPutFunction(stdlink, "Abort", 0);
-    longjmp(t->abort, 1);
+    longjmp(t->abort, -99);
   }
 
   if( mma_n != n*t->ncomp ) {
     MLDisownRealList(stdlink, mma_f, mma_n);
-    MLPutSymbol(stdlink, "$Failed");
-    longjmp(t->abort, 1);
+    longjmp(t->abort, -3);
   }
 
   t->neval += n;
@@ -327,8 +328,7 @@ static count SampleExtra(This *t, cBounds *b)
   if( !MLGetRealList(stdlink, &mma_f, &mma_n) ) {
     MLClearError(stdlink);
     MLNewPacket(stdlink);
-    MLPutFunction(stdlink, "Abort", 0);
-    longjmp(t->abort, 1);
+    longjmp(t->abort, -99);
   }
 
   t->neval += nget = mma_n/(t->ndim + t->ncomp);
@@ -354,8 +354,17 @@ static inline void DoIntegrate(This *t)
   cint fail = Integrate(t, integral, error, prob);
 
   if( fail < 0 ) {
-    if( fail == -1 ) Status("baddim", t->ndim, 0, 0);
-    else Status("badcomp", t->ncomp, 0, 0);
+    switch( fail ) {
+    case -99:
+      MLPutFunction(stdlink, "Abort", 0);
+      return;
+    case -1:
+      Status("baddim", t->ndim, 0, 0);
+      break;
+    case -2:
+      Status("badcomp", t->ncomp, 0, 0);
+      break;
+    }
     MLPutSymbol(stdlink, "$Failed");
   }
   else {

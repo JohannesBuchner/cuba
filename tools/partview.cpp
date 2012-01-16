@@ -1,7 +1,7 @@
 /*
 	partview.cpp
 		Partition viewer for Cuba
-		last modified 19 Jan 09 th
+		last modified 15 Feb 11 th
 */
 
 
@@ -9,14 +9,16 @@
 #include <stdlib.h>
 #include <math.h>
 
-#include <qwidget.h>
-#include <qmainwindow.h>
-#include <qtabwidget.h>
-#include <qaction.h>
-#include <qtoolbar.h>
-#include <qpainter.h>
-#include <qprinter.h>
-#include <qapplication.h>
+#include <QWidget>
+#include <QMainWindow>
+#include <QTabWidget>
+#include <QAction>
+#include <QToolBar>
+#include <QPainter>
+#include <QPrinter>
+#include <QPrintDialog>
+#include <QApplication>
+#include <QColorGroup>
 
 #include <list>
 
@@ -28,10 +30,8 @@
 class PartitionPlane : public QWidget
 {
 public:
-  PartitionPlane( const int dimx, const int dimy,
-    QWidget *parent = 0, const char *name = 0 )
-  : QWidget(parent, name), m_dimx(dimx), m_dimy(dimy), m_got(0) {
-    setBackgroundMode( PaletteBase );
+  PartitionPlane( const int dimx, const int dimy, QWidget *parent = 0 )
+  : QWidget(parent), m_dimx(dimx), m_dimy(dimy), m_got(0) {
   }
 
   void addBound( const int dim, const double lower, const double upper );
@@ -114,7 +114,7 @@ void PartitionPlane::drawRegion( QPainter *p, const QRect &r )
   c.setHsv( Hue, saturation, 255 );
   p->setBrush(c);
 
-  p->setPen(colorGroup().foreground());
+  p->setPen(palette().foreground().color());
 
   p->drawRect(r);
 }
@@ -134,12 +134,12 @@ class PartitionViewer : public QMainWindow
   Q_OBJECT
 
 public:
-  PartitionViewer( QWidget *parent, const char *name );
+  PartitionViewer( QWidget *parent );
   void addPlane( const int dimx, const int dimy );
   void addBound( const int dim, const double lower, const double upper );
   int count() const { return m_tabs->count(); }
   void tabupdate() { 
-    if( m_tabs->currentPage() != 0 ) m_tabs->currentPage()->update();
+    if( m_tabs->currentWidget() != 0 ) m_tabs->currentWidget()->update();
   }
 
 public slots:
@@ -151,24 +151,22 @@ private:
 };
 
 
-PartitionViewer::PartitionViewer( QWidget *parent = 0, const char *name = 0 )
-: QMainWindow(parent, name)
+PartitionViewer::PartitionViewer( QWidget *parent = 0 )
+: QMainWindow(parent)
 {
-  setCaption(tr("Cuba Partition Viewer"));
+  setWindowTitle(tr("Cuba Partition Viewer"));
 
   QToolBar *toolbar = new QToolBar(this);
-  moveDockWindow(toolbar, Qt::DockLeft);
+  addToolBar(Qt::LeftToolBarArea, toolbar);
 
-  QAction *quit = new QAction( QPixmap(quit_xpm), tr("&Quit"),
-    Key_Q, this );
+  QAction *quit = new QAction( QPixmap(quit_xpm), tr("&Quit"), this );
   connect( quit, SIGNAL(activated()), qApp, SLOT(quit()) );
-  quit->addTo(toolbar);
+  toolbar->addAction(quit);
 
 #ifndef QT_NO_PRINTER
-  QAction *print = new QAction( QPixmap(print_xpm), tr("&Print..."),
-    Key_P, this );
+  QAction *print = new QAction( QPixmap(print_xpm), tr("&Print..."), this );
   connect( print, SIGNAL(activated()), this, SLOT(print()) );
-  print->addTo(toolbar);
+  toolbar->addAction(print);
 
   m_printer = new QPrinter;
 #endif
@@ -189,7 +187,7 @@ void PartitionViewer::addBound( const int dim,
   const double lower, const double upper )
 {
   for( int index = 0; index < m_tabs->count(); ++index ) {
-    PartitionPlane *plane = (PartitionPlane *)m_tabs->page(index);
+    PartitionPlane *plane = (PartitionPlane *)m_tabs->widget(index);
     if( plane ) plane->addBound(dim, lower, upper);
   }
 }
@@ -198,13 +196,11 @@ void PartitionViewer::addBound( const int dim,
 void PartitionViewer::print()
 {
 #ifndef QT_NO_PRINTER
-  PartitionPlane *plane = (PartitionPlane *)m_tabs->currentPage();
+  PartitionPlane *plane = (PartitionPlane *)m_tabs->currentWidget();
   if( !plane ) return;
 
-  m_printer->setOutputFileName( plane->filename() );
-  m_printer->setOutputToFile( FALSE );
-
-  if( m_printer->setup(this) ) {
+  QPrintDialog printDialog(m_printer, this);
+  if( printDialog.exec() == QDialog::Accepted ) {
     QPainter p;
     if( p.begin(m_printer) ) {
       p.setViewport( QRect(QPoint(0, 0), plane->sizeHint()) );
@@ -241,17 +237,14 @@ int main( int argc, char **argv )
     exit(1);
   }
 
-  app.setMainWidget( &partview );
   partview.show();
 
   int dim = 0;
+  char line[128];
 
-  while( !feof(stdin) ) {
-    char line[128];
+  while( fgets(line, sizeof line, stdin) ) {
     double lower, upper;
 
-    line[0] = 0;
-    fgets(line, sizeof(line), stdin);
     fputs(line, stdout);
 
     if( sscanf(line, "%*[^(](%lf) - (%lf)", &lower, &upper) == 2 )

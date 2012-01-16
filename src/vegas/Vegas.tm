@@ -41,6 +41,8 @@
 
 :Evaluate: $Weight::usage = "$Weight is a global variable set by Vegas during the evaluation of the integrand to the weight of the point being sampled."
 
+:Evaluate: $Iteration::usage = "$Iteration is a global variable set by Suave during the evaluation of the integrand to the present iteration number."
+
 :Evaluate: MapSample::usage = "MapSample is a function used to map the integrand over the points to be sampled."
 
 
@@ -77,57 +79,58 @@
 	SharpEdges -> False, Compiled -> True}
 
 :Evaluate: Vegas[f_, v:{_, _, _}.., opt___Rule] :=
-	Block[ {ff = HoldForm[f], ndim = Length[{v}],
-	tags, vars, lower, range, integrand,
+	Block[ {ff = HoldForm[f], ndim = Length[{v}], ncomp,
+	tags, vars, lower, range, jac, tmp, defs, intT,
 	rel, abs, mineval, maxeval, nstart, nincrease, nbatch,
-	gridno, verbose, final, level, seed, edges, compiled},
+	gridno, verbose, final, level, seed, edges, compiled,
+	$Weight, $Iteration},
 	  Message[Vegas::optx, #, Vegas]&/@
 	    Complement[First/@ {opt}, tags = First/@ Options[Vegas]];
 	  {rel, abs, mineval, maxeval, nstart, nincrease, nbatch,
 	    gridno, state, verbose, final, level, seed, edges, compiled} =
 	    tags /. {opt} /. Options[Vegas];
 	  {vars, lower, range} = Transpose[{v}];
-	  range -= lower;
-	  define[compiled, vars, lower, range, Simplify[Times@@ range]];
-	  integrand = fun[f];
-	  MLVegas[ndim, ncomp[f], 10.^-rel, 10.^-abs,
-	    Min[Max[verbose, 0], 3] +
-	      If[final === Last, 4, 0] +
-	      If[TrueQ[edges], 8, 0]
-	      If[IntegerQ[level], 256 level, 0],
-	    If[level =!= False && IntegerQ[seed], seed, 0],
-	    mineval, maxeval,
-	    nstart, nincrease, nbatch,
-	    gridno, state]
+	  jac = Simplify[Times@@ (range -= lower)];
+	  tmp = Array[tmpvar, ndim];
+	  defs = Simplify[lower + range tmp];
+	  Block[{Set}, define[compiled, tmp, Thread[vars = defs], jac]];
+	  intT = integrandT[f];
+	  Block[#,
+	    ncomp = Length[intT@@ RandomReal[1, ndim]];
+	    MLVegas[ndim, ncomp, 10.^-rel, 10.^-abs,
+	      Min[Max[verbose, 0], 3] +
+	        If[final === Last, 4, 0] +
+	        If[TrueQ[edges], 8, 0]
+	        If[IntegerQ[level], 256 level, 0],
+	      If[level =!= False && IntegerQ[seed], seed, 0],
+	      mineval, maxeval,
+	      nstart, nincrease, nbatch,
+	      gridno, state]
+	  ]& @ vars
 	]
 
-:Evaluate: Attributes[ncomp] = Attributes[fun] = {HoldAll}
+:Evaluate: tmpvar[n_] := ToExpression["Cuba`Vegas`t" <> ToString[n]]
 
-:Evaluate: ncomp[f_List] := Length[f]
+:Evaluate: Attributes[foo] = {HoldAll}
 
-:Evaluate: _ncomp = 1
+:Evaluate: define[True, tmp_, defs_, jac_] :=
+	integrandT[f_] := Compile[tmp, eval[defs, Chop[f jac]//N],
+	  {{_eval, _Real, 1}}]
 
-:Evaluate: define[True, vars:{v___}, lower_, range_, jac_] :=
-	fun[f_] := Compile[{{t, _Real, 1}, w},
-	  Block[{v, $Weight = w},
-	    vars = lower + range t;
-	    check[vars, Chop[f jac]//N] ]]
+:Evaluate: define[_, tmp_, defs_, jac_] :=
+	integrandT[f_] := Function[tmp, eval[defs, Chop[f jac]//N]]
 
-:Evaluate: define[_, vars:{v___}, lower_, range_, jac_] :=
-	fun[f_] := Function[{t, w},
-	  Block[{v, $Weight = w},
-	    vars = lower + range t;
-	    check[vars, Chop[f jac]//N] ]]
+:Evaluate: eval[_, f_Real] = {f}
 
-:Evaluate: check[_, f_Real] = {f}
+:Evaluate: eval[_, f:{__Real}] = f
 
-:Evaluate: check[_, f:{__Real}] = f
+:Evaluate: eval[x_, _] := (Message[Vegas::badsample, ff, x]; {})
 
-:Evaluate: check[x_, _] := (Message[Vegas::badsample, ff, x]; {})
-
-:Evaluate: sample[x_, w_] := Check[ Flatten @
-	MapSample[integrand@@ # &, Transpose[{Partition[x, ndim], w}]],
-	{} ]
+:Evaluate: sample[x_, w_, iter_] := (
+	$Iteration = iter;
+	Check[Flatten @ MapSample[
+	  ($Weight = #[[1]]; intT@@ #[[2]])&,
+	  Transpose[{w, Partition[x, ndim]}] ], {}] )
 
 :Evaluate: MapSample = Map
 
@@ -151,7 +154,7 @@
 	Vegas.tm
 		Vegas Monte Carlo integration
 		by Thomas Hahn
-		last modified 2 Jun 10 th
+		last modified 18 Jun 11 th
 */
 
 
@@ -189,18 +192,20 @@ static void Print(MLCONST char *s)
 
 /*********************************************************************/
 
-static void DoSample(This *t, cnumber n, real *w, real *x, real *f)
+static void DoSample(This *t, cnumber n,
+  real *w, real *x, real *f, cint iter)
 {
   int pkt;
   real *mma_f;
   long mma_n;
 
-  if( MLAbort ) goto abort;
+  if( MLAbort ) longjmp(t->abort, -99);
 
   MLPutFunction(stdlink, "EvaluatePacket", 1);
-  MLPutFunction(stdlink, "Cuba`Vegas`sample", 2);
+  MLPutFunction(stdlink, "Cuba`Vegas`sample", 3);
   MLPutRealList(stdlink, x, n*t->ndim);
   MLPutRealList(stdlink, w, n);
+  MLPutInteger(stdlink, iter);
   MLEndPacket(stdlink);
 
   while( (pkt = MLNextPacket(stdlink)) && (pkt != RETURNPKT) )
@@ -209,15 +214,12 @@ static void DoSample(This *t, cnumber n, real *w, real *x, real *f)
   if( !MLGetRealList(stdlink, &mma_f, &mma_n) ) {
     MLClearError(stdlink);
     MLNewPacket(stdlink);
-abort:
-    MLPutFunction(stdlink, "Abort", 0);
-    longjmp(t->abort, 1);
+    longjmp(t->abort, -99);
   }
 
   if( mma_n != n*t->ncomp ) {
     MLDisownRealList(stdlink, mma_f, mma_n);
-    MLPutSymbol(stdlink, "$Failed");
-    longjmp(t->abort, 1);
+    longjmp(t->abort, -3);
   }
 
   Copy(f, mma_f, n*t->ncomp);
@@ -236,8 +238,17 @@ static inline void DoIntegrate(This *t)
   cint fail = Integrate(t, integral, error, prob);
 
   if( fail < 0 ) {
-    if( fail == -1 ) Status("baddim", t->ndim);
-    else Status("badcomp", t->ncomp);
+    switch( fail ) {
+    case -99:
+      MLPutFunction(stdlink, "Abort", 0);
+      return;
+    case -1:
+      Status("baddim", t->ndim);
+      break;
+    case -2:
+      Status("badcomp", t->ncomp);
+      break;
+    }
     MLPutSymbol(stdlink, "$Failed");
   }
   else {

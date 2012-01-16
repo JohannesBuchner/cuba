@@ -2,7 +2,7 @@
 	Integrate.c
 		integrate over the unit hypercube
 		this file is part of Vegas
-		last modified 8 Jun 10 th
+		last modified 15 Feb 11 th
 */
 
 
@@ -10,7 +10,7 @@ static int Integrate(This *t, real *integral, real *error, real *prob)
 {
   real *sample;
   count dim, comp;
-  int fail = -99;
+  int fail;
   struct {
     count niter;
     number nsamples, neval;
@@ -29,7 +29,7 @@ static int Integrate(This *t, real *integral, real *error, real *prob)
       "  mineval " NUMBER "\n  maxeval " NUMBER "\n"
       "  nstart " NUMBER "\n  nincrease " NUMBER "\n"
       "  nbatch " NUMBER "\n  gridno %d\n"
-      "  statefile \"%s\"\n",
+      "  statefile \"%s\"",
       t->ndim, t->ncomp,
       t->epsrel, t->epsabs,
       t->flags, t->seed,
@@ -44,23 +44,22 @@ static int Integrate(This *t, real *integral, real *error, real *prob)
 
   SamplesAlloc(sample);
 
-  if( setjmp(t->abort) ) goto abort;
+  if( (fail = setjmp(t->abort)) ) goto abort;
 
   IniRandom(t);
 
-  if( t->statefile && *t->statefile ) {
-    if( stat(t->statefile, &st) == 0 &&
-        st.st_size == sizeof(state) && (st.st_mode & 0400) ) {
-      cint h = open(t->statefile, O_RDONLY);
-      read(h, &state, sizeof(state));
-      close(h);
-      t->rng.skiprandom(t, t->neval = state.neval);
+  if( t->statefile && *t->statefile &&
+      stat(t->statefile, &st) == 0 &&
+      st.st_size == sizeof state && (st.st_mode & 0400) ) {
+    cint h = open(t->statefile, O_RDONLY);
+    read(h, &state, sizeof state);
+    close(h);
+    t->rng.skiprandom(t, t->neval = state.neval);
 
-      if( VERBOSE ) {
-        char s[256];
-        sprintf(s, "\nRestoring state from %s.", t->statefile);
-        Print(s);
-      }
+    if( VERBOSE ) {
+      char s[256];
+      sprintf(s, "\nRestoring state from %s.", t->statefile);
+      Print(s);
     }
   }
   else {
@@ -106,7 +105,7 @@ static int Integrate(This *t, real *integral, real *error, real *prob)
         *w++ = weight;
       }
 
-      DoSample(t, n, sample, w, f);
+      DoSample(t, n, sample, w, f, state.niter + 1);
 
       w = sample;
       bin = (bin_t *)lastf;
@@ -209,7 +208,7 @@ static int Integrate(This *t, real *integral, real *error, real *prob)
       cint h = creat(t->statefile, 0666);
       if( h != -1 ) {
         state.neval = t->neval;
-        write(h, &state, sizeof(state));
+        write(h, &state, sizeof state);
         close(h);
 
         if( statemsg ) {

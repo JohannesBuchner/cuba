@@ -2,7 +2,7 @@
 	Integrate.c
 		integrate over the unit hypercube
 		this file is part of Cuhre
-		last modified 7 Jun 10 th
+		last modified 15 Feb 11 th
 */
 
 
@@ -17,7 +17,7 @@ static int Integrate(This *t, real *integral, real *error, real *prob)
   } Pool;
 
   count dim, comp, ncur, ipool, npool;
-  int fail = -99;
+  int fail;
   Totals totals[NCOMP];
   Pool *cur = NULL, *pool;
   Region *region;
@@ -43,7 +43,7 @@ static int Integrate(This *t, real *integral, real *error, real *prob)
   t->epsabs = Max(t->epsabs, NOTZERO);
   t->mineval = IMax(t->mineval, t->rule.n + 1);
 
-  if( setjmp(t->abort) ) goto abort;
+  if( (fail = setjmp(t->abort)) ) goto abort;
 
   Alloc(cur, 1);
   cur->next = NULL;

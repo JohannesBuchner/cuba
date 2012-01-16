@@ -2,20 +2,15 @@
 # this script jumps in if there is no working mcc on the path:
 # - on Mac OS it (hopefully) figures out the location of mcc,
 # - on Cygwin it substitutes mcc completely
-# last modified 21 Jun 10 th
+# last modified 2 Feb 11 th
 
 
 sdkpath()
 {
   mathcmd="$1"
   shift
-
-  mathcmd=`
-    for sdk in "$@" ; do
-      cd "$sdk"
-      path="$PWD:$path"
-    done
-    PATH="$PATH:$path" which $mathcmd`
+  mathcmd=`IFS=:
+    PATH="$PATH:$*" which $mathcmd`
   
   eval `"$mathcmd" -run '
     Print["sysid=\"", $SystemID, "\""];
@@ -40,9 +35,9 @@ sdkpath()
 
 cygmcc()
 {
-  nodosfilewarning=1 sdkpath math \
-    "$ProgramW6432/Wolfram Research/Mathematica"/* \
-    "$PROGRAMFILES/Wolfram Research/Mathematica"/*
+  sdkpath math \
+    "`cygpath \"$ProgramW6432\"`/Wolfram Research/Mathematica"/* \
+    "`cygpath \"$PROGRAMFILES\"`/Wolfram Research/Mathematica"/*
   for sdk in "$sdk"/m* ; do
     break
   done

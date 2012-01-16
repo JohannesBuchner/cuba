@@ -2,7 +2,7 @@
 	Sample.c
 		the sampling step of Suave
 		this file is part of Suave
-		last modified 6 Jun 10 th
+		last modified 13 Sep 10 th
 */
 
 
@@ -49,9 +49,9 @@ static void Sample(This *t, cnumber nnew, void *voidregion,
     *w++ = weight;
   }
 
-  DoSample(t, nnew, lastw, lastx, lastf);
+  DoSample(t, nnew, lastw, lastx, lastf, region->div + 1);
 
-  *(w - 1) = -*(w - 1);
+  w[-1] = -w[-1];
   lastw = w;
   w = region->w;
   region->n = lastw - w;

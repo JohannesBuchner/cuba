@@ -1,5 +1,6 @@
 CC = @CC@
 CFLAGS = @CFLAGS@ @DEFS@ -I$(common) -I. -I$(srcdir)
+MCFLAGS = @MCFLAGS@
 F77 = @F77@
 FFLAGS = @FFLAGS@
 LIBS = @LIBS@
@@ -18,6 +19,7 @@ includedir = @includedir@
 datarootdir = @datarootdir@
 datadir = @datadir@
 
+MATH_DEFAULT = @MATH_DEFAULT@
 TOOLS_DEFAULT = @TOOLS_DEFAULT@
 DEMO_FORTRAN_DEFAULT = @DEMO_FORTRAN_DEFAULT@$(EXE)
 
@@ -33,7 +35,7 @@ MATH = Vegas$(EXE) Suave$(EXE) Divonne$(EXE) Cuhre$(EXE)
 TOOLS = partview$(EXE)
 
 
-all: lib demos math $(TOOLS_DEFAULT)
+all: lib demos $(MATH_DEFAULT) $(TOOLS_DEFAULT)
 
 lib: $(LIB)
 
@@ -53,9 +55,10 @@ install: lib $(TOOLS_DEFAULT)
 	for f in $(HEADERS) ; do \
 	  $(INSTALL_DATA) `test -f $$f || echo $(srcdir)/`$$f $(DESTDIR)$(includedir); \
 	done
-	-$(INSTALL_PROGRAM) $(MATH) $(DESTDIR)$(bindir)
-	-$(INSTALL_PROGRAM) $(TOOLS) $(DESTDIR)$(bindir)
-	-$(INSTALL_DATA) $(srcdir)/cuba.pdf $(DESTDIR)$(datadir)
+	for f in $(MATH) $(TOOLS) ; do \
+	  test -f $$f && $(INSTALL_PROGRAM) $$f $(DESTDIR)$(bindir) || : ; \
+	done
+	$(INSTALL_DATA) $(srcdir)/cuba.pdf $(DESTDIR)$(datadir)
 
 
 check: demo-c
@@ -242,8 +245,8 @@ partview$(EXE): $(PARTVIEW)
 	strip partview$(EXE)
 
 
-TARCONTENTS = $(srcdir)/ChangeLog $(srcdir)/configure \
-  $(srcdir)/configure.ac $(srcdir)/install-sh \
+TARCONTENTS = $(srcdir)/COPYING $(srcdir)/ChangeLog \
+  $(srcdir)/configure $(srcdir)/configure.ac $(srcdir)/install-sh \
   $(srcdir)/makefile.in $(srcdir)/config.h.in \
   $(srcdir)/cuba.pdf $(srcdir)/cuba.h \
   $(VEGAS) $(SUAVE) $(DIVONNE) $(CUHRE) \
