@@ -1,3 +1,35 @@
+6 Mar 09:
+
+- Fixed segfault in Divonne if all samples from a region returned NaN.
+
+- Reinstated fcc to fix static linkage problem with mcc 7.
+
+
+10 Feb 09:
+
+- Removed dependence on fcc script.
+
+
+19 Jan 09:
+
+- Added missing #include <stdlib.h> to partview.cpp.
+
+
+15 Jan 09:
+
+- Fixed problem with MathLink compilation for Mathematica 7.
+
+
+5 Dec 08
+
+- Version 1.5: Added possibility to set Mersenne Twister
+  random seed.
+
+- Introduced function MapSample to map the integrand over
+  the points, whose default value Map can be replaced e.g.
+  by ParallelMap.
+
+
 15 Feb 08
 
 - Added further check to Suave for sharp-edged functions.

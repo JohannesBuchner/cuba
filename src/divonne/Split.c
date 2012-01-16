@@ -2,7 +2,7 @@
 	Split.c
 		determine optimal cuts for splitting a region
 		this file is part of Divonne
-		last modified 7 Mar 05 th
+		last modified 6 Mar 09 th
 */
 
 
@@ -296,17 +296,19 @@ dissect:
     e->spread = e->err = 0;
   }
 
-  Explore(region, &samples_[0], depth -= cutlast - cutfirst + 1, 1);
-
-  b1 = &tmp;
-  for( cut = cutfirst; cut <= cutlast; ++cut ) {
-    *b1 = tmp;
-    b0 = (real *)region->bounds + cut->i;
-    b1 = (real *)region->bounds + (cut->i ^ 1);
-    tmp = *b1;
-    *b1 = *b0;
-    *b0 = cut->save;
-    Explore(region, &samples_[0], depth++, cut != cutlast);
+  depth -= cutlast - cutfirst + 1;
+  if( Explore(region, &samples_[0], depth, 1) ) {
+    b1 = &tmp;
+    for( cut = cutfirst; cut <= cutlast; ++cut ) {
+      *b1 = tmp;
+      b0 = (real *)region->bounds + cut->i;
+      b1 = (real *)region->bounds + (cut->i ^ 1);
+      tmp = *b1;
+      *b1 = *b0;
+      *b0 = cut->save;
+      if( !Explore(region, &samples_[0], depth++, cut != cutlast) )
+        break;
+    }
   }
 
   nsplit = 0;

@@ -1,0 +1,21 @@
+#! /bin/sh
+
+st="-static"
+exe=""
+case `uname -s` in
+Linux)	tag=Linux ;;
+Darwin)	tag=Mac
+	st="-static-libgcc" ;;
+CYG*)	tag=Windows
+	exe=.exe ;;
+esac
+
+./configure CFLAGS="-O3 -fomit-frame-pointer -ffast-math $st"
+
+make MCFLAGS=-st math
+
+for file in Vegas Suave Divonne Cuhre ; do
+  gzip $file$exe
+  mv $file$exe.gz $file$exe-$tag.gz
+done
+

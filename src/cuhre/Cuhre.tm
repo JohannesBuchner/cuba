@@ -25,6 +25,9 @@
 	ll and ur are multidimensional equivalents of the region's lower left and upper right corner.
 	res gives the integration results for the region in a list with entries of the form {integral, error} for each component of the integrand."
 
+:Evaluate: MapSample::usage = "MapSample is a function used to map the integrand over the points to be sampled."
+
+
 :Evaluate: Begin["`Cuhre`"]
 
 :Begin:
@@ -49,7 +52,7 @@
 
 :Evaluate: Cuhre[f_, v:{_, _, _}.., opt___Rule] :=
 	Block[ {ff = HoldForm[f], ndim = Length[{v}],
-	tags, vars, lower, range, jac, tmp, defs, integrand,
+	tags, vars, lower, range, integrand,
 	rel, abs, mineval, maxeval, key, verbose, final, regions, compiled},
 	  Message[Cuhre::optx, #, Cuhre]&/@
 	    Complement[First/@ {opt}, tags = First/@ Options[Cuhre]];
@@ -57,10 +60,8 @@
 	    verbose, final, regions, compiled} =
 	    tags /. {opt} /. Options[Cuhre];
 	  {vars, lower, range} = Transpose[{v}];
-	  jac = Simplify[Times@@ (range -= lower)];
-	  tmp = Array[tmpvar, ndim];
-	  defs = Simplify[lower + range tmp];
-	  Block[{Set}, define[compiled, tmp, vars, Thread[vars = defs], jac]];
+	  range -= lower;
+	  define[compiled, vars, lower, range, Simplify[Times@@ range]];
 	  integrand = fun[f];
 	  MLCuhre[ndim, ncomp[f], 10.^-rel, 10.^-abs,
 	    Min[Max[verbose, 0], 3] +
@@ -69,19 +70,23 @@
             mineval, maxeval, key]
 	]
 
-:Evaluate: tmpvar[n_] := ToExpression["Cuba`Cuhre`t" <> ToString[n]]
-
 :Evaluate: Attributes[ncomp] = Attributes[fun] = {HoldAll}
 
 :Evaluate: ncomp[f_List] := Length[f]
 
 :Evaluate: _ncomp = 1
 
-:Evaluate: define[True, tmp_, vars_, {defs__}, jac_] :=
-	fun[f_] := Compile[tmp, Block[vars, defs; check[vars, Chop[f jac]//N]]]
+:Evaluate: define[True, vars_, lower_, range_, jac_] :=
+	fun[f_] := Compile[{{t, _Real, 1}},
+	  Block[vars,
+	    vars = lower + range t;
+	    check[vars, Chop[f jac]//N] ]]
 
-:Evaluate: define[False, tmp_, vars_, {defs__}, jac_] :=
-	fun[f_] := Function[tmp, Block[vars, defs; check[vars, Chop[f jac]//N]]]
+:Evaluate: define[_, vars_, lower_, range_, jac_] :=
+	fun[f_] := Function[{t},
+	  Block[vars,
+	    vars = lower + range t;
+	    check[vars, Chop[f jac]//N] ]]
 
 :Evaluate: check[_, f_Real] = {f}
 
@@ -90,7 +95,9 @@
 :Evaluate: check[x_, _] := (Message[Cuhre::badsample, ff, x]; {})
 
 :Evaluate: sample[x_] :=
-	Check[Apply[integrand, Partition[x, ndim], 1]//Flatten, {}]
+	Check[Flatten @ MapSample[integrand, Partition[x, ndim]], {}]
+
+:Evaluate: MapSample = Map
 
 :Evaluate: region[ll_, ur_, r___] :=
 	Region[lower + range ll, lower + range ur, r]
@@ -115,7 +122,7 @@
 	Cuhre.tm
 		Adaptive integration using cubature rules
 		by Thomas Hahn
-		last modified 1 Mar 06 th
+		last modified 5 Dec 08 th
 */
 
 

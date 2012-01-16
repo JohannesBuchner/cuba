@@ -16,7 +16,7 @@
 	  Key1 < 0: use a Sobol quasi-random sample."
 
 :Evaluate: Key2::usage = "Key2 is an option of Divonne.
-	It determines sampling in the final integration phase.\n
+	It determines sampling in the main integration phase.\n
 	Special cases:\n
 	  Key2 = 7: use a degree-7 cubature rule,\n
 	  Key2 = 9: use a degree-9 cubature rule,\n
@@ -47,7 +47,7 @@
 
 :Evaluate: MaxPass::usage = "MaxPass is an option of Divonne.
 	It controls the partitioning termination.
-	The partitioning phase is terminated when the estimated total number of integrand evaluations (partitioning plus final integration) does not decrease for MaxPass successive iterations."
+	The partitioning phase is terminated when the estimated total number of integrand evaluations (partitioning plus main integration) does not decrease for MaxPass successive iterations."
 
 :Evaluate: Border::usage = "Border is an option of Divonne.
 	It specifies the width of the border of the integration region.
@@ -55,7 +55,7 @@
 	The border width always refers to the unit hypercube, i.e. it is not rescaled if the integration region is not the unit hypercube."
 
 :Evaluate: MaxChisq::usage = "MaxChisq is an option of Divonne.
-	It specifies the maximum chi-square value a single subregion is allowed to have in the final integration phase.
+	It specifies the maximum chi-square value a single subregion is allowed to have in the main integration phase.
 	Regions which fail this chi-square test and whose sample averages differ by more than MinDeviation move on to the refinement phase."
 
 :Evaluate: MinDeviation::usage = "MinDeviation is an option of Divonne.
@@ -81,7 +81,8 @@
 	It can take the values Last or All which determine whether only the last (largest) or all sets of samples collected on a subregion over the integration phases contribute to the final result."
 
 :Evaluate: PseudoRandom::usage = "PseudoRandom is an option of Divonne.
-	If set to True, pseudo-random numbers are used instead of Sobol quasi-random numbers."
+	If set to True, pseudo-random numbers are used instead of Sobol quasi-random numbers.
+	If set to an integer value, that value is used as the seed for the pseudo-random number generator."
 
 :Evaluate: Regions::usage = "Regions is an option of Divonne.
 	It specifies whether the regions into which the integration region has been cut are returned together with the integration results."
@@ -91,6 +92,15 @@
 	res gives the integration results for the region in a list with entries of the form {integral, error, chi-square} for each component of the integrand.
 	df is the number of degrees of freedom corresponding to the chi-square values in res."
 
+:Evaluate: $Phase::usage = "$Phase is a global variable set by Divonne during the evaluation of the integrand to the integration phase:\n
+	0 = sampling of the points in xgiven,\n
+	1 = partitioning phase,\n
+	2 = main integration phase,\n
+	3 = refinement phase."
+
+:Evaluate: MapSample::usage = "MapSample is a function used to map the integrand over the points to be sampled."
+
+
 :Evaluate: Begin["`Divonne`"]
 
 :Begin:
@@ -99,17 +109,17 @@
   epsrel_, epsabs_, flags_, mineval_, maxeval_,
   key1_, key2_, key3_, maxpass_,
   border_, maxchisq_, mindeviation_,
-  xgiven_, fgiven_, nextra_]
+  xgiven_, fgiven_, nextra_, seed_]
 :Arguments: {ndim, ncomp,
   epsrel, epsabs, flags, mineval, maxeval,
   key1, key2, key3, maxpass,
   border, maxchisq, mindeviation,
-  xgiven, fgiven, nextra}
+  xgiven, fgiven, nextra, seed}
 :ArgumentTypes: {Integer, Integer,
   Real, Real, Integer, Integer, Integer,
   Integer, Integer, Integer, Integer,
   Real, Real, Real,
-  RealList, RealList, Integer}
+  RealList, RealList, Integer, Integer}
 :ReturnType: Manual
 :End:
 
@@ -125,7 +135,7 @@
 
 :Evaluate: Divonne[f_, v:{_, _, _}.., opt___Rule] :=
 	Block[ {ff = HoldForm[f], ndim = Length[{v}],
-	tags, vars, lower, range, jac, tmp, defs, integrand,
+	tags, vars, lower, range, integrand,
 	rel, abs, mineval, maxeval, key1, key2, key3, maxpass, border,
 	maxchisq, mindeviation,	given, nextra, peakfinder,
 	final, verbose, pseudo, regions, compiled},
@@ -136,23 +146,20 @@
 	    verbose, final, pseudo, regions, compiled} =
 	    tags /. {opt} /. Options[Divonne];
 	  {vars, lower, range} = Transpose[{v}];
-	  jac = Simplify[Times@@ (range -= lower)];
-	  tmp = Array[tmpvar, ndim];
-	  defs = Simplify[lower + range tmp];
-	  Block[{Set}, define[compiled, tmp, vars, Thread[vars = defs], jac]];
+	  range -= lower;
+	  define[compiled, vars, lower, range, Simplify[Times@@ range]];
 	  integrand = fun[f];
 	  given = Flatten[N[(# - lower)/range]&/@ given];
 	  MLDivonne[ndim, ncomp[f], 10.^-rel, 10.^-abs,
 	    Min[Max[verbose, 0], 3] +
 	      If[final === Last, 4, 0] +
-	      If[TrueQ[pseudo], 8, 0] +
+	      If[pseudo =!= False, 8, 0] +
 	      If[TrueQ[regions], 256, 0],
 	    mineval, maxeval, key1, key2, key3, maxpass,
 	    N[border], N[maxchisq], N[mindeviation],
-	    given, sample[given], nextra]
+	    given, sample[given, 0], nextra,
+	    If[IntegerQ[pseudo], pseudo, 0]]
 	]
-
-:Evaluate: tmpvar[n_] := ToExpression["Cuba`Divonne`t" <> ToString[n]]
 
 :Evaluate: Attributes[ncomp] = Attributes[fun] = {HoldAll}
 
@@ -160,11 +167,17 @@
 
 :Evaluate: _ncomp = 1
 
-:Evaluate: define[True, tmp_, vars_, {defs__}, jac_] :=
-	fun[f_] := Compile[tmp, Block[vars, defs; check[vars, Chop[f jac]//N]]]
+:Evaluate: define[True, vars_, lower_, range_, jac_] :=
+	fun[f_] := Compile[{{t, _Real, 1}},
+	  Block[vars,
+	    vars = lower + range t;
+	    check[vars, Chop[f jac]//N] ]]
 
-:Evaluate: define[False, tmp_, vars_, {defs__}, jac_] :=
-	fun[f_] := Function[tmp, Block[vars, defs; check[vars, Chop[f jac]//N]]]
+:Evaluate: define[_, vars_, lower_, range_, jac_] :=
+	fun[f_] := Function[{t},
+	  Block[vars,
+	    vars = lower + range t;
+	    check[vars, Chop[f jac]//N] ]]
 
 :Evaluate: check[_, f_Real] = {f}
 
@@ -172,10 +185,12 @@
 
 :Evaluate: check[x_, _] := (Message[Divonne::badsample, ff, x]; {})
 
-:Evaluate: sample[x_] :=
-	Check[Apply[integrand, Partition[x, ndim], 1]//Flatten, {}]
+:Evaluate: sample[x_, p_] := Block[ {$Phase = p},
+	Check[Flatten @ MapSample[integrand, Partition[x, ndim]], {}] ]
 
-:Evaluate: findpeak[b_] := Check[Join[#, sample[#]]& @
+:Evaluate: MapSample = Map
+
+:Evaluate: findpeak[b_, p_] := Check[Join[#, sample[#, p]]& @
 	N[Flatten[peakfinder@@ Transpose[lower + range Partition[b, 2]]]], {}]
 
 :Evaluate: region[ll_, ur_, r___] :=
@@ -204,7 +219,7 @@
 		originally by J.H. Friedman and M.H. Wright
 		(CERNLIB subroutine D151)
 		this version by Thomas Hahn
-		last modified 1 Mar 06 th
+		last modified 5 Dec 08 th
 */
 
 
@@ -256,8 +271,9 @@ static void DoSample(cnumber n, ccount ldx, real *x, real *f)
   if( MLAbort ) goto abort;
 
   MLPutFunction(stdlink, "EvaluatePacket", 1);
-  MLPutFunction(stdlink, "Cuba`Divonne`sample", 1);
+  MLPutFunction(stdlink, "Cuba`Divonne`sample", 2);
   MLPutRealList(stdlink, x, n*ndim_);
+  MLPutInteger(stdlink, phase_);
   MLEndPacket(stdlink);
 
   while( (pkt = MLNextPacket(stdlink)) && (pkt != RETURNPKT) )
@@ -293,8 +309,9 @@ static count SampleExtra(cBounds *b)
   long mma_n;
 
   MLPutFunction(stdlink, "EvaluatePacket", 1);
-  MLPutFunction(stdlink, "Cuba`Divonne`findpeak", 1);
+  MLPutFunction(stdlink, "Cuba`Divonne`findpeak", 2);
   MLPutRealList(stdlink, (real *)b, 2*ndim_);
+  MLPutInteger(stdlink, phase_);
   MLEndPacket(stdlink);
 
   while( (pkt = MLNextPacket(stdlink)) && (pkt != RETURNPKT) )
@@ -330,7 +347,7 @@ void Divonne(cint ndim, cint ncomp,
   cint key1, cint key2, cint key3, cint maxpass,
   creal border, creal maxchisq, creal mindeviation,
   real *xgiven, clong nxgiven, real *fgiven, clong nfgiven,
-  cnumber nextra)
+  cnumber nextra, cint seed)
 {
   ndim_ = ndim;
   ncomp_ = ncomp;
@@ -366,6 +383,8 @@ void Divonne(cint ndim, cint ncomp,
 
     border_.lower = border;
     border_.upper = 1 - border_.lower;
+
+    mersenneseed = seed;
 
     fail = Integrate(epsrel, Max(epsabs, NOTZERO),
       flags, mineval, maxeval, key1, key2, key3, maxpass,

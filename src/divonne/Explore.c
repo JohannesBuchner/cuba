@@ -2,7 +2,7 @@
 	Explore.c
 		sample region, determine min and max, split if necessary
 		this file is part of Divonne
-		last modified 7 Mar 05 th
+		last modified 6 Mar 09 th
 */
 
 
@@ -13,7 +13,7 @@ typedef struct {
 
 /*********************************************************************/
 
-static void Explore(void *voidregion, cSamples *samples, cint depth, cint flags)
+static bool Explore(void *voidregion, cSamples *samples, cint depth, cint flags)
 {
 #define SPLICE (flags & 1)
 #define HAVESAMPLES (flags & 2)
@@ -44,6 +44,7 @@ static void Explore(void *voidregion, cSamples *samples, cint depth, cint flags)
     Extrema *e = &extrema[comp];
     e->fmin = INFTY;
     e->fmax = -INFTY;
+    e->xmin = e->xmax = NULL;
   }
 
   if( !HAVESAMPLES ) {
@@ -95,34 +96,35 @@ skip:
     }
     x += ndim_;
   }
-
   neval_opt_ -= neval_;
 
   halfvol = .5*region->vol;
   maxerr = -INFTY;
-  maxcomp = 0;
+  maxcomp = -1;
 
   for( comp = 0; comp < ncomp_; ++comp ) {
     Extrema *e = &extrema[comp];
     Result *r = &region->result[comp];
     real xtmp[NDIM], ftmp, err;
 
-    selectedcomp_ = comp;
+    if( e->xmin ) {	/* not all NaNs */
+      selectedcomp_ = comp;
 
-    sign_ = 1;
-    VecCopy(xtmp, e->xmin);
-    ftmp = FindMinimum(region->bounds, xtmp, e->fmin);
-    if( ftmp < r->fmin ) {
-      r->fmin = ftmp;
-      VecCopy(r->xmin, xtmp);
-    }
+      sign_ = 1;
+      VecCopy(xtmp, e->xmin);
+      ftmp = FindMinimum(region->bounds, xtmp, e->fmin);
+      if( ftmp < r->fmin ) {
+        r->fmin = ftmp;
+        VecCopy(r->xmin, xtmp);
+      }
 
-    sign_ = -1;
-    VecCopy(xtmp, e->xmax);
-    ftmp = -FindMinimum(region->bounds, xtmp, -e->fmax);
-    if( ftmp > r->fmax ) {
-      r->fmax = ftmp;
-      VecCopy(r->xmax, xtmp);
+      sign_ = -1;
+      VecCopy(xtmp, e->xmax);
+      ftmp = -FindMinimum(region->bounds, xtmp, -e->fmax);
+      if( ftmp > r->fmax ) {
+        r->fmax = ftmp;
+        VecCopy(r->xmax, xtmp);
+      }
     }
 
     r->avg = samples->avg[comp];
@@ -137,6 +139,11 @@ skip:
   }
 
   neval_opt_ += neval_;
+
+  if( maxcomp == -1 ) {		/* all NaNs */
+    region->depth = 0;
+    return false;
+  }
 
   region->cutcomp = maxcomp;
   r = &region->result[maxcomp];
@@ -165,5 +172,6 @@ skip:
   }
 
   if( region->depth ) Split(region, region->depth);
+  return true;
 }
 

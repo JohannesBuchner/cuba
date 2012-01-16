@@ -2,9 +2,9 @@
 	Integrate.c
 		partition the integration region until each region
 		has approximately equal spread = 1/2 vol (max - min),
-		then do a final integration over all regions
+		then do a main integration over all regions
 		this file is part of Divonne
-		last modified 2 Jun 05 th
+		last modified 6 Mar 09 th
 */
 
 
@@ -85,6 +85,7 @@ static int Integrate(creal epsrel, creal epsabs,
 
   for( iter = 1; ; ++iter ) {
     Totals *maxtot;
+    count valid;
 
     for( comp = 0; comp < ncomp_; ++comp ) {
       Totals *tot = &totals[comp];
@@ -111,9 +112,11 @@ static int Integrate(creal epsrel, creal epsabs,
     }
 
     maxtot = totals;
+    valid = 0;
     for( comp = 0; comp < ncomp_; ++comp ) {
       Totals *tot = &totals[comp];
       integral[comp] = tot->avg;
+      valid += tot->avg == tot->avg;
       if( tot->spreadsq > maxtot->spreadsq ) maxtot = tot;
       tot->spread = sqrt(tot->spreadsq);
       error[comp] = tot->spread*samples_[0].weight;
@@ -136,6 +139,8 @@ static int Integrate(creal epsrel, creal epsabs,
 
       Print(s);
     }
+
+    if( valid == 0 ) goto abort;	/* all NaNs */
 
     if( neval_ > maxeval ) break;
 
@@ -173,7 +178,7 @@ static int Integrate(creal epsrel, creal epsabs,
   fail = Unmark(err)*nregions;
 
   if( Marked(err) ) {
-    if( VERBOSE ) Print("\nNot enough samples left for final integration.");
+    if( VERBOSE ) Print("\nNot enough samples left for main integration.");
     for( comp = 0; comp < ncomp_; ++comp )
       prob[comp] = -999;
     weight = samples_[0].weight;
@@ -188,7 +193,7 @@ static int Integrate(creal epsrel, creal epsabs,
 
     if( VERBOSE ) {
       char s[128];
-      sprintf(s, "\nFinal integration on " COUNT
+      sprintf(s, "\nMain integration on " COUNT
         " regions with " NUMBER " samples per region.",
         nregions, samples_[1].neff);
       Print(s);
@@ -434,9 +439,7 @@ refine:
   }
 #endif
 
-#ifdef MLVERSION
 abort:
-#endif
 
   SamplesFree(&samples_[2]);
   SamplesFree(&samples_[1]);

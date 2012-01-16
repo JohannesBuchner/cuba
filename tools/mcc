@@ -2,7 +2,7 @@
 # this script jumps in if there is no working mcc on the path:
 # - on Mac OS it (hopefully) figures out the location of mcc,
 # - on Cygwin it substitutes mcc completely
-# last modified 8 Nov 07 th
+# last modified 12 Nov 08 th
 
 
 sdkpath()
@@ -15,7 +15,7 @@ sdkpath()
   done
   mathcmd="`PATH=\"$PATH:$path\" which $mathcmd`"
   
-  read -r sysid topdir <<< `$mathcmd -run \
+  read -r sysid topdir <<< `"$mathcmd" -run \
     'Print[$SystemID, " ", $TopDirectory]; Exit[]' < /dev/null | tr '\r' ' ' | tail -1`
 
   for sdk in \

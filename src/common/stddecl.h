@@ -1,9 +1,12 @@
 /*
 	stddecl.h
 		Type declarations common to all Cuba routines
-		last modified 17 Dec 07 th
+		last modified 5 Dec 08 th
 */
 
+
+#ifndef __stddecl_h__
+#define __stddecl_h__
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -116,10 +119,13 @@ typedef const real creal;
 
 
 #ifdef UNDERSCORE
-#define EXPORT(s) PREFIX(s##_)
+#define SUFFIX(s) s##_
 #else
-#define EXPORT(s) PREFIX(s)
+#define SUFFIX(s) s
 #endif
+
+#define EXPORT(s) EXPORT_(PREFIX(s))
+#define EXPORT_(s) SUFFIX(s)
 
 
 static inline real Sq(creal x)
@@ -164,4 +170,6 @@ static inline real Weight(creal sum, creal sqsum, cnumber n)
 
 /* abs(a) + (a == 0) */
 #define Abs1(a) (((a) ^ NegQ(a)) - NegQ((a) - 1))
+
+#endif
 

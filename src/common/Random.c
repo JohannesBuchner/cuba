@@ -1,7 +1,7 @@
 /*
 	Random.c
 		quasi- and pseudo-random-number generation
-		last modified 5 Jan 06 th
+		last modified 5 Dec 08 th
 */
 
 
@@ -147,8 +147,6 @@ static inline void SobolSkip(number n)
 /* period parameter */
 #define MERSENNE_M 397
 
-#define DEFAULT_SEED 5489
-
 /* 32 or 53 random bits */
 #define RANDOM_BITS 32
 
@@ -158,6 +156,8 @@ static struct {
   state_t state[MERSENNE_N];
   count next;
 } mersenne_;
+
+unsigned int SUFFIX(mersenneseed);
 
 
 static inline state_t Twist(state_t a, state_t b)
@@ -181,10 +181,13 @@ static inline void MersenneReload()
 }
 
 
-static inline void MersenneIni(state_t seed)
+static inline void MersenneIni()
 {
+  state_t seed = SUFFIX(mersenneseed);
   state_t *next = mersenne_.state;
   int j;
+
+  if( seed == 0 ) seed = 5489;
 
   for( j = 1; j <= MERSENNE_N; ++j ) {
     *next++ = seed;
@@ -262,7 +265,7 @@ static void IniRandom(cnumber n, cint flags)
 {
   if( PSEUDORNG ) {
     sobol_.seq = -1;
-    MersenneIni(DEFAULT_SEED);
+    MersenneIni();
   }
   else SobolIni(n);
 }

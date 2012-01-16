@@ -2,11 +2,11 @@
 	common.c
 		includes most of the modules
 		this file is part of Divonne
-		last modified 14 Feb 05 th
+		last modified 6 Mar 09 th
 */
 
 
-static void Explore(void *voidregion, cSamples *samples, cint depth, cint flags);
+static bool Explore(void *voidregion, cSamples *samples, cint depth, cint flags);
 
 static void Split(void *voidregion, int depth);
 

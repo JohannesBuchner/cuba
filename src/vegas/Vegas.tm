@@ -28,12 +28,16 @@
 	It can take the values Last or All which determine whether only the last (largest) or all of the samples collected on a subregion over the iterations contribute to the final result."
 
 :Evaluate: PseudoRandom::usage = "PseudoRandom is an option of Vegas.
-	If set to True, pseudo-random numbers are used instead of Sobol quasi-random numbers."
+	If set to True, pseudo-random numbers are used instead of Sobol quasi-random numbers.
+	If set to an integer value, that value is used as the seed for the pseudo-random number generator."
 
 :Evaluate: SharpEdges::usage = "SharpEdges is an option of Vegas.
 	It turns off smoothing of the importance function for integrands with sharp edges."
 
 :Evaluate: $Weight::usage = "$Weight is a global variable set by Vegas during the evaluation of the integrand to the weight of the point being sampled."
+
+:Evaluate: MapSample::usage = "MapSample is a function used to map the integrand over the points to be sampled."
+
 
 :Evaluate: Begin["`Vegas`"]
 
@@ -42,15 +46,15 @@
 :Pattern: MLVegas[ndim_, ncomp_,
   epsrel_, epsabs_, flags_, mineval_, maxeval_,
   nstart_, nincrease_,
-  nbatch_, gridno_, state_]
+  seed_, nbatch_, gridno_, state_]
 :Arguments: {ndim, ncomp,
   epsrel, epsabs, flags, mineval, maxeval,
   nstart, nincrease,
-  nbatch, gridno, state}
+  seed, nbatch, gridno, state}
 :ArgumentTypes: {Integer, Integer,
   Real, Real, Integer, Integer, Integer,
   Integer, Integer,
-  Integer, Integer, String}
+  Integer, Integer, Integer, String}
 :ReturnType: Manual
 :End:
 
@@ -65,7 +69,7 @@
 
 :Evaluate: Vegas[f_, v:{_, _, _}.., opt___Rule] :=
 	Block[ {ff = HoldForm[f], ndim = Length[{v}],
-	tags, vars, lower, range, jac, tmp, defs, integrand,
+	tags, vars, lower, range, integrand,
 	rel, abs, mineval, maxeval, nstart, nincrease, nbatch,
 	gridno, verbose, final, pseudo, edges, compiled},
 	  Message[Vegas::optx, #, Vegas]&/@
@@ -74,20 +78,17 @@
 	    gridno, state, verbose, final, pseudo, edges, compiled} =
 	    tags /. {opt} /. Options[Vegas];
 	  {vars, lower, range} = Transpose[{v}];
-	  jac = Simplify[Times@@ (range -= lower)];
-	  tmp = Array[tmpvar, ndim];
-	  defs = Simplify[lower + range tmp];
-	  Block[{Set}, define[compiled, tmp, vars, Thread[vars = defs], jac]];
+	  range -= lower;
+	  define[compiled, vars, lower, range, Simplify[Times@@ range]];
 	  integrand = fun[f];
 	  MLVegas[ndim, ncomp[f], 10.^-rel, 10.^-abs,
 	    Min[Max[verbose, 0], 3] +
 	      If[final === Last, 4, 0] +
-	      If[TrueQ[pseudo], 8, 0] +
+	      If[pseudo =!= False, 8, 0] +
 	      If[TrueQ[edges], 16, 0],
-	    mineval, maxeval, nstart, nincrease, nbatch, gridno, state]
+	    mineval, maxeval, nstart, nincrease,
+	    If[IntegerQ[pseudo], pseudo, 0], nbatch, gridno, state]
 	]
-
-:Evaluate: tmpvar[n_] := ToExpression["Cuba`Vegas`t" <> ToString[n]]
 
 :Evaluate: Attributes[ncomp] = Attributes[fun] = {HoldAll}
 
@@ -95,11 +96,17 @@
 
 :Evaluate: _ncomp = 1
 
-:Evaluate: define[True, tmp_, vars_, {defs__}, jac_] :=
-	fun[f_] := Compile[tmp, Block[vars, defs; check[vars, Chop[f jac]//N]]]
+:Evaluate: define[True, vars:{v___}, lower_, range_, jac_] :=
+	fun[f_] := Compile[{{t, _Real, 1}, w},
+	  Block[{v, $Weight = w},
+	    vars = lower + range t;
+	    check[vars, Chop[f jac]//N] ]]
 
-:Evaluate: define[False, tmp_, vars_, {defs__}, jac_] :=
-	fun[f_] := Function[tmp, Block[vars, defs; check[vars, Chop[f jac]//N]]]
+:Evaluate: define[_, vars:{v___}, lower_, range_, jac_] :=
+	fun[f_] := Function[{t, w},
+	  Block[{v, $Weight = w},
+	    vars = lower + range t;
+	    check[vars, Chop[f jac]//N] ]]
 
 :Evaluate: check[_, f_Real] = {f}
 
@@ -107,9 +114,11 @@
 
 :Evaluate: check[x_, _] := (Message[Vegas::badsample, ff, x]; {})
 
-:Evaluate: sample[w_, x_] :=
-	Check[ MapThread[Block[{$Weight = #1}, integrand@@ #2]&,
-	  {w, Partition[x, ndim]}] //Flatten, {} ]
+:Evaluate: sample[x_, w_] := Check[ Flatten @
+	MapSample[integrand@@ # &, Transpose[{Partition[x, ndim], w}]],
+	{} ]
+
+:Evaluate: MapSample = Map
 
 :Evaluate: Vegas::badsample = "`` is not a real-valued function at ``."
 
@@ -129,9 +138,9 @@
 
 /*
 	Vegas.tm
-		Vegas Monte-Carlo integration
+		Vegas Monte Carlo integration
 		by Thomas Hahn
-		last modified 17 Dec 07 th
+		last modified 5 Dec 08 th
 */
 
 
@@ -182,8 +191,8 @@ static void DoSample(cnumber n, real *w, real *x, real *f)
 
   MLPutFunction(stdlink, "EvaluatePacket", 1);
   MLPutFunction(stdlink, "Cuba`Vegas`sample", 2);
-  MLPutRealList(stdlink, w, n);
   MLPutRealList(stdlink, x, n*ndim_);
+  MLPutRealList(stdlink, w, n);
   MLEndPacket(stdlink);
 
   while( (pkt = MLNextPacket(stdlink)) && (pkt != RETURNPKT) )
@@ -216,8 +225,8 @@ abort:
 void Vegas(cint ndim, cint ncomp,
   creal epsrel, creal epsabs,
   cint flags, cnumber mineval, cnumber maxeval,
-  cnumber nstart, cnumber nincrease, cint nbatch,
-  cint gridno, const char *state)
+  cnumber nstart, cnumber nincrease,
+  cint seed, cint nbatch, cint gridno, const char *state)
 {
   ndim_ = ndim;
   ncomp_ = ncomp;
@@ -236,10 +245,11 @@ void Vegas(cint ndim, cint ncomp,
     int fail;
 
     neval_ = 0;
-    EXPORT(vegasnbatch) = nbatch;
-    EXPORT(vegasgridno) = gridno;
-    strncpy(EXPORT(vegasstate), state, sizeof(EXPORT(vegasstate)) - 1);
-    EXPORT(vegasstate)[sizeof(EXPORT(vegasstate)) - 1] = 0;
+    mersenneseed = seed;
+    vegasnbatch = nbatch;
+    vegasgridno = gridno;
+    strncpy(vegasstate, state, sizeof(vegasstate) - 1);
+    vegasstate[sizeof(vegasstate) - 1] = 0;
 
     fail = Integrate(epsrel, epsabs,
       flags, mineval, maxeval, nstart, nincrease,

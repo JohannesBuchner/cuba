@@ -21,7 +21,8 @@
 	It can take the values Last or All which determine whether only the last (largest) or all sets of samples collected on a subregion over the iterations contribute to the final result."
 
 :Evaluate: PseudoRandom::usage = "PseudoRandom is an option of Suave.
-	If set to True, pseudo-random numbers are used instead of Sobol quasi-random numbers."
+	If set to True, pseudo-random numbers are used instead of Sobol quasi-random numbers.
+	If set to an integer value, that value is used as the seed for the pseudo-random number generator."
 
 :Evaluate: SharpEdges::usage = "SharpEdges is an option of Suave.
 	It turns off smoothing of the importance function for integrands with sharp edges."
@@ -36,19 +37,22 @@
 
 :Evaluate: $Weight::usage = "$Weight is a global variable set by Suave during the evaluation of the integrand to the weight of the point being sampled."
 
+:Evaluate: MapSample::usage = "MapSample is a function used to map the integrand over the points to be sampled."
+
+
 :Evaluate: Begin["`Suave`"]
 
 :Begin:
 :Function: Suave
 :Pattern: MLSuave[ndim_, ncomp_,
   epsrel_, epsabs_, flags_, mineval_, maxeval_,
-  nnew_, flatness_]
+  nnew_, flatness_, seed_]
 :Arguments: {ndim, ncomp,
   epsrel, epsabs, flags, mineval, maxeval,
-  nnew, flatness}
+  nnew, flatness, seed}
 :ArgumentTypes: {Integer, Integer,
   Real, Real, Integer, Integer, Integer,
-  Integer, Real}
+  Integer, Real, Integer}
 :ReturnType: Manual
 :End:
 
@@ -61,7 +65,7 @@
 
 :Evaluate: Suave[f_, v:{_, _, _}.., opt___Rule] :=
 	Block[ {ff = HoldForm[f], ndim = Length[{v}],
-	tags, vars, lower, range, jac, tmp, defs, integrand,
+	tags, vars, lower, range, integrand,
 	rel, abs, mineval, maxeval, nnew, flatness,
 	verbose, final, pseudo, edges, regions, compiled},
 	  Message[Suave::optx, #, Suave]&/@
@@ -70,21 +74,18 @@
 	    verbose, final, pseudo, edges, regions, compiled} =
 	    tags /. {opt} /. Options[Suave];
 	  {vars, lower, range} = Transpose[{v}];
-	  jac = Simplify[Times@@ (range -= lower)];
-	  tmp = Array[tmpvar, ndim];
-	  defs = Simplify[lower + range tmp];
-	  Block[{Set}, define[compiled, tmp, vars, Thread[vars = defs], jac]];
+	  range -= lower;
+	  define[compiled, vars, lower, range, Simplify[Times@@ range]];
 	  integrand = fun[f];
 	  MLSuave[ndim, ncomp[f], 10.^-rel, 10.^-abs,
 	    Min[Max[verbose, 0], 3] +
 	      If[final === Last, 4, 0] +
-	      If[TrueQ[pseudo], 8, 0] +
+	      If[pseudo =!= False, 8, 0] +
 	      If[TrueQ[edges], 16, 0] +
 	      If[TrueQ[regions], 256, 0],
-            mineval, maxeval, nnew, flatness]
+            mineval, maxeval, nnew, flatness,
+	    If[IntegerQ[pseudo], pseudo, 0]]
 	]
-
-:Evaluate: tmpvar[n_] := ToExpression["Cuba`Suave`t" <> ToString[n]]
 
 :Evaluate: Attributes[ncomp] = Attributes[fun] = {HoldAll}
 
@@ -92,11 +93,17 @@
 
 :Evaluate: _ncomp = 1
 
-:Evaluate: define[True, tmp_, vars_, {defs__}, jac_] :=
-	fun[f_] := Compile[tmp, Block[vars, defs; check[vars, Chop[f jac]//N]]]
+:Evaluate: define[True, vars:{v___}, lower_, range_, jac_] :=
+	fun[f_] := Compile[{{t, _Real, 1}, w},
+	  Block[{v, $Weight = w},
+	    vars = lower + range t;
+	    check[vars, Chop[f jac]//N] ]]
 
-:Evaluate: define[False, tmp_, vars_, {defs__}, jac_] :=
-	fun[f_] := Function[tmp, Block[vars, defs; check[vars, Chop[f jac]//N]]]
+:Evaluate: define[_, vars:{v___}, lower_, range_, jac_] :=
+	fun[f_] := Function[{t, w},
+	  Block[{v, $Weight = w},
+	    vars = lower + range t;
+	    check[vars, Chop[f jac]//N] ]]
 
 :Evaluate: check[_, f_Real] = {f}
 
@@ -104,9 +111,11 @@
 
 :Evaluate: check[x_, _] := (Message[Suave::badsample, ff, x]; {})
 
-:Evaluate: sample[w_, x_] :=
-	Check[ MapThread[Block[{$Weight = #1}, integrand@@ #2]&,
-	  {w, Partition[x, ndim]}] //Flatten, {} ]
+:Evaluate: sample[x_, w_] := Check[ Flatten @
+	MapSample[integrand@@ # &, Transpose[{Partition[x, ndim], w}]],
+	{} ]
+
+:Evaluate: MapSample = Map
 
 :Evaluate: region[ll_, ur_, r___] :=
 	Region[lower + range ll, lower + range ur, r]
@@ -131,7 +140,7 @@
 	Suave.tm
 		Subregion-adaptive Vegas Monte-Carlo integration
 		by Thomas Hahn
-		last modified 17 Dec 07 th
+		last modified 5 Dec 08 th
 */
 
 
@@ -183,8 +192,8 @@ static void DoSample(cnumber n, real *w, real *x, real *f)
 
   MLPutFunction(stdlink, "EvaluatePacket", 1);
   MLPutFunction(stdlink, "Cuba`Suave`sample", 2);
-  MLPutRealList(stdlink, w, n);
   MLPutRealList(stdlink, x, n*ndim_);
+  MLPutRealList(stdlink, w, n);
   MLEndPacket(stdlink);
 
   while( (pkt = MLNextPacket(stdlink)) && (pkt != RETURNPKT) )
@@ -217,7 +226,8 @@ abort:
 void Suave(cint ndim, cint ncomp,
   creal epsrel, creal epsabs,
   cint flags, cnumber mineval, cnumber maxeval,
-  cnumber nnew, creal flatness)
+  cnumber nnew, creal flatness,
+  cint seed)
 {
   ndim_ = ndim;
   ncomp_ = ncomp;
@@ -236,6 +246,7 @@ void Suave(cint ndim, cint ncomp,
     int fail;
 
     neval_ = 0;
+    mersenneseed = seed;
 
     fail = Integrate(epsrel, Max(epsabs, NOTZERO),
       flags, mineval, maxeval, nnew, flatness,

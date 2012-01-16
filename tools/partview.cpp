@@ -1,12 +1,13 @@
 /*
 	partview.cpp
 		Partition viewer for Cuba
-		last modified 7 Mar 05 th
+		last modified 19 Jan 09 th
 */
 
 
-#include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
 
 #include <qwidget.h>
 #include <qmainwindow.h>

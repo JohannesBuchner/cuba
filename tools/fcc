@@ -1,0 +1,55 @@
+#! /bin/sh
+# script to compile C programs that are linked 
+# against Fortran libraries
+# last modified 5 Mar 09 th
+
+args=""
+ldflags=""
+objs=""
+libs=""
+lcpp=""
+compileonly=""
+
+case "$@" in
+*-m32*)	toarg='arg=`echo "$1" | sed -e 's/-x86-64//g' -e 's/ML64/ML32/g'`' ;;
+*)	toarg='arg=$1' ;;
+esac
+
+while [ $# -gt 0 ] ; do
+  eval "$toarg"
+  case "$arg" in
+  -arch)
+	shift
+	;;
+  -[Ll]* | -Wl*)
+	ldflags="$ldflags \"$arg\""
+	;;
+  *.tm.o)
+	objs="\"$arg\" $objs"
+	;;
+  *.a | *.o)
+	objs="$objs \"$arg\""
+	;;
+  -Wno-long-double)
+	# mcc adds this on Macs & gcc 4 doesn't like it
+	;;
+  *.cc)
+	args="$args \"$arg\""
+	lcpp="-lstdc++"
+	;;
+  -c)
+	compileonly="-c"
+	;;
+  -o)
+	args="$args \"$arg\" \"$2\""
+	shift
+	;;
+  *)
+	args="$args \"$arg\""
+	;;
+  esac
+  shift
+done
+
+eval "set -x ; ${REALCC:-cc} $args ${compileonly:-$objs $ldflags $lcpp $libs}"
+
