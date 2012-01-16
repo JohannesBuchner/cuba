@@ -1,7 +1,7 @@
 /*
 	stddecl.h
 		Type declarations common to all Cuba routines
-		last modified 5 Dec 08 th
+		last modified 29 May 09 th
 */
 
 
@@ -60,19 +60,22 @@
 
 #define MaxErr(avg) Max(epsrel*fabs(avg), epsabs)
 
-
 #ifdef __cplusplus
-#define Malloc(p, n) (*(void **)&p = malloc(n))
+#define mallocset(p, n) (*(void **)&p = malloc(n))
+#define reallocset(p, n) (*(void **)&p = realloc(p, n))
 #else
-#define Malloc(p, n) (p = malloc(n))
+#define mallocset(p, n) (p = malloc(n))
+#define reallocset(p, n) (p = realloc(p, n))
 #endif
 
-#define MemAlloc(p, n) if( Malloc(p, n) == NULL ) { \
+#define ChkAlloc(r) if( r == NULL ) { \
   fprintf(stderr, "Out of memory in " __FILE__ " line %d.\n", __LINE__); \
   exit(1); \
 }
 
 #define Alloc(p, n) MemAlloc(p, (n)*sizeof(*p))
+#define MemAlloc(p, n) ChkAlloc(mallocset(p, n))
+#define ReAlloc(p, n) ChkAlloc(reallocset(p, n))
 
 
 #ifdef __cplusplus

@@ -2,7 +2,7 @@
 	util.c
 		Utility functions
 		this file is part of Divonne
-		last modified 9 Feb 05 th
+		last modified 9 Apr 09 th
 */
 
 
@@ -22,6 +22,9 @@ static number ngiven_, nextra_;
 
 static Totals *totals_;
 
+static void *voidregion_;
+#define region_ ((Region *)voidregion_)
+static count size_;
 
 #ifdef DEBUG
 #include "debug.c"

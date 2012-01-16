@@ -1,7 +1,7 @@
 /*
 	Random.c
 		quasi- and pseudo-random-number generation
-		last modified 5 Dec 08 th
+		last modified 2 Apr 09 th
 */
 
 
@@ -229,7 +229,7 @@ static inline void MersenneGet(real *x)
     b = MersenneInt(next++) >> 6;
     x[dim] = (67108864.*a + b)/9007199254740992.;
 #else
-    x[dim] = MersenneInt(next++)/4294967295.;
+    x[dim] = MersenneInt(next++)/4294967296.;
 #endif
   }
 

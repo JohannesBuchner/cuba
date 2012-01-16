@@ -1,7 +1,7 @@
 #! /bin/sh
 # script to compile C programs that are linked 
 # against Fortran libraries
-# last modified 5 Mar 09 th
+# last modified 29 May 09 th
 
 args=""
 ldflags=""
@@ -20,6 +20,8 @@ while [ $# -gt 0 ] ; do
   case "$arg" in
   -arch)
 	shift
+	;;
+  -st)
 	;;
   -[Ll]* | -Wl*)
 	ldflags="$ldflags \"$arg\""

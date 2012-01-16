@@ -2,7 +2,7 @@
 	Split.c
 		determine optimal cuts for splitting a region
 		this file is part of Divonne
-		last modified 6 Mar 09 th
+		last modified 22 Jul 09 th
 */
 
 
@@ -24,7 +24,7 @@ typedef struct {
   count i;
   real save, delta;
   real f, df, fold;
-  real row, lhs, sol;
+  real lhs, row, sol;
 } Cut;
 
 typedef struct {
@@ -32,6 +32,13 @@ typedef struct {
 } Errors;
 
 typedef const Errors cErrors;
+
+/*********************************************************************/
+
+static inline real Div(creal a, creal b)
+{
+  return (b != 0 && fabs(b) < BIG*fabs(a)) ? a/b : a;
+}
 
 /*********************************************************************/
 
@@ -84,161 +91,150 @@ static inline real Volume(creal *delta)
 
 /*********************************************************************/
 
-static inline real SetupEqs(Cut *cutfirst, Cut *cutlast, real f)
+static inline real SetupEqs(Cut *cut, ccount ncut, real f)
 {
-  real sqsum = Sq(cutlast->lhs = f - cutfirst->f);
-  while( cutlast > cutfirst ) {
-    f = cutlast->f;
-    --cutlast;
-    sqsum += Sq(cutlast->lhs = f - cutlast->f);
+  real sqsum = 0;
+  Cut *c = &cut[ncut];
+  while( --c >= cut ) {
+    sqsum += Sq(c->lhs = f - c->f);
+    f = c->f;
   }
   return sqsum;
 }
 
 /*********************************************************************/
 
-static inline void SolveEqs(Cut *cutfirst, Cut *cutlast,
+static inline void SolveEqs(Cut *cut, count ncut,
   creal *delta, creal diff)
 {
-  real last = cutlast->lhs;
+  real last = 0;
   real r = 1;
-  Cut *cut;
+  Cut *c;
 
-  for( cut = cutfirst; ; ++cut ) {
-    ccount dim = Dim(cut->i);
-    cut->row = r*cut->df - diff/(delta[Lower(dim)] + delta[Upper(dim)]);
-    if( cut == cutlast ) break;
-    r = (fabs(cut->row) < BIG*fabs(cut->df)) ? cut->row/cut->df : 0;
-    last -= r*cut->lhs;
+  for( c = cut; ; ++c ) {
+    ccount dim = Dim(c->i);
+    c->row = r -=
+      Div(diff, (delta[Lower(dim)] + delta[Upper(dim)])*c->df);
+    if( --ncut == 0 ) break;
+    last += r*c->lhs;
   }
 
-  if( cut->row != 0 && fabs(cut->row) < BIG*fabs(last) )
-    last /= cut->row;
+  last = Div(c->lhs - last, r);
 
-  for( ; ; ) {
-    creal delmin = -(cut->delta = delta[cut->i]);
-    creal delmax = FRACT*(delmin + cut->save);
-    cut->sol = last;
-    if( cut->sol > delmax ) cut->sol = .75*delmax;
-    if( cut->sol < delmin ) cut->sol = .75*delmin;
-    if( cut == cutfirst ) break;
-    last *= cut->df;
-    --cut;
-    last += cut->lhs;
-    if( cut->df != 0 && fabs(cut->df) < BIG*fabs(last) )
-      last /= cut->df;
+  for( ; c >= cut; last += (--c)->lhs ) {
+    creal delmin = -(c->delta = delta[c->i]);
+    creal delmax = FRACT*(delmin + c->save);
+    c->sol = Div(last, c->df);
+    if( c->sol > delmax ) c->sol = .75*delmax;
+    if( c->sol < delmin ) c->sol = .75*delmin;
   }
 }
 
 /*********************************************************************/
 
-static void Split(void *voidregion, int depth)
+static count FindCuts(Cut *cut, Bounds *bounds, creal vol,
+  real *xmajor, creal fmajor, creal fdiff)
 {
-  TYPEDEFREGION;
-
-  Region *const region = (Region *)voidregion, *reg, *next;
-  creal fdiff = region->fmajor - region->fminor;
   cint sign = (fdiff < 0) ? -1 : 1;
 
-  Cut cutfirst[2*NDIM], *cutlast = cutfirst, *cut;
+  count ncut = 0, icut;
   real delta[2*NDIM];
   real gamma, fgamma, lhssq;
-  real *b0, *b1, tmp;
-  Errors errors[NCOMP];
-  count dim, comp, div, nsplit;
-
-  selectedcomp_ = region->cutcomp;
-  neval_cut_ -= neval_;
+  count dim, div;
 
   for( dim = 0; dim < ndim_; ++dim ) {
-    cBounds *b = &region->bounds[dim];
-    real *x = &region->xmajor[dim];
-    creal xsave = *x;
+//    cBounds *b = &bounds[dim];
+//    creal xsave = xmajor[dim];
+    cBounds *b;
+    real xsave;
+    b = &bounds[dim];
+    xsave = xmajor[dim];
     real dist = b->upper - xsave;
     if( dist >= BNDTOL*(b->upper - b->lower) ) {
-      cutlast->i = Upper(dim);
-      cutlast->save = dist;
-      *x += dist *= FRACT;
-      cutlast->f = Sample(region->xmajor);
-      *x = xsave;
-      ++cutlast;
+      Cut *c = &cut[ncut++];
+      c->i = Upper(dim);
+      c->save = dist;
+      xmajor[dim] += dist *= FRACT;
+      c->f = Sample(xmajor);
+      xmajor[dim] = xsave;
     }
     delta[Upper(dim)] = dist;
   }
 
   for( dim = 0; dim < ndim_; ++dim ) {
-    cBounds *b = &region->bounds[dim];
-    real *x = &region->xmajor[dim];
-    creal xsave = *x;
+    cBounds *b = &bounds[dim];
+    creal xsave = xmajor[dim];
     real dist = xsave - b->lower;
     if( dist >= BNDTOL*(b->upper - b->lower) ) {
-      cutlast->i = Lower(dim);
-      cutlast->save = dist;
-      *x -= dist *= FRACT;
-      cutlast->f = Sample(region->xmajor);
-      *x = xsave;
-      ++cutlast;
+      Cut *c = &cut[ncut++];
+      c->i = Lower(dim);
+      c->save = dist;
+      xmajor[dim] -= dist *= FRACT;
+      c->f = Sample(xmajor);
+      xmajor[dim] = xsave;
     }
     delta[Lower(dim)] = dist;
   }
 
-  if( cutlast == cutfirst ) {
-    SomeCut(cutlast, region->bounds);
-    goto dissect;
+  if( ncut == 0 ) {
+    SomeCut(cut, bounds);
+    return 1;
   }
 
   for( ; ; ) {
     real mindiff = INFTY;
-    Cut *mincut = cutfirst;
+    Cut *mincut = cut;
 
-    --cutlast;
-    for( cut = cutfirst; cut <= cutlast; ++cut ) {
-      creal diff = fabs(region->fmajor - cut->f);
+    for( icut = 0; icut < ncut; ++icut ) {
+      Cut *c = &cut[icut];
+      creal diff = fabs(fmajor - c->f);
       if( diff <= mindiff ) {
         mindiff = diff;
-        mincut = cut;
+        mincut = c;
       }
     }
 
-    gamma = Volume(delta)/region->vol;
-    fgamma = gamma*region->fmajor + (1 - gamma)*region->fminor;
+    gamma = Volume(delta)/vol;
+    fgamma = fmajor + (gamma - 1)*fdiff;
 
     if( sign*(mincut->f - fgamma) < 0 ) break;
 
-    if( cutlast == cutfirst ) {
-      SomeCut(cutlast, region->bounds);
-      goto dissect;
+    if( --ncut == 0 ) {
+      SomeCut(cut, bounds);
+      return 1;
     }
 
     delta[mincut->i] = mincut->save;
-    memcpy(mincut, mincut + 1, (char *)cutlast - (char *)mincut);
+    memcpy(mincut, mincut + 1, (char *)&cut[ncut] - (char *)mincut);
   }
 
-  for( cut = cutfirst; cut <= cutlast; ++cut ) {
-    cut->fold = cut->f;
-    cut->df = (cut->f - region->fmajor)/delta[cut->i];
+  for( icut = 0; icut < ncut; ++icut ) {
+    Cut *c = &cut[icut];
+    c->fold = c->f;
+    c->df = (c->f - fmajor)/delta[c->i];
   }
 
-  lhssq = SetupEqs(cutfirst, cutlast, fgamma);
+  lhssq = SetupEqs(cut, ncut, fgamma);
 
 repeat:
-  SolveEqs(cutfirst, cutlast, delta, gamma*fdiff);
+  SolveEqs(cut, ncut, delta, gamma*fdiff);
 
   for( div = 1; div <= 16; div *= 4 ) {
     real gammanew, lhssqnew;
 
-    for( cut = cutfirst; cut <= cutlast; ++cut ) {
-      real *x = &region->xmajor[Dim(cut->i)];
+    for( icut = 0; icut < ncut; ++icut ) {
+      Cut *c = &cut[icut];
+      real *x = &xmajor[Dim(c->i)];
       creal xsave = *x;
-      delta[cut->i] = cut->delta + cut->sol/div;
-      *x += SignedDelta(cut->i);
-      cut->f = Sample(region->xmajor);
+      delta[c->i] = c->delta + c->sol/div;
+      *x += SignedDelta(c->i);
+      c->f = Sample(xmajor);
       *x = xsave;
     }
 
-    gammanew = Volume(delta)/region->vol;
-    fgamma = gammanew*region->fmajor + (1 - gammanew)*region->fminor;
-    lhssqnew = SetupEqs(cutfirst, cutlast, fgamma);
+    gammanew = Volume(delta)/vol;
+    fgamma = fmajor + (gammanew - 1)*fdiff;
+    lhssqnew = SetupEqs(cut, ncut, fgamma);
 
     if( lhssqnew <= lhssq ) {
       real fmax;
@@ -247,14 +243,15 @@ repeat:
       gamma = gammanew;
 
       fmax = fabs(fgamma);
-      for( cut = cutfirst; cut <= cutlast; ++cut ) {
-        creal dfmin = SINGTOL*cut->df;
-        creal sol = cut->sol/div;
-        real df = cut->f - cut->fold;
+      for( icut = 0; icut < ncut; ++icut ) {
+        Cut *c = &cut[icut];
+        creal dfmin = SINGTOL*c->df;
+        creal sol = c->sol/div;
+        real df = c->f - c->fold;
         df = (fabs(sol) < BIG*fabs(df)) ? df/sol : 1;
-        cut->df = (fabs(df) < fabs(dfmin)) ? dfmin : df;
-        fmax = Max(fmax, fabs(cut->f));
-        cut->fold = cut->f;
+        c->df = (fabs(df) < fabs(dfmin)) ? dfmin : df;
+        fmax = Max(fmax, fabs(c->f));
+        c->fold = c->f;
       }
 
       if( lhssqnew < Sq((1 + fmax)*LHSTOL) ) break;
@@ -263,64 +260,70 @@ repeat:
     }
   }
 
-#if 0
-  if( region->depth == 0 && cutlast > cutfirst ) {
-    real mindev = INFTY;
-    Cut *mincut;
-    for( cut = cutfirst; cut <= cutlast; ++cut ) {
-      creal dev = fabs(delta[cut->i]);
-      if( dev < mindev ) {
-        mindev = dev;
-        mincut = cut;
-      }
-    }
-    if( mincut != cutfirst ) Copy(cutfirst, mincut, 1);
-    cutlast = cutfirst;
-  }
-#endif
-
-  for( cut = cutfirst; cut <= cutlast; ++cut ) {
-    creal x = region->xmajor[Dim(cut->i)];
-    real *b = (real *)region->bounds + cut->i;
-    cut->save = *b;
-    *b = x + SignedDelta(cut->i);
+  for( icut = 0; icut < ncut; ++icut ) {
+    Cut *c = &cut[icut];
+    real *b = (real *)bounds + c->i;
+    c->save = *b;
+    *b = xmajor[Dim(c->i)] + SignedDelta(c->i);
   }
 
-dissect:
+  return ncut;
+}
+
+/*********************************************************************/
+
+static void Split(count iregion, int depth)
+{
+  TYPEDEFREGION;
+
+  Cut cut[2*NDIM];
+  Errors errors[NCOMP];
+  count comp, ncut, nsplit, xregion, ireg, xreg;
+  real tmp;
+
+{
+  Region *const region = region_ + iregion;
+  selectedcomp_ = region->cutcomp;
+  neval_cut_ -= neval_;
+  ncut = FindCuts(cut, region->bounds, region->vol,
+    (real *)region->result + region->xmajor, region->fmajor,
+    region->fmajor - region->fminor);
   neval_cut_ += neval_;
 
-  next = region->next;
   for( comp = 0; comp < ncomp_; ++comp ) {
     Errors *e = &errors[comp];
     e->diff = region->result[comp].avg;
     e->spread = e->err = 0;
   }
+}
 
-  depth -= cutlast - cutfirst + 1;
-  if( Explore(region, &samples_[0], depth, 1) ) {
-    b1 = &tmp;
-    for( cut = cutfirst; cut <= cutlast; ++cut ) {
-      *b1 = tmp;
-      b0 = (real *)region->bounds + cut->i;
-      b1 = (real *)region->bounds + (cut->i ^ 1);
-      tmp = *b1;
-      *b1 = *b0;
-      *b0 = cut->save;
-      if( !Explore(region, &samples_[0], depth++, cut != cutlast) )
-        break;
+  xregion = nregions_;
+
+  depth -= ncut;
+  if( Explore(iregion, &samples_[0], depth, 1) ) {
+    Cut *c;
+    for( c = cut; ncut--; ++c ) {
+      real *b = (real *)region_[iregion].bounds;
+      ccount c0 = c->i, c1 = c0 ^ 1;
+      creal tmp = b[c1];
+      b[c1] = b[c0];
+      b[c0] = c->save;
+      if( !Explore(iregion, &samples_[0], depth++, ncut != 0) ) break;
+      if( ncut ) ((real *)region_[iregion].bounds)[c1] = tmp;
     }
   }
 
-  nsplit = 0;
-  for( reg = region; reg != next; reg = reg->next ) {
+  nsplit = nregions_ - xregion + 1;
+
+  for( ireg = iregion, xreg = xregion; ireg < nregions_; ireg = xreg++ ) {
+    cResult *result = region_[ireg].result;
     for( comp = 0; comp < ncomp_; ++comp ) {
-      cResult *r = &reg->result[comp];
+      cResult *r = &result[comp];
       Errors *e = &errors[comp];
       e->diff -= r->avg;
       e->err += r->err;
       e->spread += Sq(r->spread);
     }
-    ++nsplit;
   }
 
   tmp = 1./nsplit;
@@ -332,9 +335,10 @@ dissect:
   }
 
   tmp = 1 - tmp;
-  for( reg = region; reg != next; reg = reg->next ) {
+  for( ireg = iregion, xreg = xregion; ireg < nregions_; ireg = xreg++ ) {
+    Result *result = region_[ireg].result;
     for( comp = 0; comp < ncomp_; ++comp ) {
-      Result *r = &reg->result[comp];
+      Result *r = &result[comp];
       cErrors *e = &errors[comp];
       creal c = tmp*e->diff;
       if( r->err > 0 ) r->err = r->err*e->err + c;

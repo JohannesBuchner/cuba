@@ -1,3 +1,31 @@
+22 Jul 09:
+
+- Fixed potential segfault in Split.c of Divonne, thanks to
+  Andreas v. Manteuffel.
+
+
+29 May 09:
+
+- Added flushing of grids in Vegas through a negative grid number.
+
+
+25 May 09:
+
+- Removed explicit pointer reference from reallocatable
+  "region_" array.
+
+
+8 May 09:
+
+- Improved memory handling in Divonne.
+
+
+8 Apr 09:
+
+- Version 1.6: Improved memory handling in Cuhre.
+  Thanks to Valery Yundin for pointing out the problem.
+
+
 6 Mar 09:
 
 - Fixed segfault in Divonne if all samples from a region returned NaN.

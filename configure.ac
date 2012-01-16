@@ -1,7 +1,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.59)
-AC_INIT([Cuba], [1.5], [hahn@feynarts.de])
+AC_INIT([Cuba], [1.6], [hahn@feynarts.de])
 AC_CONFIG_SRCDIR([cuba.h])
 
 LIBS=-lm
@@ -12,7 +12,7 @@ AC_PROG_F77
 AC_PROG_RANLIB
 AC_PROG_INSTALL
 
-if test $GCC = yes ; then
+if test "$GCC" = yes ; then
   CFLAGS=${USER_CFLAGS:--O3 -fomit-frame-pointer -ffast-math}
 else
   CFLAGS=${USER_CFLAGS:--O}

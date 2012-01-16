@@ -2,7 +2,7 @@
 	decl.h
 		Type declarations
 		this file is part of Divonne
-		last modified 7 Mar 05 th
+		last modified 25 May 09 th
 */
 
 
@@ -23,7 +23,7 @@ typedef struct {
   real avg, spreadsq;
   real spread, secondspread;
   real nneed, maxerrsq, mindevsq;
-  void *region;
+  int iregion;
 } Totals;
 
 
@@ -56,12 +56,13 @@ typedef const Samples cSamples;
   } Result; \
   typedef const Result cResult; \
   typedef struct region { \
-    struct region *next; \
-    count cutcomp, depth; \
-    real *xmajor, fmajor, fminor, vol; \
+    count cutcomp, depth, xmajor; \
+    real fmajor, fminor, vol; \
     Bounds bounds[NDIM]; \
     Result result[NCOMP]; \
   } Region
+
+#define CHUNKSIZE 4096
 
 
 typedef void (*Integrand)(ccount *, creal *, ccount *, real *, cint *);

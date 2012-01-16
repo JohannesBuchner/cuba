@@ -2,7 +2,7 @@
 	Explore.c
 		sample region, determine min and max, split if necessary
 		this file is part of Divonne
-		last modified 6 Mar 09 th
+		last modified 25 May 09 th
 */
 
 
@@ -13,7 +13,7 @@ typedef struct {
 
 /*********************************************************************/
 
-static bool Explore(void *voidregion, cSamples *samples, cint depth, cint flags)
+static bool Explore(count iregion, cSamples *samples, cint depth, cint flags)
 {
 #define SPLICE (flags & 1)
 #define HAVESAMPLES (flags & 2)
@@ -25,20 +25,24 @@ static bool Explore(void *voidregion, cSamples *samples, cint depth, cint flags)
   Result *r;
   real *x, *f;
   real halfvol, maxerr;
-
-  Region *region = (Region *)voidregion;
+  Region *region;
+  Bounds *bounds;
+  Result *result;
 
   /* needed as of gcc 3.3 to make gcc correctly address region #@$&! */
   sizeof(*region);
 
   if( SPLICE ) {
-    Region *newregion;
-    Alloc(newregion, 1);
-    newregion->next = region->next;
-    region->next = newregion;
-    VecCopy(newregion->bounds, region->bounds);
-    region = newregion;
+    if( nregions_ == size_ ) {
+      size_ += CHUNKSIZE;
+      ReAlloc(voidregion_, size_*sizeof(Region));
+    }
+    VecCopy(region_[nregions_].bounds, region_[iregion].bounds);
+    iregion = nregions_++;
   }
+  region = &region_[iregion];
+  bounds = region->bounds;
+  result = region->result;
 
   for( comp = 0; comp < ncomp_; ++comp ) {
     Extrema *e = &extrema[comp];
@@ -50,13 +54,13 @@ static bool Explore(void *voidregion, cSamples *samples, cint depth, cint flags)
   if( !HAVESAMPLES ) {
     real vol = 1;
     for( dim = 0; dim < ndim_; ++dim ) {
-      cBounds *b = &region->bounds[dim];
+      cBounds *b = &bounds[dim];
       vol *= b->upper - b->lower;
     }
     region->vol = vol;
 
     for( comp = 0; comp < ncomp_; ++comp ) {
-      Result *r = &region->result[comp];
+      Result *r = &result[comp];
       r->fmin = INFTY;
       r->fmax = -INFTY;
     }
@@ -64,11 +68,11 @@ static bool Explore(void *voidregion, cSamples *samples, cint depth, cint flags)
     x = xgiven_;
     f = fgiven_;
     n = ngiven_;
-    if( nextra_ ) n += SampleExtra(region->bounds);
+    if( nextra_ ) n += SampleExtra(bounds);
 
     for( ; n; --n ) {
       for( dim = 0; dim < ndim_; ++dim ) {
-        Bounds *b = &region->bounds[dim];
+        cBounds *b = &bounds[dim];
         if( x[dim] < b->lower || x[dim] > b->upper ) goto skip;
       }
       for( comp = 0; comp < ncomp_; ++comp ) {
@@ -82,7 +86,7 @@ skip:
       f += ncomp_;
     }
 
-    samples->sampler(samples, region->bounds, region->vol);
+    samples->sampler(samples, bounds, vol);
   }
 
   x = samples->x;
@@ -104,7 +108,7 @@ skip:
 
   for( comp = 0; comp < ncomp_; ++comp ) {
     Extrema *e = &extrema[comp];
-    Result *r = &region->result[comp];
+    Result *r = &result[comp];
     real xtmp[NDIM], ftmp, err;
 
     if( e->xmin ) {	/* not all NaNs */
@@ -112,7 +116,7 @@ skip:
 
       sign_ = 1;
       VecCopy(xtmp, e->xmin);
-      ftmp = FindMinimum(region->bounds, xtmp, e->fmin);
+      ftmp = FindMinimum(bounds, xtmp, e->fmin);
       if( ftmp < r->fmin ) {
         r->fmin = ftmp;
         VecCopy(r->xmin, xtmp);
@@ -120,7 +124,7 @@ skip:
 
       sign_ = -1;
       VecCopy(xtmp, e->xmax);
-      ftmp = -FindMinimum(region->bounds, xtmp, -e->fmax);
+      ftmp = -FindMinimum(bounds, xtmp, -e->fmax);
       if( ftmp > r->fmax ) {
         r->fmax = ftmp;
         VecCopy(r->xmax, xtmp);
@@ -150,12 +154,12 @@ skip:
   if( halfvol*(r->fmin + r->fmax) > r->avg ) {
     region->fminor = r->fmin;
     region->fmajor = r->fmax;
-    region->xmajor = r->xmax;
+    region->xmajor = r->xmax - (real *)region->result;
   }
   else {
     region->fminor = r->fmax;
     region->fmajor = r->fmin;
-    region->xmajor = r->xmin;
+    region->xmajor = r->xmin - (real *)region->result;
   }
 
   region->depth = IDim(depth);
@@ -163,15 +167,13 @@ skip:
   if( !HAVESAMPLES ) {
     if( samples->weight*r->spread < r->err ||
         r->spread < totals_[maxcomp].secondspread ) region->depth = 0;
-    if( region->depth == 0 ) {
-      for( comp = 0; comp < ncomp_; ++comp ) {
-        real *s = &totals_[comp].secondspread;
-        *s = Max(*s, region->result[comp].spread);
-      }
-    }
+    if( region->depth == 0 )
+      for( comp = 0; comp < ncomp_; ++comp )
+        totals_[comp].secondspread =
+          Max(totals_[comp].secondspread, result[comp].spread);
   }
 
-  if( region->depth ) Split(region, region->depth);
+  if( region->depth ) Split(iregion, region->depth);
   return true;
 }
 

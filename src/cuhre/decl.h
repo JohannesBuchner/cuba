@@ -2,7 +2,7 @@
 	decl.h
 		Type declarations
 		this file is part of Cuhre
-		last modified 19 Jan 05 th
+		last modified 8 Apr 09 th
 */
 
 
@@ -45,7 +45,6 @@ typedef const Rule cRule;
 
 #define TYPEDEFREGION \
   typedef struct region { \
-    struct region *next; \
     count div; \
     Result result[NCOMP]; \
     Bounds bounds[NDIM]; \

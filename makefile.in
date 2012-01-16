@@ -146,14 +146,13 @@ Suave$(EXE): $(SUAVE_TM) $(SUAVE_DEPS)
 
 
 DIVONNE_C = $(divonne)/Divonne.c
-DIVONNE_F = $(divonne)/divonne-f.c
 DIVONNE_TM = $(divonne)/Divonne.tm
 DIVONNE_DEPS = $(COMMON_DEPS) $(common)/Random.c \
   $(divonne)/decl.h $(divonne)/util.c $(divonne)/common.c \
   $(divonne)/KorobovCoeff.c $(divonne)/Rule.c $(divonne)/Sample.c \
   $(divonne)/FindMinimum.c $(divonne)/Explore.c $(divonne)/Split.c \
   $(divonne)/Integrate.c
-DIVONNE = $(DIVONNE_C) $(DIVONNE_F) $(DIVONNE_TM) $(DIVONNE_DEPS)
+DIVONNE = $(DIVONNE_C) $(DIVONNE_TM) $(DIVONNE_DEPS)
 
 $(LIB)(Divonne.o): $(DIVONNE_C) $(DIVONNE_DEPS)
 	$(CC) $(CFLAGS) -I$(divonne) -c -o Divonne.o $(DIVONNE_C)
@@ -181,12 +180,11 @@ Divonne$(EXE): $(DIVONNE_TM) $(DIVONNE_DEPS)
 
 
 CUHRE_C = $(cuhre)/Cuhre.c
-CUHRE_F = $(cuhre)/cuhre-f.c
 CUHRE_TM = $(cuhre)/Cuhre.tm
 CUHRE_DEPS = $(COMMON_DEPS) \
   $(cuhre)/decl.h $(cuhre)/util.c $(cuhre)/common.c \
   $(cuhre)/Rule.c $(cuhre)/Integrate.c
-CUHRE = $(CUHRE_C) $(CUHRE_F) $(CUHRE_TM) $(CUHRE_DEPS)
+CUHRE = $(CUHRE_C) $(CUHRE_TM) $(CUHRE_DEPS)
 
 $(LIB)(Cuhre.o): $(CUHRE_C) $(CUHRE_DEPS)
 	$(CC) $(CFLAGS) -I$(cuhre) -c -o Cuhre.o $(CUHRE_C)

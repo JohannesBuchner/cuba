@@ -2,14 +2,19 @@
 	Grid.c
 		utility functions for the Vegas grid
 		this file is part of Vegas
-		last modified 17 Dec 07 th
+		last modified 29 May 09 th
 */
 
 
 static inline void GetGrid(Grid *grid)
 {
   count bin, dim;
-  unsigned const int slot = EXPORT(vegasgridno) - 1;
+  unsigned const int slot = abs(EXPORT(vegasgridno)) - 1;
+
+  if( EXPORT(vegasgridno) < 0 ) {
+    EXPORT(vegasgridno) = -EXPORT(vegasgridno);
+    if( slot < MAXGRIDS ) griddim_[slot] = 0;
+  }
 
   if( slot < MAXGRIDS && gridptr_[slot] ) {
     if( griddim_[slot] == ndim_ ) {
