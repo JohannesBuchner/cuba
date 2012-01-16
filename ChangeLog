@@ -1,3 +1,27 @@
+15 Feb 08
+
+- Added further check to Suave for sharp-edged functions.
+
+
+15 Jan 08
+
+- Fixed bug in makefile.in w.r.t. DESTDIR.
+
+
+2 Jan 08
+
+- Fixed minor bug in invocation of IniRandom in Suave.
+
+
+19 Dec 07
+
+- Version 1.4: Added new flag (bit 4), to turn off smoothing of
+  the importance function for sharp-edged functions.
+
+- Improved configure for Cygwin.  Now compiles MathLink
+  executables `out of the box'.
+
+
 30 Nov 07
 
 - Fixed detection of variable-size arrays in configure.ac.

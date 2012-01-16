@@ -2,7 +2,7 @@
 	Integrate.c
 		integrate over the unit hypercube
 		this file is part of Vegas
-		last modified 30 Aug 07 th
+		last modified 17 Dec 07 th
 */
 
 
@@ -179,7 +179,7 @@ static int Integrate(creal epsrel, creal epsabs,
 
     if( ncomp_ == 1 )
       for( dim = 0; dim < ndim_; ++dim )
-        RefineGrid(state.grid[dim], margsum[0][dim]);
+        RefineGrid(state.grid[dim], margsum[0][dim], flags);
     else {
       for( dim = 0; dim < ndim_; ++dim ) {
         Grid wmargsum;
@@ -194,7 +194,7 @@ static int Integrate(creal epsrel, creal epsabs,
               wmargsum[bin] += w*m[bin];
           }
         }
-        RefineGrid(state.grid[dim], wmargsum);
+        RefineGrid(state.grid[dim], wmargsum, flags);
       }
     }
 

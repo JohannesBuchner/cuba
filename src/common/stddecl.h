@@ -1,7 +1,7 @@
 /*
 	stddecl.h
 		Type declarations common to all Cuba routines
-		last modified 2 Mar 06 th
+		last modified 17 Dec 07 th
 */
 
 
@@ -31,6 +31,7 @@
 #define VERBOSE (flags & 3)
 #define LAST (flags & 4)
 #define PSEUDORNG (flags & 8)
+#define SHARPEDGES (flags & 16)
 #define REGIONS (flags & 256)
 
 #define INFTY DBL_MAX

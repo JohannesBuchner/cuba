@@ -23,6 +23,9 @@
 :Evaluate: PseudoRandom::usage = "PseudoRandom is an option of Suave.
 	If set to True, pseudo-random numbers are used instead of Sobol quasi-random numbers."
 
+:Evaluate: SharpEdges::usage = "SharpEdges is an option of Suave.
+	It turns off smoothing of the importance function for integrands with sharp edges."
+
 :Evaluate: Regions::usage = "Regions is an option of Suave.
 	It specifies whether the regions into which the integration region has been cut are returned together with the integration results."
 
@@ -54,17 +57,17 @@
 :Evaluate: Options[Suave] = {PrecisionGoal -> 3, AccuracyGoal -> 12,
 	MinPoints -> 0, MaxPoints -> 50000, NNew -> 1000, Flatness -> 50,
 	Verbose -> 1, Final -> Last, PseudoRandom -> False,
-	Regions -> False, Compiled -> True}
+	SharpEdges -> False, Regions -> False, Compiled -> True}
 
 :Evaluate: Suave[f_, v:{_, _, _}.., opt___Rule] :=
 	Block[ {ff = HoldForm[f], ndim = Length[{v}],
 	tags, vars, lower, range, jac, tmp, defs, integrand,
 	rel, abs, mineval, maxeval, nnew, flatness,
-	verbose, final, pseudo, regions, compiled},
+	verbose, final, pseudo, edges, regions, compiled},
 	  Message[Suave::optx, #, Suave]&/@
 	    Complement[First/@ {opt}, tags = First/@ Options[Suave]];
 	  {rel, abs, mineval, maxeval, nnew, flatness,
-	    verbose, final, pseudo, regions, compiled} =
+	    verbose, final, pseudo, edges, regions, compiled} =
 	    tags /. {opt} /. Options[Suave];
 	  {vars, lower, range} = Transpose[{v}];
 	  jac = Simplify[Times@@ (range -= lower)];
@@ -76,6 +79,7 @@
 	    Min[Max[verbose, 0], 3] +
 	      If[final === Last, 4, 0] +
 	      If[TrueQ[pseudo], 8, 0] +
+	      If[TrueQ[edges], 16, 0] +
 	      If[TrueQ[regions], 256, 0],
             mineval, maxeval, nnew, flatness]
 	]
@@ -127,7 +131,7 @@
 	Suave.tm
 		Subregion-adaptive Vegas Monte-Carlo integration
 		by Thomas Hahn
-		last modified 30 Aug 07 th
+		last modified 17 Dec 07 th
 */
 
 

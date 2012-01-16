@@ -2,7 +2,7 @@
 	Integrate.c
 		integrate over the unit hypercube
 		this file is part of Suave
-		last modified 2 Jun 05 th
+		last modified 2 Jan 08 th
 */
 
 
@@ -36,7 +36,7 @@ static int Integrate(creal epsrel, creal epsabs,
   if( setjmp(abort_) ) goto abort;
 #endif
 
-  IniRandom(2*maxeval, ndim_);
+  IniRandom(2*maxeval, flags);
 
   RegionAlloc(anchor, nnew, nnew);
   anchor->next = NULL;
@@ -182,7 +182,7 @@ static int Integrate(creal epsrel, creal epsabs,
       if( n && final ) wlast = w, flast = f;
     }
 
-    Reweight(region->bounds, wlast, flast, f, totals);
+    Reweight(region->bounds, wlast, flast, f, totals, flags);
     VecCopy(regionL->bounds, region->bounds);
     VecCopy(regionR->bounds, region->bounds);
 

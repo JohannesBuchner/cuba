@@ -30,6 +30,9 @@
 :Evaluate: PseudoRandom::usage = "PseudoRandom is an option of Vegas.
 	If set to True, pseudo-random numbers are used instead of Sobol quasi-random numbers."
 
+:Evaluate: SharpEdges::usage = "SharpEdges is an option of Vegas.
+	It turns off smoothing of the importance function for integrands with sharp edges."
+
 :Evaluate: $Weight::usage = "$Weight is a global variable set by Vegas during the evaluation of the integrand to the weight of the point being sampled."
 
 :Evaluate: Begin["`Vegas`"]
@@ -58,17 +61,17 @@
 	NStart -> 1000, NIncrease -> 500,
 	NBatch -> 1000, GridNo -> 0, StateFile -> "",
 	Verbose -> 1, Final -> All, PseudoRandom -> False,
-	Compiled -> True}
+	SharpEdges -> False, Compiled -> True}
 
 :Evaluate: Vegas[f_, v:{_, _, _}.., opt___Rule] :=
 	Block[ {ff = HoldForm[f], ndim = Length[{v}],
 	tags, vars, lower, range, jac, tmp, defs, integrand,
 	rel, abs, mineval, maxeval, nstart, nincrease, nbatch,
-	gridno, verbose, final, pseudo, compiled},
+	gridno, verbose, final, pseudo, edges, compiled},
 	  Message[Vegas::optx, #, Vegas]&/@
 	    Complement[First/@ {opt}, tags = First/@ Options[Vegas]];
 	  {rel, abs, mineval, maxeval, nstart, nincrease, nbatch,
-	    gridno, state, verbose, final, pseudo, compiled} =
+	    gridno, state, verbose, final, pseudo, edges, compiled} =
 	    tags /. {opt} /. Options[Vegas];
 	  {vars, lower, range} = Transpose[{v}];
 	  jac = Simplify[Times@@ (range -= lower)];
@@ -79,7 +82,8 @@
 	  MLVegas[ndim, ncomp[f], 10.^-rel, 10.^-abs,
 	    Min[Max[verbose, 0], 3] +
 	      If[final === Last, 4, 0] +
-	      If[TrueQ[pseudo], 8, 0],
+	      If[TrueQ[pseudo], 8, 0] +
+	      If[TrueQ[edges], 16, 0],
 	    mineval, maxeval, nstart, nincrease, nbatch, gridno, state]
 	]
 
@@ -127,7 +131,7 @@
 	Vegas.tm
 		Vegas Monte-Carlo integration
 		by Thomas Hahn
-		last modified 30 Aug 07 th
+		last modified 17 Dec 07 th
 */
 
 

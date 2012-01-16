@@ -53,6 +53,9 @@
 	integer key
 	parameter (key = 0)
 
+	integer nregions, neval, fail
+
+
 	if( method .eq. VEGAS ) then
 
 	  call vegas(ndim, ncomp, integrand,

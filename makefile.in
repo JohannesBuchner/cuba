@@ -7,21 +7,21 @@ INSTALL = @INSTALL@
 INSTALL_DATA = @INSTALL_DATA@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
 RANLIB = @RANLIB@
+EXE = @EXEEXT@
 
 prefix = @prefix@
 exec_prefix = @exec_prefix@
 srcdir = @srcdir@
-bindir = $(DESTDIR)@bindir@
-libdir = $(DESTDIR)@libdir@
-includedir = $(DESTDIR)@includedir@
-datadir = $(DESTDIR)@datadir@
-datarootdir = $(DESTDIR)@datarootdir@
+bindir = @bindir@
+libdir = @libdir@
+includedir = @includedir@
+datarootdir = @datarootdir@
+datadir = @datadir@
 
-MATH_DEFAULT = @MATH_DEFAULT@
 TOOLS_DEFAULT = @TOOLS_DEFAULT@
-DEMO_FORTRAN_DEFAULT = @DEMO_FORTRAN_DEFAULT@
+DEMO_FORTRAN_DEFAULT = @DEMO_FORTRAN_DEFAULT@$(EXE)
 
-MCC = CC=$(CC) PATH=$(PATH):tools mcc
+MCC = CC="$(CC)" PATH="$(PATH):$(srcdir)/tools" mcc
 
 TARDIR = @PACKAGE_NAME@-@PACKAGE_VERSION@
 TARFILE = $(TARDIR).tar.gz
@@ -29,30 +29,33 @@ TARFILE = $(TARDIR).tar.gz
 
 HEADERS = cuba.h
 LIB = libcuba.a
-MATH = Vegas Suave Divonne Cuhre
-TOOLS = partview
+MATH = Vegas$(EXE) Suave$(EXE) Divonne$(EXE) Cuhre$(EXE)
+TOOLS = partview$(EXE)
 
 
-all: lib demos $(MATH_DEFAULT) $(TOOLS_DEFAULT)
+all: lib demos math $(TOOLS_DEFAULT)
 
 lib: $(LIB)
 
-demos: demo-c $(DEMO_FORTRAN_DEFAULT)
+demos: demo-c$(EXE) $(DEMO_FORTRAN_DEFAULT)
 
 math: $(MATH)
 
 tools: $(TOOLS)
 
 
-install: $(LIB) $(MATH_DEFAULT) $(TOOLS_DEFAULT)
-	$(INSTALL) -m 755 -d $(libdir) $(includedir) $(bindir) $(datadir)
-	$(INSTALL_DATA) $(LIB) $(libdir)
+install: lib math $(TOOLS_DEFAULT)
+	$(INSTALL) -m 755 -d $(DESTDIR)$(libdir) \
+	                     $(DESTDIR)$(includedir) \
+	                     $(DESTDIR)$(bindir) \
+	                     $(DESTDIR)$(datadir)
+	$(INSTALL_DATA) $(LIB) $(DESTDIR)$(libdir)
 	for f in $(HEADERS) ; do \
-	  $(INSTALL_DATA) `test -f $$f || echo $(srcdir)/`$$f $(includedir); \
+	  $(INSTALL_DATA) `test -f $$f || echo $(srcdir)/`$$f $(DESTDIR)$(includedir); \
 	done
-	-$(INSTALL_PROGRAM) $(MATH) $(bindir)
-	-$(INSTALL_PROGRAM) $(TOOLS) $(bindir)
-	-$(INSTALL_DATA) $(srcdir)/cuba.pdf $(datadir)
+	-$(INSTALL_PROGRAM) $(MATH) $(DESTDIR)$(bindir)
+	-$(INSTALL_PROGRAM) $(TOOLS) $(DESTDIR)$(bindir)
+	-$(INSTALL_DATA) $(srcdir)/cuba.pdf $(DESTDIR)$(datadir)
 
 
 check: demo-c
@@ -101,9 +104,9 @@ $(LIB)(llVegas_.o): $(VEGAS_C) $(VEGAS_SRCS)
 	$(AR) $(ARFLAGS) $(LIB) llVegas_.o
 	$(RM) llVegas_.o
 
-Vegas: $(VEGAS_TM) $(VEGAS_SRCS)
-	$(MCC) $(CFLAGS) -o Vegas $(VEGAS_TM)
-	strip Vegas
+Vegas$(EXE): $(VEGAS_TM) $(VEGAS_SRCS)
+	$(MCC) $(CFLAGS) -o Vegas$(EXE) $(VEGAS_TM)
+	strip Vegas$(EXE)
 
 
 SUAVE_C = $(suave)/Suave.c
@@ -135,9 +138,9 @@ $(LIB)(llSuave_.o): $(SUAVE_C) $(SUAVE_SRCS)
 	$(AR) $(ARFLAGS) $(LIB) llSuave_.o
 	$(RM) llSuave_.o
 
-Suave: $(SUAVE_TM) $(SUAVE_SRCS)
-	$(MCC) $(CFLAGS) -o Suave $(SUAVE_TM)
-	strip Suave
+Suave$(EXE): $(SUAVE_TM) $(SUAVE_SRCS)
+	$(MCC) $(CFLAGS) -o Suave$(EXE) $(SUAVE_TM)
+	strip Suave$(EXE)
 
 
 DIVONNE_C = $(divonne)/Divonne.c
@@ -171,9 +174,9 @@ $(LIB)(llDivonne_.o): $(DIVONNE_C) $(DIVONNE_SRCS)
 	$(AR) $(ARFLAGS) $(LIB) llDivonne_.o
 	$(RM) llDivonne_.o
 
-Divonne: $(DIVONNE_TM) $(DIVONNE_SRCS)
-	$(MCC) $(CFLAGS) -o Divonne $(DIVONNE_TM)
-	strip Divonne
+Divonne$(EXE): $(DIVONNE_TM) $(DIVONNE_SRCS)
+	$(MCC) $(CFLAGS) -o Divonne$(EXE) $(DIVONNE_TM)
+	strip Divonne$(EXE)
 
 
 CUHRE_C = $(cuhre)/Cuhre.c
@@ -205,9 +208,9 @@ $(LIB)(llCuhre_.o): $(CUHRE_C) $(CUHRE_SRCS)
 	$(AR) $(ARFLAGS) $(LIB) llCuhre_.o
 	$(RM) llCuhre_.o
 
-Cuhre: $(CUHRE_TM) $(CUHRE_SRCS)
-	$(MCC) $(CFLAGS) -o Cuhre $(CUHRE_TM)
-	strip Cuhre
+Cuhre$(EXE): $(CUHRE_TM) $(CUHRE_SRCS)
+	$(MCC) $(CFLAGS) -o Cuhre$(EXE) $(CUHRE_TM)
+	strip Cuhre$(EXE)
 
 
 $(LIB): $(LIB)(Vegas.o)     $(LIB)(llVegas.o)    \
@@ -226,20 +229,20 @@ DEMO_C = $(demo)/demo-c.c
 DEMO_TM = $(demo)/demo-math.m $(demo)/testsuite.m
 DEMO = $(DEMO_F) $(DEMO_C) $(DEMO_TM) $(demo)/demo-c.out $(demo)/cuba.F
 
-demo-fortran: $(DEMO_F) $(LIB)
-	$(F77) $(FFLAGS) -o demo-fortran $(DEMO_F) $(LIB) $(LIBS)
+demo-fortran$(EXE): $(DEMO_F) $(LIB)
+	$(F77) $(FFLAGS) -o demo-fortran$(EXE) $(DEMO_F) $(LIB) $(LIBS)
 
-demo-c: $(DEMO_C) $(srcdir)/cuba.h $(LIB)
-	$(CC) $(CFLAGS) -o demo-c $(DEMO_C) $(LIB) $(LIBS)
+demo-c$(EXE): $(DEMO_C) $(srcdir)/cuba.h $(LIB)
+	$(CC) $(CFLAGS) -o demo-c$(EXE) $(DEMO_C) $(LIB) $(LIBS)
 
 
 PARTVIEW = $(tools)/partview.cpp $(tools)/partview.pro \
   $(tools)/quit.xpm $(tools)/print.xpm
 
-partview: $(PARTVIEW)
+partview$(EXE): $(PARTVIEW)
 	qmake -o makefile.partview $(tools)/partview.pro
 	$(MAKE) -f makefile.partview
-	strip partview
+	strip partview$(EXE)
 
 
 TARCONTENTS = $(srcdir)/ChangeLog $(srcdir)/configure \
@@ -252,7 +255,8 @@ TARCONTENTS = $(srcdir)/ChangeLog $(srcdir)/configure \
 
 dist:
 	ln -s . $(TARDIR)
-	tar cvfzh $(TARFILE) $(patsubst $(srcdir)/%,$(TARDIR)/%, $(sort $(TARCONTENTS)))
+	tar cvfzh $(TARFILE) --owner=root --group=root \
+	  $(patsubst $(srcdir)/%,$(TARDIR)/%, $(sort $(TARCONTENTS)))
 	$(RM) $(TARDIR)
 
 pub: dist
