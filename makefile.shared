@@ -1,0 +1,54 @@
+
+CC=gcc
+FC=gfortran
+
+INC=-I. -I./src/common 
+LFLAGS=-lm
+
+# -Wall -Wextra -pedantic 
+CFLAGS=-O3 -fPIC -fomit-frame-pointer -ffast-math -DHAVE_CONFIG_H ${INC} ${LFLAGS}
+FFLAGS=-g -O2 ${INC} ${LFLAGS}
+
+CFILES := $(wildcard src/*/*.c)
+HFILES := $(wildcard src/*/*.h)
+SRCFILES := ${CFILES} ${HFILES}
+TOLOWER=tr '[:upper:]' '[:lower:]'
+ALGS := Cuhre Divonne Suave Vegas
+LLALGSPREFIX := $(addprefix ll,${ALGS}) 
+LLALGSOUT := $(addsuffix _.o,${LLALGSPREFIX}) $(addsuffix .o,${LLALGSPREFIX})
+ALGSOUT := ${LLALGSOUT} $(addsuffix _.o,${ALGS}) $(addsuffix .o,${ALGS})
+
+all: libcuba.so demo-fortran demo-c
+
+ll%_.o: ${SRCFILES}
+	L=$$(echo $*|${TOLOWER}); ${CC} ${CFLAGS} -I./src/$$L -c -o $@ -DLONGLONGINT ./src/$$L/$*.c 
+
+ll%.o: ${SRCFILES}
+	L=$$(echo $*|${TOLOWER}); ${CC} ${CFLAGS} -I./src/$$L -c -o $@ -DLONGLONGINT -DNOUNDERSCORE ./src/$$L/$*.c 
+
+%_.o: ${SRCFILES}
+	L=$$(echo $*|${TOLOWER}); ${CC} ${CFLAGS} -I./src/$$L -c -o $@ ./src/$$L/$*.c
+
+%.o: ${SRCFILES}
+	L=$$(echo $*|${TOLOWER}); ${CC} ${CFLAGS} -I./src/$$L -c -o $@ -DNOUNDERSCORE ./src/$$L/$*.c 
+
+libcuba.a: ${ALGSOUT}
+	ar r $@ $^
+	ranlib $@
+libcuba.so: ${ALGSOUT}
+	${CC} -shared ${CFLAGS} ${ALGSOUT} -o $@
+
+demo-fortran: demo/demo-fortran.F libcuba.so
+	${FC} ${FFLAGS} -o demo-fortran demo/demo-fortran.F libcuba.so -lm
+
+demo-c: demo/demo-c.c libcuba.so
+	${CC} ${CFLAGS} ${INC} demo/demo-c.c -o $@ libcuba.so -lm
+
+clean:
+	rm -f ${ALGSOUT} libcuba.so libcuba.a demo-c demo-fortran
+
+
+
+.PHONY: all clean
+
+.INTERMEDIATE: *.o
