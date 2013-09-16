@@ -2,7 +2,7 @@
 	Explore.c
 		sample region, determine min and max, split if necessary
 		this file is part of Divonne
-		last modified 28 Mar 13 th
+		last modified 2 Aug 13 th
 */
 
 
@@ -15,21 +15,19 @@ typedef struct {
 
 static int ExploreSerial(This *t, ccount iregion)
 {
-  TYPEDEFREGION;
+  csize_t regionsize = RegionSize;
   Region *region = RegionPtr(iregion);
   cBounds *bounds = region->bounds;
-  Result *result = region->result;
+  Result *result = RegionResult(region);
 
-  count n, dim, comp, maxcomp;
-  Extrema extrema[NCOMP];
-  Result *r;
+  Vector(Extrema, extrema, NCOMP);
+  Vector(real, xtmp, NDIM);
+  Result *r, *r0;
   creal *x;
   real *f;
   real halfvol, maxerr;
+  count n, dim, comp, maxcomp;
   cSamples *samples = &t->samples[region->isamples];
-
-  /* needed as of gcc 3.3 to make gcc correctly address region #@$&! */
-  (void)sizeof(*region);
 
   for( comp = 0; comp < t->ncomp; ++comp ) {
     Extrema *e = &extrema[comp];
@@ -96,7 +94,7 @@ skip:
   for( comp = 0; comp < t->ncomp; ++comp ) {
     Extrema *e = &extrema[comp];
     Result *r = &result[comp];
-    real xtmp[NDIM], ftmp, err;
+    real ftmp, err;
 
     if( e->xmin ) {	/* not all NaNs */
       t->selectedcomp = comp;
@@ -104,7 +102,7 @@ skip:
       ftmp = FindMinimum(t, bounds, xtmp, e->fmin);
       if( ftmp < r->fmin ) {
         r->fmin = ftmp;
-        XCopy(r->xmin, xtmp);
+        XCopy(&r->xminmax[0], xtmp);
       }
 
       t->selectedcomp = Tag(comp);
@@ -112,7 +110,7 @@ skip:
       ftmp = -FindMinimum(t, bounds, xtmp, -e->fmax);
       if( ftmp > r->fmax ) {
         r->fmax = ftmp;
-        XCopy(r->xmax, xtmp);
+        XCopy(&r->xminmax[t->ndim], xtmp);
       }
     }
 
@@ -132,16 +130,17 @@ skip:
   }
 
   region->cutcomp = maxcomp;
-  r = &region->result[maxcomp];
+  r0 = RegionResult(region);
+  r = r0 + maxcomp;
   if( halfvol*(r->fmin + r->fmax) > r->avg ) {
     region->fminor = r->fmin;
     region->fmajor = r->fmax;
-    region->xmajor = r->xmax - (real *)region->result;
+    region->xmajor = &r->xminmax[t->ndim] - (real *)r0;
   }
   else {
     region->fminor = r->fmax;
     region->fmajor = r->fmin;
-    region->xmajor = r->xmin - (real *)region->result;
+    region->xmajor = &r->xminmax[0] - (real *)r0;
   }
 
   if( region->isamples == 0 ) {

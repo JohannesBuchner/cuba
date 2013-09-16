@@ -109,7 +109,8 @@
 
 :Evaluate: MapSample = Map
 
-:Evaluate: region[ll_, ur_, r___] := Region[TtoX@@ ll, TtoX@@ ur, r]
+:Evaluate: region[bounds_, r___] := Region[##, r]&@@
+	MapThread[TtoX, Partition[bounds, 2]]
 
 :Evaluate: Cuhre::badsample = "`` is not a real-valued function at ``."
 
@@ -131,7 +132,7 @@
 	Cuhre.tm
 		Adaptive integration using cubature rules
 		by Thomas Hahn
-		last modified 2 May 13 th
+		last modified 26 Jul 13 th
 */
 
 

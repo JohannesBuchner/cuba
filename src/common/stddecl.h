@@ -1,7 +1,7 @@
 /*
 	stddecl.h
 		declarations common to all Cuba routines
-		last modified 2 May 13 th
+		last modified 7 Aug 13 th
 */
 
 
@@ -38,9 +38,16 @@
 
 #ifndef NDIM
 #define NDIM t->ndim
+#define MAXDIM 1024
+#else
+#define MAXDIM NDIM
 #endif
+
 #ifndef NCOMP
 #define NCOMP t->ncomp
+#define MAXCOMP 1024
+#else
+#define MAXCOMP NCOMP
 #endif
 
 #if defined(VEGAS) || defined(SUAVE)
@@ -68,7 +75,13 @@
 
 #define INFTY DBL_MAX
 
-#define NOTZERO 0x1p-104
+#if __STDC_VERSION__ >= 199901L
+#define POW2(n) 0x1p-##n
+#else
+#define POW2(n) ldexp(1., -n)
+#endif
+
+#define NOTZERO POW2(104)
 
 #define ABORT -999
 
@@ -110,6 +123,15 @@
 #define ReAlloc(p, n) Die(reallocset(p, n))
 #define Alloc(p, n) MemAlloc(p, (n)*sizeof(*p))
 
+#if __STDC_VERSION__ >= 199901L
+#define Sized(type, var, size) char var##_[size]; type *var = (type *)var##_
+#define Vector(type, var, n1) type var[n1]
+#define Array(type, var, n1, n2) type var[n1][n2]
+#else
+#define Sized(type, var, size) type *var = alloca(size)
+#define Vector(type, var, n1) type *var = alloca((n1)*sizeof(type))
+#define Array(type, var, n1, n2) type (*var)[n2] = alloca((n1)*(n2)*sizeof(type))
+#endif
 
 #define FORK_ONLY(...)
 #define SHM_ONLY(...)
@@ -164,7 +186,8 @@
 
 #define StateDecl \
 char *statefile_tmp = NULL, *statefile_XXXXXX = NULL; \
-int statemsg = VERBOSE, ini = -1; \
+int statemsg = VERBOSE; \
+ssize_t ini = 1; \
 struct stat st
 
 #define StateSetup(t) if( (t)->statefile ) { \
@@ -192,8 +215,11 @@ typedef long long int signature_t;
   if( (fd = open((t)->statefile, O_RDONLY)) != -1 ) { \
     do
 
+#define StateRead(fd, buf, size) \
+  ini += size - read(fd, buf, size)
+
 #define StateReadClose(t, fd) \
-    while( (ini = 0) ); \
+    while( (--ini, 0) ); \
     close(fd); \
   } \
   if( ini | statemsg ) { \
@@ -209,13 +235,17 @@ typedef long long int signature_t;
 #define StateWriteTest(t) ((t)->statefile)
 
 #define StateWriteOpen(t, fd) do { \
-  int fail = -1, fd; \
+  ssize_t fail = 1; \
+  int fd; \
   strcpy(statefile_XXXXXX, "-XXXXXX"); \
   if( (fd = mkstemp(statefile_tmp)) != -1 ) { \
     do
 
+#define StateWrite(fd, buf, size) \
+  fail += size - write(fd, buf, size)
+
 #define StateWriteClose(t, fd) \
-    while( (fail = 0) ); \
+    while( (--fail, 0) ); \
     close(fd); \
     if( fail == 0 ) fail |= rename(statefile_tmp, (t)->statefile); \
   } \
@@ -248,6 +278,8 @@ typedef const bool cbool;
 typedef const int cint;
 
 typedef const long clong;
+
+typedef const size_t csize_t;
 
 #define COUNT "%d"
 typedef /*unsigned*/ int count;

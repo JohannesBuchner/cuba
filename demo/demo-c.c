@@ -1,7 +1,7 @@
 /*
-	demo-fortran.F
+	demo-c.c
 		test program for the Cuba library
-		last modified 30 Apr 13 th
+		last modified 10 Jun 13 th
 */
 
 #include <stdio.h>

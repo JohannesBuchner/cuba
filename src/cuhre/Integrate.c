@@ -3,36 +3,44 @@
 		integrate over the unit hypercube
 		this file is part of Cuhre
 		checkpointing by B. Chokoufe
-		last modified 2 May 13 th
+		last modified 5 Aug 13 th
 */
 
 
 #define POOLSIZE 1024
 
+typedef struct pool {
+  struct pool *next;
+  Region region[];
+} Pool;
+
+typedef struct {
+  signature_t signature;
+  count nregions, ncur;
+  number neval;
+  Totals totals[];
+} State;
+
 static int Integrate(This *t, real *integral, real *error, real *prob)
 {
-  TYPEDEFREGION;
-  typedef struct pool {
-    struct pool *next;
-    Region region[POOLSIZE];
-  } Pool;
-
-  count dim, comp, ipool, npool;
-  Pool *cur = NULL, *pool;
-  ccount poolsize = sizeof(Pool);
-  Region *region;
-  int fail;
-  struct {
-    signature_t signature;
-    count nregions, ncur;
-    number neval;
-    Totals totals[NCOMP];
-  } state;
   StateDecl;
+  csize_t statesize = sizeof(State) + NCOMP*sizeof(Totals);
+  Sized(State, state, statesize);
+  csize_t regionsize = RegionSize;
+  csize_t poolsize = sizeof(Pool) + POOLSIZE*regionsize;
+  Vector(Result, result, NCOMP);
+  Vector(char, out, 128*NCOMP + 256);
+
+  Totals *tot, *Tot = state->totals + t->ncomp;
+  Result *res, *resL, *resR;
+  Bounds *b, *B;
+  Pool *cur = NULL, *pool;
+  Region *region;
+  count comp, ipool, npool;
+  int fail;
 
   if( VERBOSE > 1 ) {
-    char s[512];
-    sprintf(s, "Cuhre input parameters:\n"
+    sprintf(out, "Cuhre input parameters:\n"
       "  ndim " COUNT "\n  ncomp " COUNT "\n"
       "  epsrel " REAL "\n  epsabs " REAL "\n"
       "  flags %d\n  mineval " NUMBER "\n  maxeval " NUMBER "\n"
@@ -43,7 +51,7 @@ static int Integrate(This *t, real *integral, real *error, real *prob)
       t->flags, t->mineval, t->maxeval,
       t->key,
       t->statefile);
-    Print(s);
+    Print(out);
   }
 
   if( BadComponent(t) ) return -2;
@@ -64,29 +72,28 @@ static int Integrate(This *t, real *integral, real *error, real *prob)
     StateReadOpen(t, fd) {
       Pool *prev = NULL;
       int size;
-      if( read(fd, &state, sizeof state) != sizeof state ||
-        state.signature != StateSignature(t, 4) ) break;
-      t->neval = state.neval;
-      t->nregions = state.nregions;
+      if( read(fd, state, statesize) != statesize ||
+          state->signature != StateSignature(t, 4) ) break;
+      t->neval = state->neval;
+      t->nregions = state->nregions;
       do {
-        Alloc(cur, 1);
+        MemAlloc(cur, poolsize);
         cur->next = prev;
         prev = cur;
         size = read(fd, cur, poolsize);
       } while( size == poolsize );
-      if( size != (char *)&cur->region[state.ncur] - (char *)cur ) break;
+      if( size != state->ncur*regionsize ) break;
     } StateReadClose(t, fd);
   }
 
   if( ini ) {
-    Alloc(cur, 1);
+    MemAlloc(cur, poolsize);
     cur->next = NULL;
-    state.ncur = t->nregions = 1;
+    state->ncur = t->nregions = 1;
 
     region = cur->region;
     region->div = 0;
-    for( dim = 0; dim < t->ndim; ++dim ) {
-      Bounds *b = &region->bounds[dim];
+    for( B = (b = region->bounds) + t->ndim; b < B; ++b ) {
       b->lower = 0;
       b->upper = 1;
     }
@@ -94,13 +101,12 @@ static int Integrate(This *t, real *integral, real *error, real *prob)
     t->neval = 0;
     Sample(t, region);
 
-    for( comp = 0; comp < t->ncomp; ++comp ) {
-      Totals *tot = &state.totals[comp];
-      Result *r = &region->result[comp];
-      tot->avg = tot->lastavg = tot->guess = r->avg;
-      tot->err = tot->lasterr = r->err;
-      tot->weightsum = 1/Max(Sq(r->err), NOTZERO);
-      tot->avgsum = tot->weightsum*r->avg;
+    for( res = RegionResult(region), tot = state->totals;
+         tot < Tot; ++res, ++tot ) {
+      tot->avg = tot->lastavg = tot->guess = res->avg;
+      tot->err = tot->lasterr = res->err;
+      tot->weightsum = 1/Max(Sq(res->err), NOTZERO);
+      tot->avgsum = tot->weightsum*res->avg;
       tot->chisq = tot->chisqsum = tot->chisum = 0;
     }
   }
@@ -109,31 +115,24 @@ static int Integrate(This *t, real *integral, real *error, real *prob)
   for( ; ; ) {
     count maxcomp, bisectdim;
     real maxratio, maxerr;
-    Result result[NCOMP];
     Region *regionL, *regionR;
     Bounds *bL, *bR;
 
     if( VERBOSE ) {
-      char s[128 + 128*NCOMP], *p = s;
-
-      p += sprintf(p, "\n"
+      char *oe = out + sprintf(out, "\n"
         "Iteration " COUNT ":  " NUMBER " integrand evaluations so far",
         t->nregions, t->neval);
-
-      for( comp = 0; comp < t->ncomp; ++comp ) {
-        cTotals *tot = &state.totals[comp];
-        p += sprintf(p, "\n[" COUNT "] "
+      for( tot = state->totals, comp = 0; tot < Tot; ++tot )
+        oe += sprintf(oe, "\n[" COUNT "] "
           REAL " +- " REAL "  \tchisq " REAL " (" COUNT " df)",
-          comp + 1, tot->avg, tot->err, tot->chisq, t->nregions - 1);
-      }
-
-      Print(s);
+          ++comp, tot->avg, tot->err, tot->chisq, t->nregions - 1);
+      Print(out);
     }
 
     maxratio = -INFTY;
     maxcomp = 0;
-    for( comp = 0; comp < t->ncomp; ++comp ) {
-      creal ratio = state.totals[comp].err/MaxErr(state.totals[comp].avg);
+    for( tot = state->totals, comp = 0; tot < Tot; ++tot, ++comp ) {
+      creal ratio = tot->err/MaxErr(tot->avg);
       if( ratio > maxratio ) {
         maxratio = ratio;
         maxcomp = comp;
@@ -149,27 +148,27 @@ static int Integrate(This *t, real *integral, real *error, real *prob)
 
     maxerr = -INFTY;
     regionL = cur->region;
-    npool = state.ncur;
+    npool = state->ncur;
     for( pool = cur; pool; npool = POOLSIZE, pool = pool->next )
       for( ipool = 0; ipool < npool; ++ipool ) {
-        Region *region = &pool->region[ipool];
-        creal err = region->result[maxcomp].err;
+        Region *region = RegionPtr(pool, ipool);
+        creal err = RegionResult(region)[maxcomp].err;
         if( err > maxerr ) {
           maxerr = err;
           regionL = region;
         }
       }
 
-    if( state.ncur == POOLSIZE ) {
+    if( state->ncur == POOLSIZE ) {
       Pool *prev = cur;
-      Alloc(cur, 1);
+      MemAlloc(cur, poolsize);
       cur->next = prev;
-      state.ncur = 0;
+      state->ncur = 0;
     }
-    regionR = &cur->region[state.ncur++];
+    regionR = RegionPtr(cur, state->ncur++);
 
     regionR->div = ++regionL->div;
-    FCopy(result, regionL->result);
+    FCopy(result, RegionResult(regionL));
     XCopy(regionR->bounds, regionL->bounds);
 
     bisectdim = result[maxcomp].bisectdim;
@@ -180,27 +179,27 @@ static int Integrate(This *t, real *integral, real *error, real *prob)
     Sample(t, regionL);
     Sample(t, regionR);
 
-    for( comp = 0; comp < t->ncomp; ++comp ) {
-      cResult *r = &result[comp];
-      Result *rL = &regionL->result[comp];
-      Result *rR = &regionR->result[comp];
-      Totals *tot = &state.totals[comp];
+    for( res = result,
+         resL = RegionResult(regionL),
+         resR = RegionResult(regionR),
+         tot = state->totals;
+         tot < Tot; ++res, ++resL, ++resR, ++tot ) {
       real diff, err, w, avg, sigsq;
 
-      tot->lastavg += diff = rL->avg + rR->avg - r->avg;
+      tot->lastavg += diff = resL->avg + resR->avg - res->avg;
 
       diff = fabs(.25*diff);
-      err = rL->err + rR->err;
+      err = resL->err + resR->err;
       if( err > 0 ) {
         creal c = 1 + 2*diff/err;
-        rL->err *= c;
-        rR->err *= c;
+        resL->err *= c;
+        resR->err *= c;
       }
-      rL->err += diff;
-      rR->err += diff;
-      tot->lasterr += rL->err + rR->err - r->err;
+      resL->err += diff;
+      resR->err += diff;
+      tot->lasterr += resL->err + resR->err - res->err;
 
-      tot->weightsum += w = 1/Max(tot->lasterr, NOTZERO);
+      tot->weightsum += w = 1/Max(Sq(tot->lasterr), NOTZERO);
       sigsq = 1/tot->weightsum;
       tot->avgsum += w*tot->lastavg;
       avg = sigsq*tot->avgsum;
@@ -222,20 +221,17 @@ static int Integrate(This *t, real *integral, real *error, real *prob)
     if( StateWriteTest(t) ) {
       StateWriteOpen(t, fd) {
         Pool *prev = cur;
-        state.signature = StateSignature(t, 4);
-        state.nregions = t->nregions;
-        state.neval = t->neval;
-        write(fd, &state, sizeof state);
-        while( (prev = prev->next) ) write(fd, prev, poolsize);
-fprintf(stderr, "ncur=%d  sizeof(Region)=%ld  size=%ld\n", state.ncur, 
-sizeof(Region), (char *)&cur->region[state.ncur] - (char *)cur);
-        write(fd, cur, (char *)&cur->region[state.ncur] - (char *)cur);
+        state->signature = StateSignature(t, 4);
+        state->nregions = t->nregions;
+        state->neval = t->neval;
+        StateWrite(fd, state, statesize);
+        while( (prev = prev->next) ) StateWrite(fd, prev, poolsize);
+        StateWrite(fd, cur, state->ncur*regionsize);
       } StateWriteClose(t, fd);
     }
   }
 
-  for( comp = 0; comp < t->ncomp; ++comp ) {
-    cTotals *tot = &state.totals[comp];
+  for( tot = state->totals, comp = 0; tot < Tot; ++tot, ++comp ) {
     integral[comp] = tot->avg;
     error[comp] = tot->err;
     prob[comp] = ChiSquare(tot->chisq, t->nregions - 1);
@@ -246,27 +242,20 @@ sizeof(Region), (char *)&cur->region[state.ncur] - (char *)cur);
     MLPutFunction(stdlink, "List", 2);
     MLPutFunction(stdlink, "List", t->nregions);
 
-    npool = state.ncur;
+    npool = state->ncur;
     for( pool = cur; pool; npool = POOLSIZE, pool = pool->next )
       for( ipool = 0; ipool < npool; ++ipool ) {
-        Region const *region = &pool->region[ipool];
-        real lower[NDIM], upper[NDIM];
+        Region const *region = RegionPtr(pool, ipool);
+        Result *Res;
 
-        for( dim = 0; dim < t->ndim; ++dim ) {
-          cBounds *b = &region->bounds[dim];
-          lower[dim] = b->lower;
-          upper[dim] = b->upper;
-        }
-
-        MLPutFunction(stdlink, "Cuba`Cuhre`region", 3);
-        MLPutRealList(stdlink, lower, t->ndim);
-        MLPutRealList(stdlink, upper, t->ndim);
+        MLPutFunction(stdlink, "Cuba`Cuhre`region", 2);
+        MLPutRealList(stdlink, (real *)region->bounds, 2*t->ndim);
 
         MLPutFunction(stdlink, "List", t->ncomp);
-        for( comp = 0; comp < t->ncomp; ++comp ) {
-          cResult *r = &region->result[comp];
-          real res[] = {r->avg, r->err};
-          MLPutRealList(stdlink, res, Elements(res));
+        for( Res = (res = RegionResult(region)) + t->ncomp;
+             res < Res; ++res ) {
+          real r[] = {res->avg, res->err};
+          MLPutRealList(stdlink, r, Elements(r));
         }
       }
   }

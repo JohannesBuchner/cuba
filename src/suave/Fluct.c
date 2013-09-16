@@ -2,7 +2,7 @@
 	Fluct.c
 		compute the fluctuation in the left and right half
 		this file is part of Suave
-		last modified 23 Aug 11 th
+		last modified 29 Jul 13 th
 */
 
 
@@ -53,7 +53,7 @@ static void Fluct(cThis *t, Var *var,
     f += t->ncomp;
 
     for( dim = 0; dim < t->ndim; ++dim ) {
-      Var *v = &var[2*dim + (*x++ >= b[dim].mid)];
+      Var *v = &var[2*dim + (*x++ >= .5*(b[dim].lower + b[dim].upper))];
       crealx f = v->fluct + ft;
       v->fluct = (f > XDBL_MAX/2) ? XDBL_MAX/2 : f;
       ++v->n;

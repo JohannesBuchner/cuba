@@ -2,7 +2,7 @@
 	decl.h
 		Type declarations
 		this file is part of Cuhre
-		last modified 24 Apr 13 th
+		last modified 26 Jul 13 th
 */
 
 
@@ -29,8 +29,18 @@ typedef struct {
 
 typedef const Bounds cBounds;
 
+enum { nrules = 5 };
+
 typedef struct {
-  void *first, *last;
+  count n;
+  real weight[nrules], scale[nrules], norm[nrules];
+  real gen[];
+} Set;
+
+#define SetSize (sizeof(Set) + t->ndim*sizeof(real))
+
+typedef struct {
+  Set *first, *last;
   real errcoeff[3];
   count n;
 } Rule;
@@ -64,10 +74,14 @@ typedef struct _this {
 
 typedef const This cThis;
 
-#define TYPEDEFREGION \
-  typedef struct region { \
-    count div; \
-    Result result[NCOMP]; \
-    Bounds bounds[NDIM]; \
-  } Region
+typedef struct region {
+  count div;
+  Bounds bounds[];
+} Region;
+
+#define RegionSize (sizeof(Region) + t->ndim*sizeof(Bounds) + t->ncomp*sizeof(Result))
+
+#define RegionResult(r) ((Result *)(r->bounds + t->ndim))
+
+#define RegionPtr(p, n) ((Region *)((char *)p->region + (n)*regionsize))
 

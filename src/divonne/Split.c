@@ -2,13 +2,13 @@
 	Split.c
 		determine optimal cuts for splitting a region
 		this file is part of Divonne
-		last modified 18 Dec 11 th
+		last modified 31 Aug 13 th
 */
 
 
 #define BNDTOL .05
 #define FRACT .5
-#define BIG 1e10
+#define SMALL 1e-10
 #define SINGTOL 1e-4
 
 #define LHSTOL .1
@@ -31,16 +31,17 @@ typedef struct {
 
 static inline real Div(creal a, creal b)
 {
-  return (b != 0 && fabs(b) < BIG*fabs(a)) ? a/b : a;
+  return (b != 0 /*&& fabs(a) > SMALL*fabs(b)*/) ? a/b : a;
 }
 
 /*********************************************************************/
 
 static void SomeCut(This *t, Cut *cut, Bounds *b)
 {
+  Vector(real, xmid, NDIM);
+  real ymid, maxdev;
   count dim, maxdim;
   static count nextdim = 0;
-  real xmid[NDIM], ymid, maxdev;
 
   for( dim = 0; dim < t->ndim; ++dim )
     xmid[dim] = .5*(b[dim].upper + b[dim].lower);
@@ -132,7 +133,7 @@ static count FindCuts(This *t, Cut *cut, Bounds *bounds, creal vol,
   cint sign = (fdiff < 0) ? -1 : 1;
 
   count ncuts = 0, icut;
-  real delta[2*NDIM];
+  Vector(real, delta, 2*NDIM);
   real gamma, fgamma, lhssq;
   count dim, div;
 
@@ -238,7 +239,7 @@ repeat:
         creal dfmin = SINGTOL*c->df;
         creal sol = c->sol/div;
         real df = c->f - c->fold;
-        df = (fabs(sol) < BIG*fabs(df)) ? df/sol : 1;
+        df = (fabs(df) > SMALL*fabs(sol)) ? df/sol : 1;
         c->df = (fabs(df) < fabs(dfmin)) ? dfmin : df;
         fmax = Max(fmax, fabs(c->f));
         c->fold = c->f;
@@ -264,9 +265,10 @@ repeat:
 
 static void Split(This *t, ccount iregion)
 {
-  TYPEDEFREGION;
+  csize_t regionsize = RegionSize;
   Region *region = RegionPtr(iregion);
-  Cut cut[2*NDIM], *c;
+  Vector(Cut, cut, 2*NDIM);
+  Cut *c;
   count ncuts, succ;
   int depth;
   real *b;
@@ -274,7 +276,7 @@ static void Split(This *t, ccount iregion)
   t->selectedcomp = region->cutcomp;
   t->neval_cut -= t->neval;
   ncuts = FindCuts(t, cut, region->bounds, region->vol,
-    (real *)region->result + region->xmajor, region->fmajor,
+    (real *)RegionResult(region) + region->xmajor, region->fmajor,
     region->fmajor - region->fminor);
   t->neval_cut += t->neval;
 

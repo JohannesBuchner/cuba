@@ -2,17 +2,17 @@
 	FindMinimum.c
 		find minimum (maximum) of hyperrectangular region
 		this file is part of Divonne
-		last modified 22 Dec 11 th
+		last modified 7 Aug 13 th
 */
 
 
-#define EPS 0x1p-52
-#define RTEPS 0x1p-26
-#define QEPS 0x1p-13
+#define EPS POW2(52)
+#define RTEPS POW2(26)
+#define QEPS POW2(13)
 
-#define DELTA 0x1p-16
-#define RTDELTA 0x1p-8
-#define QDELTA 0x1p-4
+#define DELTA POW2(16)
+#define RTDELTA POW2(8)
+#define QDELTA POW2(4)
 
 /*
 #define DELTA 1e-5
@@ -142,7 +142,8 @@ static void UpdateCholesky(cThis *t, ccount n, real *hessian,
 static inline void BFGS(cThis *t, ccount n, real *hessian,
   creal *gnew, creal *g, real *p, creal dx)
 {
-  real y[NDIM], c;
+  Vector(real, y, NDIM);
+  real c;
   count i, j;
 
   for( i = 0; i < n; ++i )
@@ -340,9 +341,10 @@ static Point LineSearch(This *t, ccount nfree, ccount *ifree,
 static real LocalSearch(This *t, ccount nfree, ccount *ifree,
   cBounds *b, creal *x, creal fx, real *z)
 {
+  Vector(real, y, NDIM);
+  Vector(real, p, NDIM);
   real delta, smax, sopp, spmax, snmax;
-  real y[NDIM], fy, fz, ftest;
-  real p[NDIM];
+  real fy, fz, ftest;
   int sign;
   count i;
 
@@ -515,15 +517,18 @@ static real LocalSearch(This *t, ccount nfree, ccount *ifree,
 
 static real FindMinimum(This *t, cBounds *b, real *xmin, real fmin)
 {
-  real hessian[NDIM*NDIM];
-  real gfree[NDIM], p[NDIM];
-  real tmp[NDIM], ftmp, fini = fmin;
+  Vector(real, hessian, NDIM*NDIM);
+  Vector(real, gfree, NDIM);
+  Vector(real, p, NDIM);
+  Vector(real, tmp, NDIM);
+  Vector(count, ifree, NDIM);
+  Vector(count, ifix, NDIM);
+  real ftmp, fini = fmin;
   ccount maxeval = t->neval + 50*t->ndim;
   count nfree, nfix;
-  count ifree[NDIM], ifix[NDIM];
   count dim, local;
 
-  Zap(hessian);
+  Clear(hessian, t->ndim*t->ndim);
   for( dim = 0; dim < t->ndim; ++dim )
     Hessian(dim, dim) = 1;
 

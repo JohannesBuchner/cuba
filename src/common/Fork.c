@@ -3,12 +3,12 @@
 		the parallel sampling routine
 		for the C versions of the Cuba routines
 		by Thomas Hahn
-		last modified 30 Apr 13 th
+		last modified 7 Aug 13 th
 */
 
 #define MINSLICE 10
 #define MINCORES 1
-//#define MINCORES 2
+/*#define MINCORES 2*/
 
 typedef struct {
   number n, m, i;
@@ -171,32 +171,32 @@ typedef struct {
 
 static int Explore(This *t, cint iregion)
 {
-  TYPEDEFREGION;
+  csize_t regionsize = RegionSize;
   Region *region;
   int ireg = iregion, core = t->running;
+  Vector(Totals, totals, NCOMP);
 
   if( t->ncores < MINCORES ) return ExploreSerial(t, iregion);
 
   if( t->running >= ((iregion < 0) ? 1 : t->ncores) ) {
-    Totals totals[NCOMP];
     cint fd = t->child[core = ReadyCore(t)];
     ExploreResult res;
     count comp, succ;
 
     --t->running;
     MASTER("reading res + region (res:%lu+reg:%lu) from fd %d",
-      sizeof res, sizeof(Region), fd);
+      sizeof res, regionsize, fd);
     readsock(fd, &res, sizeof res);
     ireg = res.iregion;
     region = RegionPtr(ireg);
     succ = ireg + region->next;
-    readsock(fd, region, sizeof(Region));
+    readsock(fd, region, regionsize);
     if( --res.nregions > 0 ) {
       region->next = t->nregions - ireg;
       EnlargeRegions(t, res.nregions);
       MASTER("reading regions (%dreg:%lu) from fd %d",
-        res.nregions, sizeof(Region), fd);
-      readsock(fd, RegionPtr(t->nregions), res.nregions*sizeof(Region));
+        res.nregions, regionsize, fd);
+      readsock(fd, RegionPtr(t->nregions), res.nregions*regionsize);
       t->nregions += res.nregions;
 
       RegionPtr(t->nregions-1)->next = succ - t->nregions + 1;
@@ -224,11 +224,11 @@ static int Explore(This *t, cint iregion)
     slice.phase = t->phase;
     region = RegionPtr(iregion);
     MASTER("writing region (sli:%lu+sam:%lu+reg:%lu+tot:%lu) to fd %d",
-      sizeof slice, sizeof(Samples), sizeof(Region),
+      sizeof slice, sizeof(Samples), regionsize,
       t->ncomp*sizeof(Totals), fd);
     writesock(fd, &slice, sizeof slice);
     writesock(fd, &t->samples[region->isamples], sizeof(Samples));
-    writesock(fd, region, sizeof(Region));
+    writesock(fd, region, regionsize);
     writesock(fd, t->totals, t->ncomp*sizeof(Totals));
     region->depth = 0;
     ++t->running;
@@ -245,8 +245,8 @@ static void DoChild(This *t, cint fd)
   Slice slice;
 
 #ifdef DIVONNE
-  TYPEDEFREGION;
-  Totals totals[NCOMP];
+  csize_t regionsize = RegionSize;
+  Vector(Totals, totals, NCOMP);
   ExploreResult res;
 
   t->totals = totals;
@@ -306,10 +306,10 @@ static void DoChild(This *t, cint fd)
       Samples *samples, psamples;
 
       WORKER("reading region (sli:%lu+sam:%lu+reg:%lu+tot:%lu) from fd %d",
-        sizeof slice, sizeof(Samples), sizeof(Region),
+        sizeof slice, sizeof(Samples), regionsize,
         t->ncomp*sizeof(Totals), fd);
       readsock(fd, &psamples, sizeof(Samples));
-      readsock(fd, RegionPtr(0), sizeof(Region));
+      readsock(fd, t->region, regionsize);
       readsock(fd, totals, t->ncomp*sizeof(Totals));
       t->nregions = 1;
       t->neval = t->neval_opt = t->neval_cut = 0;
@@ -328,10 +328,10 @@ static void DoChild(This *t, cint fd)
       res.nregions = t->nregions;
       res.iregion = slice.i;
       WORKER("writing regions (res:%lu+%dreg:%lu+tot:%lu) to fd %d",
-        sizeof res, t->nregions, sizeof(Region),
+        sizeof res, t->nregions, regionsize,
         t->ncomp*sizeof(Totals), fd);
       writesock(fd, &res, sizeof res);
-      writesock(fd, RegionPtr(0), t->nregions*sizeof(Region));
+      writesock(fd, t->region, t->nregions*regionsize);
       writesock(fd, totals, t->ncomp*sizeof(Totals));
     }
 #endif

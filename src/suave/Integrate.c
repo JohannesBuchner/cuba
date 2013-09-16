@@ -3,28 +3,34 @@
 		integrate over the unit hypercube
 		this file is part of Suave
 		checkpointing by B. Chokoufe
-		last modified 2 May 13 th
+		last modified 5 Aug 13 th
 */
 
 
+typedef struct {
+  signature_t signature;
+  count nregions, df;
+  number neval;
+  Result totals[];
+} State;
+
 static int Integrate(This *t, real *integral, real *error, real *prob)
 {
-  TYPEDEFREGION;
-
-  count dim, comp;
-  Region *anchor = NULL, *region = NULL;
-  int fail;
-  struct {
-    signature_t signature;
-    count nregions, df;
-    number neval;
-    Result totals[NCOMP];
-  } state;
   StateDecl;
+  csize_t statesize = sizeof(State) + NCOMP*sizeof(Result);
+  Sized(State, state, statesize);
+  Array(Var, var, NDIM, 2);
+  Vector(char, out, 128*NCOMP + 256);
+
+  Region *anchor = NULL, *region = NULL;
+  Result *tot, *Tot = state->totals + t->ncomp;
+  Result *res, *resL, *resR;
+  Bounds *b, *B;
+  count dim, comp;
+  int fail;
 
   if( VERBOSE > 1 ) {
-    char s[512];
-    sprintf(s, "Suave input parameters:\n"
+    sprintf(out, "Suave input parameters:\n"
       "  ndim " COUNT "\n  ncomp " COUNT "\n"
       "  epsrel " REAL "\n  epsabs " REAL "\n"
       "  flags %d\n  seed %d\n"
@@ -37,7 +43,7 @@ static int Integrate(This *t, real *integral, real *error, real *prob)
       t->mineval, t->maxeval,
       t->nnew, t->flatness,
       t->statefile);
-    Print(s);
+    Print(out);
   }
 
   if( BadComponent(t) ) return -2;
@@ -54,64 +60,64 @@ static int Integrate(This *t, real *integral, real *error, real *prob)
   StateSetup(t);
 
   if( StateReadTest(t) ) {
+    size_t *regsize = NULL;
     StateReadOpen(t, fd) {
       count iregion;
-      size_t *regsize, totsize;
+      size_t totsize;
       Region **last = &anchor;
-      if( read(fd, &state, sizeof state) != sizeof state ||
-        state.signature != StateSignature(t, 2) ) break;
-      t->nregions = state.nregions;
+      if( read(fd, state, statesize) != statesize ||
+          state->signature != StateSignature(t, 2) ) break;
+      t->nregions = state->nregions;
       totsize = t->nregions*sizeof *regsize;
-      regsize = alloca(totsize);
-      if( read(fd, regsize, totsize) != totsize ) break;
+      MemAlloc(regsize, totsize);
+      StateRead(fd, regsize, totsize);
       for( iregion = 0; iregion < t->nregions; ++iregion )
         totsize += regsize[iregion];
-      if( st.st_size != sizeof state + totsize ) break;
+      if( st.st_size != statesize + totsize ) break;
       for( iregion = 0; iregion < t->nregions; ++iregion ) {
         Region *reg;
         MemAlloc(reg, regsize[iregion]);
-        read(fd, reg, regsize[iregion]);
+        StateRead(fd, reg, regsize[iregion]);
         *last = reg;
         last = &reg->next;
       }
       *last = NULL;
     } StateReadClose(t, fd);
-    t->neval = state.neval;
+    free(regsize);
+    t->neval = state->neval;
     t->rng.skiprandom(t, t->neval);
   }
 
   if( ini ) {
-    RegionAlloc(t, anchor, t->nnew, t->nnew);
+    count bin;
+    Bounds *b0;
+
+    anchor = RegionAlloc(t, t->nnew, t->nnew);
     anchor->next = NULL;
     anchor->div = 0;
     t->nregions = 1;
 
-    for( dim = 0; dim < t->ndim; ++dim ) {
-      Bounds *b = &anchor->bounds[dim];
-      b->lower = 0;
-      b->upper = 1;
-      b->mid = .5;
+    b0 = RegionBounds(anchor);
+    b0->lower = 0;
+    b0->upper = 1;
+    /* define the initial distribution of bins */
+    for( bin = 0; bin < NBINS; ++bin )
+      b0->grid[bin] = (bin + 1)/(real)NBINS;
 
-      if( dim == 0 ) {
-        count bin;
-        /* define the initial distribution of bins */
-        for( bin = 0; bin < NBINS; ++bin )
-          b->grid[bin] = (bin + 1)/(real)NBINS;
-      }
-      else Copy(b->grid, anchor->bounds[0].grid, NBINS);
-    }
+    for( b = b0 + 1, B = b0 + t->ndim; b < B; ++b )
+      Copy(b, b0, 1);
 
     t->neval = 0;
-    Sample(t, t->nnew, anchor, anchor->w,
-      anchor->w + t->nnew,
-      anchor->w + t->nnew + t->ndim*t->nnew);
-    state.df = anchor->df;
-    FCopy(state.totals, anchor->result);
+    Sample(t, t->nnew, anchor, RegionW(anchor),
+      RegionW(anchor) + t->nnew,
+      RegionW(anchor) + t->nnew + t->ndim*t->nnew);
+    state->df = anchor->df;
+    FCopy(state->totals, anchor->result);
   }
 
   /* main iteration loop */
   for( ; ; ) {
-    Var var[NDIM][2], *vLR;
+    Var *vLR;
     real maxratio, maxerr, minfluct, bias, mid;
     Region *regionL, *regionR, *reg, **parent, **par;
     Bounds *bounds, *boundsL, *boundsR;
@@ -120,26 +126,20 @@ static int Integrate(This *t, real *integral, real *error, real *prob)
     real *w, *wL, *wR, *x, *xL, *xR, *f, *fL, *fR, *wlast, *flast;
 
     if( VERBOSE ) {
-      char s[128 + 128*NCOMP], *p = s;
-
-      p += sprintf(p, "\n"
+      char *oe = out + sprintf(out, "\n"
         "Iteration " COUNT ":  " NUMBER " integrand evaluations so far",
         t->nregions, t->neval);
-
-      for( comp = 0; comp < t->ncomp; ++comp ) {
-        cResult *tot = &state.totals[comp];
-        p += sprintf(p, "\n[" COUNT "] " 
+      for( tot = state->totals, comp = 0; tot < Tot; ++tot )
+        oe += sprintf(oe, "\n[" COUNT "] "
           REAL " +- " REAL "  \tchisq " REAL " (" COUNT " df)",
-          comp + 1, tot->avg, tot->err, tot->chisq, state.df);
-      }
-
-      Print(s);
+          ++comp, tot->avg, tot->err, tot->chisq, state->df);
+      Print(out);
     }
 
     maxratio = -INFTY;
     maxcomp = 0;
-    for( comp = 0; comp < t->ncomp; ++comp ) {
-      creal ratio = state.totals[comp].err/MaxErr(state.totals[comp].avg);
+    for( tot = state->totals, comp = 0; tot < Tot; ++tot ) {
+      creal ratio = tot->err/MaxErr(tot->avg);
       if( ratio > maxratio ) {
         maxratio = ratio;
         maxcomp = comp;
@@ -165,9 +165,11 @@ static int Integrate(This *t, real *integral, real *error, real *prob)
       }
     }
 
+    bounds = RegionBounds(region);
+    w = RegionW(region);
+
     /* find the bisectdim which minimizes the fluctuations */
-    Fluct(t, var[0],
-      region->bounds, region->w, region->n, maxcomp,
+    Fluct(t, var[0], bounds, w, region->n, maxcomp,
       region->result[maxcomp].avg, Max(maxerr, t->epsabs));
 
     bias = (t->epsrel < 1e-50) ? 2 :
@@ -175,9 +177,8 @@ static int Integrate(This *t, real *integral, real *error, real *prob)
     minfluct = INFTY;
     bisectdim = 0;
     for( dim = 0; dim < t->ndim; ++dim ) {
-      cBounds *b = &region->bounds[dim];
       creal fluct = (var[dim][0].fluct + var[dim][1].fluct)*
-        (bias - b->upper + b->lower);
+        (bias - bounds[dim].upper + bounds[dim].lower);
       if( fluct < minfluct ) {
         minfluct = fluct;
         bisectdim = dim;
@@ -194,25 +195,23 @@ static int Integrate(This *t, real *integral, real *error, real *prob)
     nnewR = IMax(t->nnew - nnewL, MINSAMPLES);
     nR = vLR[1].n + nnewR;
 
-    RegionAlloc(t, regionL, nL, nnewL);
-    RegionAlloc(t, regionR, nR, nnewR);
+    regionL = RegionAlloc(t, nL, nnewL);
+    regionR = RegionAlloc(t, nR, nnewR);
 
     *parent = regionL;
     regionL->next = regionR;
     regionR->next = region->next;
     regionL->div = regionR->div = region->div + 1;
 
-    bounds = &region->bounds[bisectdim];
-    mid = bounds->mid;
+    mid = .5*(bounds[bisectdim].lower + bounds[bisectdim].upper);
     n = region->n;
-    w = wlast = region->w;  x = w + n;     f = flast = x + n*t->ndim;
-    wL = regionL->w;        xL = wL + nL;  fL = xL + nL*t->ndim;
-    wR = regionR->w;        xR = wR + nR;  fR = xR + nR*t->ndim;
-
+    wlast = w;              x = w + n;     f = flast = x + n*t->ndim;
+    wL = RegionW(regionL);  xL = wL + nL;  fL = xL + nL*t->ndim;
+    wR = RegionW(regionR);  xR = wR + nR;  fR = xR + nR*t->ndim;
     while( n-- ) {
       cbool final = (*w < 0);
       if( x[bisectdim] < mid ) {
-        if( final && wR > regionR->w ) wR[-1] = -fabs(wR[-1]);
+        if( final && wR > RegionW(regionR) ) wR[-1] = -fabs(wR[-1]);
         *wL++ = *w++;
         XCopy(xL, x);
         xL += t->ndim;
@@ -220,7 +219,7 @@ static int Integrate(This *t, real *integral, real *error, real *prob)
         fL += t->ncomp;
       }
       else {
-        if( final && wL > regionL->w ) wL[-1] = -fabs(wL[-1]);
+        if( final && wL > RegionW(regionL) ) wL[-1] = -fabs(wL[-1]);
         *wR++ = *w++;
         XCopy(xR, x);
         xR += t->ndim;
@@ -232,45 +231,45 @@ static int Integrate(This *t, real *integral, real *error, real *prob)
       if( n && final ) wlast = w, flast = f;
     }
 
-    Reweight(t, region->bounds, wlast, flast, f, state.totals);
-    XCopy(regionL->bounds, region->bounds);
-    XCopy(regionR->bounds, region->bounds);
+    Reweight(t, bounds, wlast, flast, f, state->totals);
+    boundsL = RegionBounds(regionL);
+    XCopy(boundsL, bounds);
+    boundsR = RegionBounds(regionR);
+    XCopy(boundsR, bounds);
 
-    boundsL = &regionL->bounds[bisectdim];
-    boundsR = &regionR->bounds[bisectdim];
-    boundsL->mid = .5*(boundsL->lower + (boundsL->upper = mid));
-    boundsR->mid = .5*((boundsR->lower = mid) + boundsR->upper);
-
-    StretchGrid(bounds->grid, boundsL->grid, boundsR->grid);
+    boundsL[bisectdim].upper = mid;
+    boundsR[bisectdim].lower = mid;
+    StretchGrid(bounds[bisectdim].grid,
+      boundsL[bisectdim].grid, boundsR[bisectdim].grid);
 
     Sample(t, nnewL, regionL, wL, xL, fL);
     Sample(t, nnewR, regionR, wR, xR, fR);
 
-    state.df += regionL->df + regionR->df - region->df;
+    state->df += regionL->df + regionR->df - region->df;
 
-    for( comp = 0; comp < t->ncomp; ++comp ) {
-      cResult *r = &region->result[comp];
-      Result *rL = &regionL->result[comp];
-      Result *rR = &regionR->result[comp];
-      Result *tot = &state.totals[comp];
+    for( res = region->result,
+         resL = regionL->result,
+         resR = regionR->result,
+         tot = state->totals;
+         tot < Tot; ++res, ++resL, ++resR, ++tot ) {
       real diff, sigsq;
 
-      tot->avg += diff = rL->avg + rR->avg - r->avg;
+      tot->avg += diff = resL->avg + resR->avg - res->avg;
 
       diff = Sq(.25*diff);
-      sigsq = rL->sigsq + rR->sigsq;
+      sigsq = resL->sigsq + resR->sigsq;
       if( sigsq > 0 ) {
         creal c = Sq(1 + sqrt(diff/sigsq));
-        rL->sigsq *= c;
-        rR->sigsq *= c;
+        resL->sigsq *= c;
+        resR->sigsq *= c;
       }
-      rL->err = sqrt(rL->sigsq += diff);
-      rR->err = sqrt(rR->sigsq += diff);
+      resL->err = sqrt(resL->sigsq += diff);
+      resR->err = sqrt(resR->sigsq += diff);
 
-      tot->sigsq += rL->sigsq + rR->sigsq - r->sigsq;
+      tot->sigsq += resL->sigsq + resR->sigsq - res->sigsq;
       tot->err = sqrt(tot->sigsq);
 
-      tot->chisq += rL->chisq + rR->chisq - r->chisq;
+      tot->chisq += resL->chisq + resR->chisq - res->chisq;
     }
 
     free(region);
@@ -280,49 +279,52 @@ static int Integrate(This *t, real *integral, real *error, real *prob)
     if( StateWriteTest(t) ) {
       StateWriteOpen(t, fd) {
         Region *reg;
-        size_t regsize[t->nregions], *s = regsize;
-        state.signature = StateSignature(t, 2);
-        state.neval = t->neval;
-        state.nregions = t->nregions;
+        size_t totsize, *regsize, *s;
+        state->signature = StateSignature(t, 2);
+        state->neval = t->neval;
+        state->nregions = t->nregions;
+        StateWrite(fd, state, statesize);
+        MemAlloc(regsize, totsize = t->nregions*sizeof(size_t));
+        s = regsize;
         for( reg = anchor; reg; reg = reg->next )
           *s++ = reg->size;
-        write(fd, &state, sizeof state);
-        write(fd, regsize, sizeof regsize);
+        StateWrite(fd, regsize, totsize);
+        free(regsize);
         for( reg = anchor; reg; reg = reg->next )
-          write(fd, reg, reg->size);
+          StateWrite(fd, reg, reg->size);
       } StateWriteClose(t, fd);
     }
   }
 
-  for( comp = 0; comp < t->ncomp; ++comp ) {
-    cResult *tot = &state.totals[comp];
+  for( tot = state->totals, comp = 0; tot < Tot; ++tot, ++comp ) {
     integral[comp] = tot->avg;
     error[comp] = tot->err;
-    prob[comp] = ChiSquare(tot->chisq, state.df);
+    prob[comp] = ChiSquare(tot->chisq, state->df);
   }
 
 #ifdef MLVERSION
   if( REGIONS ) {
+    Vector(real, bounds, NDIM*2);
+
     MLPutFunction(stdlink, "List", 2);
+
     MLPutFunction(stdlink, "List", t->nregions);
     for( region = anchor; region; region = region->next ) {
-      real lower[NDIM], upper[NDIM];
-
-      for( dim = 0; dim < t->ndim; ++dim ) {
-        cBounds *b = &region->bounds[dim];
-        lower[dim] = b->lower;
-        upper[dim] = b->upper;
+      cResult *Res;
+      real *d = bounds;
+      for( B = (b = RegionBounds(region)) + t->ndim; b < B; ++b ) {
+        *d++ = b->lower;
+        *d++ = b->upper;
       }
 
-      MLPutFunction(stdlink, "Cuba`Suave`region", 4);
-      MLPutRealList(stdlink, lower, t->ndim);
-      MLPutRealList(stdlink, upper, t->ndim);
+      MLPutFunction(stdlink, "Cuba`Suave`region", 3);
+
+      MLPutRealList(stdlink, bounds, 2*t->ndim);
 
       MLPutFunction(stdlink, "List", t->ncomp);
-      for( comp = 0; comp < t->ncomp; ++comp ) {
-        cResult *r = &region->result[comp];
-        real res[] = {r->avg, r->err, r->chisq};
-        MLPutRealList(stdlink, res, Elements(res));
+      for( Res = (res = region->result) + t->ncomp; res < Res; ++res ) {
+        real r[] = {res->avg, res->err, res->chisq};
+        MLPutRealList(stdlink, r, Elements(r));
       }
 
       MLPutInteger(stdlink, region->df);

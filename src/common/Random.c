@@ -1,7 +1,7 @@
 /*
 	Random.c
 		quasi- and pseudo-random-number generation
-		last modified 17 Dec 11 th
+		last modified 7 Aug 13 th
 */
 
 
@@ -280,10 +280,10 @@ static void RanluxGet(This *t, real *x)
     cint nskip = (--t->rng.ranlux.n24 >= 0) ? 0 :
       (t->rng.ranlux.n24 = 24, t->rng.ranlux.nskip);
     cint s = RanluxInt(t, 1 + nskip);
-    x[dim] = s*0x1p-24;
+    x[dim] = ldexp(s, -24);
 /* small numbers (with less than 12 significant bits) are "padded" */
     if( s < (1 << 12) )
-      x[dim] += t->rng.ranlux.state[t->rng.ranlux.j24]*0x1p-48;
+      x[dim] += ldexp(t->rng.ranlux.state[t->rng.ranlux.j24], -48);
   }
 }
 
@@ -300,11 +300,11 @@ static inline void RanluxIni(This *t)
   cint skip[] = {24, 48, 97, 223, 389,
     223, 223, 223, 223, 223, 223, 223, 223, 223, 223,
     223, 223, 223, 223, 223, 223, 223, 223, 223, 223};
-  state_t seed = t->seed;
-  state_t level = RNG;
+  int seed = t->seed;
+  int level = RNG;
   count i;
 
-  if( level < sizeof skip ) level = skip[level];
+  if( level < Elements(skip) ) level = skip[level];
   t->rng.ranlux.nskip = level - 24;
 
   t->rng.ranlux.i24 = 23;

@@ -2,7 +2,7 @@
 	Grid.c
 		utility functions for the Vegas grid
 		this file is part of Suave
-		last modified 1 Jun 10 th
+		last modified 7 Aug 13 th
 */
 
 
@@ -53,7 +53,7 @@ static void RefineGrid(cThis *t, Grid grid, Grid margsum)
     delta = (cur - prev)*thisbin;
     newgrid[newbin] = SHARPEDGES ?
       cur - delta/imp[bin] :
-      (newcur = Max(newcur + 0x1p-48,
+      (newcur = Max(newcur + 16*DBL_EPSILON,
         cur - 2*delta/(imp[bin] + imp[IDim(bin - 1)])));
   }
   Copy(grid, newgrid, NBINS - 1);
@@ -65,8 +65,8 @@ static void RefineGrid(cThis *t, Grid grid, Grid margsum)
 static void Reweight(cThis *t, Bounds *b,
   creal *w, creal *f, creal *lastf, cResult *total)
 {
-  Grid margsum[NDIM];
-  real scale[NCOMP];
+  Vector(Grid, margsum, NDIM);
+  Vector(real, scale, NCOMP);
   cbin_t *bin = (cbin_t *)lastf;
   count dim, comp;
 
@@ -76,7 +76,7 @@ static void Reweight(cThis *t, Bounds *b,
       scale[comp] = (total[comp].avg == 0) ? 0 : 1/total[comp].avg;
   }
 
-  Zap(margsum);
+  XClear(margsum);
 
   while( f < lastf ) {
     real fsq = 0;

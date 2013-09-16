@@ -2,7 +2,7 @@
 	common.c
 		includes most of the modules
 		this file is part of Divonne
-		last modified 19 Dec 11 th
+		last modified 29 Jul 13 th
 */
 
 
@@ -17,7 +17,7 @@
 
 static inline bool BadDimension(cThis *t, ccount key)
 {
-  if( t->ndim > NDIM ) return true;
+  if( t->ndim > MAXDIM ) return true;
   if( IsSobol(key) ) return
     t->ndim < SOBOL_MINDIM || (t->seed == 0 && t->ndim > SOBOL_MAXDIM);
   if( IsRule(key, t->ndim) ) return t->ndim < 1;
@@ -26,7 +26,7 @@ static inline bool BadDimension(cThis *t, ccount key)
 
 static inline bool BadComponent(cThis *t)
 {
-  if( t->ncomp > NCOMP ) return true;
+  if( t->ncomp > MAXCOMP ) return true;
   return t->ncomp < 1;
 }
 

@@ -142,7 +142,8 @@
 
 :Evaluate: MapSample = Map
 
-:Evaluate: region[ll_, ur_, r___] := Region[TtoX@@ ll, TtoX@@ ur, r]
+:Evaluate: region[bounds_, r___] := Region[##, r]&@@
+	MapThread[TtoX, Partition[bounds, 2]]
 
 :Evaluate: Suave::badsample = "`` is not a real-valued function at ``."
 
@@ -164,7 +165,7 @@
 	Suave.tm
 		Subregion-adaptive Vegas Monte Carlo integration
 		by Thomas Hahn
-		last modified 2 May 13 th
+		last modified 29 Jul 13 th
 */
 
 

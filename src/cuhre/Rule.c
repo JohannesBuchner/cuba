@@ -4,18 +4,11 @@
 		code lifted with minor modifications from DCUHRE
 		by J. Berntsen, T. Espelid, and A. Genz
 		this file is part of Cuhre
-		last modified 28 Apr 13 th
+		last modified 5 Aug 13 th
 */
 
 
-enum { nrules = 5 };
-
-#define TYPEDEFSET \
-  typedef struct { \
-    count n; \
-    real weight[nrules], scale[nrules], norm[nrules]; \
-    real gen[NDIM]; \
-  } Set
+#define NextSet(p) p = (Set *)((char *)p + setsize)
 
 /*********************************************************************/
 
@@ -64,86 +57,84 @@ static void Rule13Alloc(This *t)
 
   enum { nsets = 14, ndim = 2 };
 
-  TYPEDEFSET;
-
   count n, r;
   Set *first, *last, *s, *x;
+  csize_t setsize = SetSize;
 
-  Alloc(first, nsets);
-  Clear(first, nsets);
+  Die(first = calloc(nsets, setsize));
 
   last = first;
   n = last->n = 1;
   Copy(last->weight, w[0], nrules);
 
-  last = last + 1;
+  NextSet(last);
   n += last->n = 2*ndim;
   Copy(last->weight, w[1], nrules);
   last->gen[0] = g[0];
 
-  last = last + 1;
+  NextSet(last);
   n += last->n = 2*ndim;
   Copy(last->weight, w[2], nrules);
   last->gen[0] = g[1];
 
-  last = last + 1;
+  NextSet(last);
   n += last->n = 2*ndim;
   Copy(last->weight, w[3], nrules);
   last->gen[0] = g[2];
 
-  last = last + 1;
+  NextSet(last);
   n += last->n = 2*ndim;
   Copy(last->weight, w[4], nrules);
   last->gen[0] = g[3];
 
-  last = last + 1;
+  NextSet(last);
   n += last->n = 2*ndim;
   Copy(last->weight, w[5], nrules);
   last->gen[0] = g[4];
 
-  last = last + 1;
+  NextSet(last);
   n += last->n = 2*ndim*(ndim - 1);
   Copy(last->weight, w[6], nrules);
   last->gen[0] = g[5];
   last->gen[1] = g[5];
 
-  last = last + 1;
+  NextSet(last);
   n += last->n = 2*ndim*(ndim - 1);
   Copy(last->weight, w[7], nrules);
   last->gen[0] = g[6];
   last->gen[1] = g[6];
 
-  last = last + 1;
+  NextSet(last);
   n += last->n = 2*ndim*(ndim - 1);
   Copy(last->weight, w[8], nrules);
   last->gen[0] = g[7];
   last->gen[1] = g[7];
 
-  last = last + 1;
+  NextSet(last);
   n += last->n = 2*ndim*(ndim - 1);
   Copy(last->weight, w[9], nrules);
   last->gen[0] = g[8];
   last->gen[1] = g[8];
 
-  last = last + 1;
+  NextSet(last);
   n += last->n = 2*ndim*(ndim - 1);
   Copy(last->weight, w[10], nrules);
   last->gen[0] = g[9];
   last->gen[1] = g[9];
 
-  last = last + 1;
+  NextSet(last);
   n += last->n = 4*ndim*(ndim - 1);
   Copy(last->weight, w[11], nrules);
   last->gen[0] = g[10];
   last->gen[1] = g[11];
 
-  last = last + 1;
+  NextSet(last);
   n += last->n = 4*ndim*(ndim - 1);
   Copy(last->weight, w[12], nrules);
   last->gen[0] = g[12];
   last->gen[1] = g[13];
 
-  last = last + 1;
+  NextSet(last);
   n += last->n = 4*ndim*(ndim - 1);
   Copy(last->weight, w[13], nrules);
   last->gen[0] = g[14];
@@ -156,12 +147,12 @@ static void Rule13Alloc(This *t)
   t->rule.errcoeff[2] = 5;
   t->rule.n = n;
 
-  for( s = first; s <= last; ++s )
+  for( s = first; s <= last; NextSet(s) )
     for( r = 1; r < nrules - 1; ++r ) {
       creal scale = (s->weight[r] == 0) ? 100 :
         -s->weight[r + 1]/s->weight[r];
       real sum = 0;
-      for( x = first; x <= last; ++x )
+      for( x = first; x <= last; NextSet(x) )
         sum += x->n*fabs(x->weight[r + 1] + scale*x->weight[r]);
       s->scale[r] = scale;
       s->norm[r] = 1/sum;
@@ -212,84 +203,82 @@ static void Rule11Alloc(This *t)
 
   enum { nsets = 13, ndim = 3 };
 
-  TYPEDEFSET;
-
   count n, r;
   Set *first, *last, *s, *x;
+  csize_t setsize = SetSize;
 
-  Alloc(first, nsets);
-  Clear(first, nsets);
+  Die(first = calloc(nsets, setsize));
 
   last = first;
   n = last->n = 1;
   Copy(last->weight, w[0], nrules);
 
-  last = last + 1;
+  NextSet(last);
   n += last->n = 2*ndim;
   Copy(last->weight, w[1], nrules);
   last->gen[0] = g[0];
 
-  last = last + 1;
+  NextSet(last);
   n += last->n = 2*ndim;
   Copy(last->weight, w[2], nrules);
   last->gen[0] = g[1];
 
-  last = last + 1;
+  NextSet(last);
   n += last->n = 2*ndim;
   Copy(last->weight, w[3], nrules);
   last->gen[0] = g[2];
 
-  last = last + 1;
+  NextSet(last);
   n += last->n = 2*ndim;
   Copy(last->weight, w[4], nrules);
   last->gen[0] = g[3];
 
-  last = last + 1;
+  NextSet(last);
   n += last->n = 2*ndim;
   Copy(last->weight, w[5], nrules);
   last->gen[0] = g[4];
 
-  last = last + 1;
+  NextSet(last);
   n += last->n = 2*ndim*(ndim - 1);
   Copy(last->weight, w[6], nrules);
   last->gen[0] = g[5];
   last->gen[1] = g[5];
 
-  last = last + 1;
+  NextSet(last);
   n += last->n = 2*ndim*(ndim - 1);
   Copy(last->weight, w[7], nrules);
   last->gen[0] = g[6];
   last->gen[1] = g[6];
 
-  last = last + 1;
+  NextSet(last);
   n += last->n = 4*ndim*(ndim - 1)*(ndim - 2)/3;
   Copy(last->weight, w[8], nrules);
   last->gen[0] = g[7];
   last->gen[1] = g[7];
   last->gen[2] = g[7];
 
-  last = last + 1;
+  NextSet(last);
   n += last->n = 4*ndim*(ndim - 1)*(ndim - 2)/3;
   Copy(last->weight, w[9], nrules);
   last->gen[0] = g[8];
   last->gen[1] = g[8];
   last->gen[2] = g[8];
 
-  last = last + 1;
+  NextSet(last);
   n += last->n = 4*ndim*(ndim - 1)*(ndim - 2)/3;
   Copy(last->weight, w[10], nrules);
   last->gen[0] = g[9];
   last->gen[1] = g[9];
   last->gen[2] = g[9];
 
-  last = last + 1;
+  NextSet(last);
   n += last->n = 4*ndim*(ndim - 1)*(ndim - 2);
   Copy(last->weight, w[11], nrules);
   last->gen[0] = g[10];
   last->gen[1] = g[11];
   last->gen[2] = g[11];
 
-  last = last + 1;
+  NextSet(last);
   n += last->n = 4*ndim*(ndim - 1)*(ndim - 2);
   Copy(last->weight, w[12], nrules);
   last->gen[0] = g[12];
@@ -303,12 +292,12 @@ static void Rule11Alloc(This *t)
   t->rule.errcoeff[2] = 3;
   t->rule.n = n;
 
-  for( s = first; s <= last; ++s )
+  for( s = first; s <= last; NextSet(s) )
     for( r = 1; r < nrules - 1; ++r ) {
       creal scale = (s->weight[r] == 0) ? 100 :
         -s->weight[r + 1]/s->weight[r];
       real sum = 0;
-      for( x = first; x <= last; ++x )
+      for( x = first; x <= last; NextSet(x) )
         sum += x->n*fabs(x->weight[r + 1] + scale*x->weight[r]);
       s->scale[r] = scale;
       s->norm[r] = 1/sum;
@@ -349,15 +338,13 @@ static void Rule9Alloc(This *t)
 
   enum { nsets = 9 };
 
-  TYPEDEFSET;
-
   ccount ndim = t->ndim;
   ccount twondim = 1 << ndim;
   count dim, n, r;
   Set *first, *last, *s, *x;
+  csize_t setsize = SetSize;
 
-  Alloc(first, nsets);
-  Clear(first, nsets);
+  Die(first = calloc(nsets, setsize));
 
   last = first;
   n = last->n = 1;
@@ -367,7 +354,7 @@ static void Rule9Alloc(This *t)
   last->weight[3] = ndim*(ndim*w[9] + w[10]) - 1 + last->weight[0];
   last->weight[4] = ndim*w[11] + 1 - last->weight[0];
 
-  last = last + 1;
+  NextSet(last);
   n += last->n = 2*ndim;
   last->weight[0] = ndim*(ndim*w[12] + w[13]) + w[14];
   last->weight[1] = ndim*(ndim*w[15] + w[16]) + w[17];
@@ -376,7 +363,7 @@ static void Rule9Alloc(This *t)
   last->weight[4] = w[21] - last->weight[0];
   last->gen[0] = g[0];
 
-  last = last + 1;
+  NextSet(last);
   n += last->n = 2*ndim;
   last->weight[0] = ndim*w[22] + w[23];
   last->weight[1] = ndim*w[24] + w[25];
@@ -385,7 +372,7 @@ static void Rule9Alloc(This *t)
   last->weight[4] = -last->weight[0];
   last->gen[0] = g[1];
 
-  last = last + 1;
+  NextSet(last);
   n += last->n = 2*ndim;
   last->weight[0] = w[29];
   last->weight[1] = w[30];
@@ -394,12 +381,12 @@ static void Rule9Alloc(This *t)
   last->weight[4] = -w[29];
   last->gen[0] = g[2];
 
-  last = last + 1;
+  NextSet(last);
   n += last->n = 2*ndim;
   last->weight[2] = w[32];
   last->gen[0] = g[3];
 
-  last = last + 1;
+  NextSet(last);
   n += last->n = 2*ndim*(ndim - 1);
   last->weight[0] = w[33] - ndim*w[12];
   last->weight[1] = w[34] - ndim*w[15];
@@ -409,7 +396,7 @@ static void Rule9Alloc(This *t)
   last->gen[0] = g[0];
   last->gen[1] = g[0];
 
-  last = last + 1;
+  NextSet(last);
   n += last->n = 4*ndim*(ndim - 1);
   last->weight[0] = w[36];
   last->weight[1] = w[37];
@@ -419,7 +406,7 @@ static void Rule9Alloc(This *t)
   last->gen[0] = g[0];
   last->gen[1] = g[1];
 
-  last = last + 1;
+  NextSet(last);
   n += last->n = 4*ndim*(ndim - 1)*(ndim - 2)/3;
   last->weight[0] = w[39];
   last->weight[1] = w[40];
@@ -430,7 +417,7 @@ static void Rule9Alloc(This *t)
   last->gen[1] = g[0];
   last->gen[2] = g[0];
 
-  last = last + 1;
+  NextSet(last);
   n += last->n = twondim;
   last->weight[0] = w[41]/twondim;
   last->weight[1] = w[7]/twondim;
@@ -447,12 +434,12 @@ static void Rule9Alloc(This *t)
   t->rule.errcoeff[2] = 5;
   t->rule.n = n;
 
-  for( s = first; s <= last; ++s )
+  for( s = first; s <= last; NextSet(s) )
     for( r = 1; r < nrules - 1; ++r ) {
       creal scale = (s->weight[r] == 0) ? 100 :
         -s->weight[r + 1]/s->weight[r];
       real sum = 0;
-      for( x = first; x <= last; ++x )
+      for( x = first; x <= last; NextSet(x) )
         sum += x->n*fabs(x->weight[r + 1] + scale*x->weight[r]);
       s->scale[r] = scale;
       s->norm[r] = 1/sum;
@@ -482,15 +469,13 @@ static void Rule7Alloc(This *t)
 
   enum { nsets = 6 };
 
-  TYPEDEFSET;
-
   ccount ndim = t->ndim;
   ccount twondim = 1 << ndim;
   count dim, n, r;
   Set *first, *last, *s, *x;
+  csize_t setsize = SetSize;
 
-  Alloc(first, nsets);
-  Clear(first, nsets);
+  Die(first = calloc(nsets, setsize));
 
   last = first;
   n = last->n = 1;
@@ -500,7 +485,7 @@ static void Rule7Alloc(This *t)
   last->weight[3] = ndim*(ndim*w[7] + w[8]) - w[9];
   last->weight[4] = 1 - last->weight[0];
 
-  last = last + 1;
+  NextSet(last);
   n += last->n = 2*ndim;
   last->weight[0] = w[10];
   last->weight[1] = w[11];
@@ -509,7 +494,7 @@ static void Rule7Alloc(This *t)
   last->weight[4] = -w[10];
   last->gen[0] = g[1];
 
-  last = last + 1;
+  NextSet(last);
   n += last->n = 2*ndim;
   last->weight[0] = w[13] - ndim*w[0];
   last->weight[1] = w[14] - ndim*w[3];
@@ -518,12 +503,12 @@ static void Rule7Alloc(This *t)
   last->weight[4] = -last->weight[0];
   last->gen[0] = g[0];
 
-  last = last + 1;
+  NextSet(last);
   n += last->n = 2*ndim;
   last->weight[2] = w[17];
   last->gen[0] = g[2];
 
-  last = last + 1;
+  NextSet(last);
   n += last->n = 2*ndim*(ndim - 1);
   last->weight[0] = -w[7];
   last->weight[1] = w[18];
@@ -533,7 +518,7 @@ static void Rule7Alloc(This *t)
   last->gen[0] = g[0];
   last->gen[1] = g[0];
 
-  last = last + 1;
+  NextSet(last);
   n += last->n = twondim;
   last->weight[0] = w[20]/twondim;
   last->weight[1] = w[5]/twondim;
@@ -550,12 +535,12 @@ static void Rule7Alloc(This *t)
   t->rule.errcoeff[2] = 5;
   t->rule.n = n;
 
-  for( s = first; s <= last; ++s )
+  for( s = first; s <= last; NextSet(s) )
     for( r = 1; r < nrules - 1; ++r ) {
       creal scale = (s->weight[r] == 0) ? 100 :
         -s->weight[r + 1]/s->weight[r];
       real sum = 0;
-      for( x = first; x <= last; ++x )
+      for( x = first; x <= last; NextSet(x) )
         sum += x->n*fabs(x->weight[r + 1] + scale*x->weight[r]);
       s->scale[r] = scale;
       s->norm[r] = 1/sum;
@@ -635,25 +620,23 @@ next:
 
 /*********************************************************************/
 
-static void Sample(This *t, void *voidregion)
+static void Sample(This *t, Region *region)
 {
-  TYPEDEFREGION;
-  TYPEDEFSET;
-
-  Region *const region = (Region *)voidregion;
+  csize_t setsize = SetSize;
   creal vol = ldexp(1., -region->div);
 
   real *x = t->frame, *f = x + t->rule.n*t->ndim;
-  Set *first = (Set *)t->rule.first, *last = (Set *)t->rule.last, *s;
+  Set *first = t->rule.first, *last = t->rule.last, *s;
+  Bounds *b, *B = region->bounds + t->ndim;
+  Result *result = RegionResult(region), *res, *Res = result + t->ncomp;
   creal *errcoeff = t->rule.errcoeff;
   creal ratio = Sq(first[2].gen[0]/first[1].gen[0]);
 
   ccount offset = 2*t->ndim*t->ncomp;
-  count dim, comp, rul, n, maxdim = 0;
+  count dim, rul, n, maxdim = 0;
   real maxrange = 0;
 
-  for( dim = 0; dim < t->ndim; ++dim ) {
-    cBounds *b = &region->bounds[dim];
+  for( b = region->bounds, dim = 0; b < B; ++b, ++dim ) {
     creal range = b->upper - b->lower;
     if( range > maxrange ) {
       maxrange = range;
@@ -661,13 +644,12 @@ static void Sample(This *t, void *voidregion)
     }
   }
 
-  for( s = first; s <= last; ++s )
+  for( s = first; s <= last; NextSet(s) )
     if( s->n ) x = ExpandFS(t, region->bounds, s->gen, x);
 
   DoSample(t, t->rule.n, t->frame, f);
 
-  for( comp = 0; comp < t->ncomp; ++comp ) {
-    Result *r = &region->result[comp];
+  for( res = result; res < Res; ++res ) {
     real sum[nrules];
     creal *f1 = f;
     creal base = *f1*2*(1 - ratio);
@@ -685,11 +667,11 @@ static void Sample(This *t, void *voidregion)
         bisectdim = dim;
       }
     }
-    r->bisectdim = bisectdim;
+    res->bisectdim = bisectdim;
 
     f1 = f++;
     Zap(sum);
-    for( s = first; s <= last; ++s )
+    for( s = first; s <= last; NextSet(s) )
       for( n = s->n; n; --n ) {
         creal fun = *f1;
         f1 += t->ncomp;
@@ -704,37 +686,35 @@ static void Sample(This *t, void *voidregion)
 
     for( rul = 1; rul < nrules - 1; ++rul ) {
       real maxerr = 0;
-      for( s = first; s <= last; ++s )
+      for( s = first; s <= last; NextSet(s) )
         maxerr = Max(maxerr,
           fabs(sum[rul + 1] + s->scale[rul]*sum[rul])*s->norm[rul]);
       sum[rul] = maxerr;
     }
 
-    r->avg = vol*sum[0];
-    r->err = vol*(
+    res->avg = vol*sum[0];
+    res->err = vol*(
       (errcoeff[0]*sum[1] <= sum[2] && errcoeff[0]*sum[2] <= sum[3]) ?
         errcoeff[1]*sum[1] :
         errcoeff[2]*Max(Max(sum[1], sum[2]), sum[3]) );
   }
 
   if( VERBOSE > 2 ) {
-    char s[64*NDIM + 128*NCOMP], *p = s;
+    Vector(char, out, 64*NDIM + 128*NCOMP);
+    char *oe = out;
+    count comp;
+    cchar *msg = "\nRegion (" REALF ") - (" REALF ")";
 
-    for( dim = 0; dim < t->ndim; ++dim ) {
-      cBounds *b = &region->bounds[dim];
-      p += sprintf(p,
-        (dim == 0) ? "\nRegion (" REALF ") - (" REALF ")" :
-                     "\n       (" REALF ") - (" REALF ")",
-        b->lower, b->upper);
+    for( b = region->bounds; b < B; ++b ) {
+      oe += sprintf(oe, msg, b->lower, b->upper);
+      msg = "\n       (" REALF ") - (" REALF ")";
     }
 
-    for( comp = 0; comp < t->ncomp; ++comp ) {
-      cResult *r = &region->result[comp];
-      p += sprintf(p, "\n[" COUNT "] "
-        REAL " +- " REAL, comp + 1, r->avg, r->err);
-    }
+    for( res = result, comp = 0; res < Res; ++res )
+      oe += sprintf(oe, "\n[" COUNT "] "
+        REAL " +- " REAL, ++comp, res->avg, res->err);
 
-    Print(s);
+    Print(out);
   }
 }
 

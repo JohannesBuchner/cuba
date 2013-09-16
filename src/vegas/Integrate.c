@@ -2,27 +2,34 @@
 	Integrate.c
 		integrate over the unit hypercube
 		this file is part of Vegas
-		last modified 2 May 13 th
+		last modified 8 Aug 13 th
 */
 
+
+typedef struct {
+  signature_t signature;
+  count niter;
+  number nsamples, neval;
+  Cumulants cumul[];
+} State;
 
 static int Integrate(This *t, real *integral, real *error, real *prob)
 {
   bin_t *bins;
   count dim, comp;
   int fail;
-  struct {
-    signature_t signature;
-    count niter;
-    number nsamples, neval;
-    Cumulants cumul[NCOMP];
-    Grid grid[NDIM];
-  } state;
+
   StateDecl;
+  csize_t statesize = sizeof(State) +
+    NCOMP*sizeof(Cumulants) + NDIM*sizeof(Grid);
+  Sized(State, state, statesize);
+  Cumulants *c, *C = state->cumul + t->ncomp;
+  Grid *state_grid = (Grid *)C;
+  Array(Grid, margsum, NCOMP, NDIM);
+  Vector(char, out, 128*NCOMP + 256);
 
   if( VERBOSE > 1 ) {
-    char s[512];
-    sprintf(s, "Vegas input parameters:\n"
+    sprintf(out, "Vegas input parameters:\n"
       "  ndim " COUNT "\n  ncomp " COUNT "\n"
       "  epsrel " REAL "\n  epsabs " REAL "\n"
       "  flags %d\n  seed %d\n"
@@ -36,7 +43,7 @@ static int Integrate(This *t, real *integral, real *error, real *prob)
       t->mineval, t->maxeval,
       t->nstart, t->nincrease, t->nbatch,
       t->gridno, t->statefile);
-    Print(s);
+    Print(out);
   }
 
   if( BadComponent(t) ) return -2;
@@ -54,28 +61,27 @@ static int Integrate(This *t, real *integral, real *error, real *prob)
 
   if( StateReadTest(t) ) {
     StateReadOpen(t, fd) {
-      if( read(fd, &state, sizeof state) != sizeof state ||
-        state.signature != StateSignature(t, 1) ) break;
+      if( read(fd, state, statesize) != statesize ||
+          state->signature != StateSignature(t, 1) ) break;
     } StateReadClose(t, fd);
-    t->neval = state.neval;
+    t->neval = state->neval;
     t->rng.skiprandom(t, t->neval);
   }
 
   if( ini ) {
-    state.niter = 0;
-    state.nsamples = t->nstart;
-    Zap(state.cumul);
-    GetGrid(t, state.grid);
+    state->niter = 0;
+    state->nsamples = t->nstart;
+    FClear(state->cumul);
+    GetGrid(t, state_grid);
     t->neval = 0;
   }
 
   /* main iteration loop */
   for( ; ; ) {
-    number nsamples = state.nsamples;
+    number nsamples = state->nsamples;
     creal jacobian = 1./nsamples;
-    Grid margsum[NCOMP][NDIM];
 
-    Zap(margsum);
+    FClear(margsum);
 
     for( ; nsamples > 0; nsamples -= t->nbatch ) {
       cnumber n = IMin(t->nbatch, nsamples);
@@ -93,8 +99,8 @@ static int Integrate(This *t, real *integral, real *error, real *prob)
         for( dim = 0; dim < t->ndim; ++dim ) {
           creal pos = *x*NBINS;
           ccount ipos = (count)pos;
-          creal prev = (ipos == 0) ? 0 : state.grid[dim][ipos - 1];
-          creal diff = state.grid[dim][ipos] - prev; 
+          creal prev = (ipos == 0) ? 0 : state_grid[dim][ipos - 1];
+          creal diff = state_grid[dim][ipos] - prev; 
           *x++ = prev + (pos - ipos)*diff;
           *bin++ = ipos;
           weight *= diff*NBINS;
@@ -103,25 +109,24 @@ static int Integrate(This *t, real *integral, real *error, real *prob)
         *w++ = weight;
       }
 
-      DoSample(t, n, w, f, t->frame, state.niter + 1);
+      DoSample(t, n, w, f, t->frame, state->niter + 1);
 
       bin = bins;
       w = t->frame;
 
       while( f < lastf ) {
         creal weight = *w++;
+        Grid *m = &margsum[0][0];
 
-        for( comp = 0; comp < t->ncomp; ++comp ) {
+        for( c = state->cumul; c < C; ++c ) {
           real wfun = weight*(*f++);
           if( wfun ) {
-            Cumulants *c = &state.cumul[comp];
-            Grid *m = margsum[comp];
-
             c->sum += wfun;
             c->sqsum += wfun *= wfun;
             for( dim = 0; dim < t->ndim; ++dim )
               m[dim][bin[dim]] += wfun;
           }
+          m += t->ndim;
         }
 
         bin += t->ndim;
@@ -132,19 +137,16 @@ static int Integrate(This *t, real *integral, real *error, real *prob)
 
     /* compute the integral and error values */
 
-    for( comp = 0; comp < t->ncomp; ++comp ) {
-      Cumulants *c = &state.cumul[comp];
-      real avg, sigsq;
-      real w = Weight(c->sum, c->sqsum, state.nsamples);
-
-      sigsq = 1/(c->weightsum += w);
-      avg = sigsq*(c->avgsum += w*c->sum);
+    for( c = state->cumul; c < C; ++c ) {
+      real w = Weight(c->sum, c->sqsum, state->nsamples);
+      real sigsq = 1/(c->weightsum += w);
+      real avg = sigsq*(c->avgsum += w*c->sum);
 
       c->avg = LAST ? (sigsq = 1/w, c->sum) : avg;
       c->err = sqrt(sigsq);
       fail |= (c->err > MaxErr(c->avg));
 
-      if( state.niter == 0 ) c->guess = c->sum;
+      if( state->niter == 0 ) c->guess = c->sum;
       else {
         c->chisum += w *= c->sum - c->guess;
         c->chisqsum += w*c->sum;
@@ -155,20 +157,14 @@ static int Integrate(This *t, real *integral, real *error, real *prob)
     }
 
     if( VERBOSE ) {
-      char s[128 + 128*NCOMP], *p = s;
-
-      p += sprintf(p, "\n"
+      char *oe = out + sprintf(out, "\n"
         "Iteration " COUNT ":  " NUMBER " integrand evaluations so far",
-        state.niter + 1, t->neval);
-
-      for( comp = 0; comp < t->ncomp; ++comp ) {
-        cCumulants *c = &state.cumul[comp];
-        p += sprintf(p, "\n[" COUNT "] "
+        state->niter + 1, t->neval);
+      for( c = state->cumul, comp = 0; c < C; ++c )
+        oe += sprintf(oe, "\n[" COUNT "] "
           REAL " +- " REAL "  \tchisq " REAL " (" COUNT " df)",
-          comp + 1, c->avg, c->err, c->chisq, state.niter);
-      }
-
-      Print(s);
+          ++comp, c->avg, c->err, c->chisq, state->niter);
+      Print(out);
     }
 
     if( fail == 0 && t->neval >= t->mineval ) break;
@@ -177,13 +173,13 @@ static int Integrate(This *t, real *integral, real *error, real *prob)
 
     if( t->ncomp == 1 )
       for( dim = 0; dim < t->ndim; ++dim )
-        RefineGrid(t, state.grid[dim], margsum[0][dim]);
+        RefineGrid(t, state_grid[dim], margsum[0][dim]);
     else {
       for( dim = 0; dim < t->ndim; ++dim ) {
         Grid wmargsum;
         Zap(wmargsum);
         for( comp = 0; comp < t->ncomp; ++comp ) {
-          real w = state.cumul[comp].avg;
+          real w = state->cumul[comp].avg;
           if( w != 0 ) {
             creal *m = margsum[comp][dim];
             count bin;
@@ -192,32 +188,32 @@ static int Integrate(This *t, real *integral, real *error, real *prob)
               wmargsum[bin] += w*m[bin];
           }
         }
-        RefineGrid(t, state.grid[dim], wmargsum);
+        RefineGrid(t, state_grid[dim], wmargsum);
       }
     }
 
-    ++state.niter;
-    state.nsamples += t->nincrease;
+    ++state->niter;
+    state->nsamples += t->nincrease;
 
     if( StateWriteTest(t) ) {
-      state.signature = StateSignature(t, 1);
-      state.neval = t->neval;
+      state->signature = StateSignature(t, 1);
+      state->neval = t->neval;
       StateWriteOpen(t, fd) {
-        write(fd, &state, sizeof state);
+        StateWrite(fd, state, statesize);
       } StateWriteClose(t, fd);
       if( t->neval >= t->maxeval ) break;
     }
   }
 
   for( comp = 0; comp < t->ncomp; ++comp ) {
-    cCumulants *c = &state.cumul[comp];
+    cCumulants *c = &state->cumul[comp];
     integral[comp] = c->avg;
     error[comp] = c->err;
-    prob[comp] = ChiSquare(c->chisq, state.niter);
+    prob[comp] = ChiSquare(c->chisq, state->niter);
   }
 
 abort:
-  PutGrid(t, state.grid);
+  PutGrid(t, state_grid);
   free(bins);
   WaitCores(t);
   FrameFree(t);

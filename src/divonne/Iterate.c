@@ -2,19 +2,21 @@
 	Iterate.c
 		recursion over regions
 		this file is part of Divonne
-		last modified 21 Dec 11 th
+		last modified 2 Aug 13 th
 */
 
 
 static void Iterate(This *t, count iregion, cint depth, cint isamples,
   Totals *totals)
 {
-  TYPEDEFREGION;
+  csize_t regionsize = RegionSize;
   Region *parent, *region;
   typedef struct {
     real avg, err, spread, spreadsq;
   } Corr;
-  Corr corr[NCOMP];
+  Vector(Corr, corr, NCOMP);
+  Corr *c, *C = corr + t->ncomp;
+  Result *res;
   count ireg, mreg = iregion;
   count comp, maxsplit;
   int last, idest, isrc;
@@ -57,7 +59,7 @@ FORK_ONLY(more:)
       count nsplit = 0;
       real norm;
 
-      memset(corr, 0, sizeof corr);
+      FClear(corr);
 
       tdmax->from = ireg + parent->next;
       tdmax->to = tdmax->from - parent->depth;
@@ -72,22 +74,18 @@ FORK_ONLY(more:)
           }
           else {
             ++nsplit;
-            for( comp = 0; comp < t->ncomp; ++comp ) {
-              cResult *r = &region->result[comp];
-              Corr *c = &corr[comp];
-              c->avg += r->avg;
-              c->err += r->err;
-              c->spread += Sq(r->spread);
+            for( res = RegionResult(region), c = corr; c < C; ++res, ++c ) {
+              c->avg += res->avg;
+              c->err += res->err;
+              c->spread += Sq(res->spread);
             }
           }
         }
       }
 
       norm = 1./nsplit--;
-      for( comp = 0; comp < t->ncomp; ++comp ) {
-        Result *p = &parent->result[comp];
-        Corr *c = &corr[comp];
-        creal diff = fabs(p->avg - c->avg)*norm;
+      for( res = RegionResult(parent), c = corr; c < C; ++res, ++c ) {
+        creal diff = fabs(res->avg - c->avg)*norm;
         c->avg = diff*norm*nsplit;
         c->err = (c->err == 0) ? 1 : 1 + diff/c->err;
         c->spread = (c->spread == 0) ? 1 : 1 + diff/sqrt(c->spread);
@@ -98,12 +96,10 @@ FORK_ONLY(more:)
           Region *region = RegionPtr(xreg);
           if( region->depth >= 0 ) {
             cnumber neff = t->samples[region->isamples].neff;
-            for( comp = 0; comp < t->ncomp; ++comp ) {
-              Result *r = &region->result[comp];
-              Corr *c = &corr[comp];
-              if( r->err > 0 ) r->err = r->err*c->err + c->avg;
-              r->spread = r->spread*c->spread + c->avg*neff;
-              c->spreadsq += Sq(r->spread);
+            for( res = RegionResult(region), c = corr; c < C; ++res, ++c ) {
+              if( res->err > 0 ) res->err = res->err*c->err + c->avg;
+              res->spread = res->spread*c->spread + c->avg*neff;
+              c->spreadsq += Sq(res->spread);
             }
           }
         }
@@ -120,7 +116,7 @@ FORK_ONLY(more:)
     switch( cur - last ) {
     case -1:
       memmove(RegionPtr(idest), RegionPtr(isrc),
-        (iregion - isrc)*sizeof(Region));
+        (iregion - isrc)*regionsize);
       idest += iregion - isrc;
       break;
     case 1:
@@ -130,7 +126,7 @@ FORK_ONLY(more:)
   }
 
   memmove(RegionPtr(idest), RegionPtr(iregion),
-    (t->nregions - iregion)*sizeof(Region));
+    (t->nregions - iregion)*regionsize);
   t->nregions += idest - iregion;
 }
 

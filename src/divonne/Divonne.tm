@@ -216,7 +216,8 @@
 :Evaluate: findpeak[b_, p_] := Check[Join[#, sample[#, p, intX]]& @
 	N[Flatten[peakfinder@@ MapThread[TtoX, Partition[b, 2]]]], {}]
 
-:Evaluate: region[ll_, ur_, r___] := Region[TtoX@@ ll, TtoX@@ ur, r]
+:Evaluate: region[bounds_, r___] := Region[##, r]&@@
+	MapThread[TtoX, Partition[bounds, 2]]
 
 :Evaluate: Divonne::badsample = "`` is not a real-valued function at ``."
 
@@ -241,7 +242,7 @@
 		originally by J.H. Friedman and M.H. Wright
 		(CERNLIB subroutine D151)
 		this version by Thomas Hahn
-		last modified 2 May 13 th
+		last modified 1 Aug 13 th
 */
 
 

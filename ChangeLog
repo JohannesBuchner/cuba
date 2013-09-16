@@ -1,7 +1,28 @@
+7 Aug 13:
+
+- Version 3.2: Moved all variable-size arrays to alloca and
+  cleaned up other bits that would lead to compiler warnings
+  on select systems.
+
+- Cuba now compiles with clang and icc (and even C89 compilers).
+
+- Fixed bug in chi-square determination in Cuhre introduced in 3.1.
+
+- Fixed bug in Ranlux for luxury level > 24.
+
+
+6 Jun 13:
+
+- Fixed segfault in repeated invocation of Divonne.
+
+
 4 May 13:
 
 - Version 3.1: Added check-pointing (state file) for Suave,
   Divonne, Cuhre, too.  Implementation by B. Chokoufe.
+
+- The Suave, Divonne, and Cuhre API calls have changed w.r.t.
+  Version 3.0 ('statefile' argument added).
 
 - Improved handling of infinities by Divonne.
 

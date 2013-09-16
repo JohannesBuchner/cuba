@@ -2,7 +2,7 @@
 	Sample.c
 		most of what is related to sampling
 		this file is part of Divonne
-		last modified 6 Jun 13 th
+		last modified 31 Aug 13 th
 */
 
 
@@ -40,7 +40,8 @@ static inline void SamplesFree(cSamples *samples)
 static void SampleSobol(This *t, ccount iregion)
 {
   SAMPLERDEFS;
-  real avg[NCOMP], norm;
+  Vector(real, avg, NCOMP);
+  real norm;
   number i;
   count dim, comp;
 
@@ -62,8 +63,8 @@ static void SampleSobol(This *t, ccount iregion)
 
   norm = region->vol/samples->neff;
   for( comp = 0; comp < t->ncomp; ++comp ) {
-    r[comp].avg = norm*avg[comp];
-    r[comp].err = 0;
+    res[comp].avg = norm*avg[comp];
+    res[comp].err = 0;
   }
 }
 
@@ -73,7 +74,8 @@ static void SampleKorobov(This *t, ccount iregion)
 {
   SAMPLERDEFS;
   real *xlast = x + t->ndim, *flast = f + t->ncomp;
-  real avg[NCOMP], norm;
+  Vector(real, avg, NCOMP);
+  real norm;
   cnumber neff = samples->neff;
   number nextra = 0, i;
   real dist = 0;
@@ -123,8 +125,8 @@ static void SampleKorobov(This *t, ccount iregion)
 
   norm = region->vol/samples->neff;
   for( comp = 0; comp < t->ncomp; ++comp ) {
-    r[comp].avg = norm*(avg[comp] + avg[comp] + f[comp]);
-    r[comp].err = 0;
+    res[comp].avg = norm*(avg[comp] + avg[comp] + f[comp]);
+    res[comp].err = 0;
   }
 }
 
@@ -223,7 +225,9 @@ static void SamplesAlloc(cThis *t, Samples *samples)
 
 static real Sample(This *t, creal *x0)
 {
-  real xtmp[2*NDIM], ftmp[2*NCOMP], *xlast = xtmp, f;
+  Vector(real, xtmp, 2*NDIM);
+  Vector(real, ftmp, 2*NCOMP);
+  real *xlast = xtmp, f;
   real dist = 0;
   count dim, comp;
   number n = 1;
@@ -251,7 +255,7 @@ static real Sample(This *t, creal *x0)
 
   DoSample(t, n, xtmp, ftmp);
 
-#define fin(x) Min(Max(x, -1/NOTZERO), 1/NOTZERO) 
+#define fin(x) Min(Max(x, -.5*INFTY), .5*INFTY) 
 
   comp = Untag(t->selectedcomp);
   f = fin(ftmp[comp]);
