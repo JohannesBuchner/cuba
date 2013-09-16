@@ -2,7 +2,7 @@
 	Sample.c
 		most of what is related to sampling
 		this file is part of Divonne
-		last modified 7 Nov 11 th
+		last modified 6 Jun 13 th
 */
 
 
@@ -18,6 +18,7 @@
 static inline void SamplesIni(Samples *samples)
 {
   samples->x = NULL;
+  samples->n = 0;
 }
 
 /*********************************************************************/
@@ -49,9 +50,11 @@ static void SampleSobol(This *t, ccount iregion)
       *x = b[dim].lower + *x*(b[dim].upper - b[dim].lower);
   }
 
-  DoSample(t, n, samples->x, f, t->ndim);
+  t->nrand += n;
 
-  ResCopy(avg, f);
+  DoSample(t, n, samples->x, f);
+
+  FCopy(avg, f);
   f += t->ncomp;
   for( i = 2; i < n; ++i )
     for( comp = 0; comp < t->ncomp; ++comp )
@@ -103,9 +106,9 @@ static void SampleKorobov(This *t, ccount iregion)
     nextra = 1;
   }
 
-  DoSample(t, n + nextra, x, f, t->ndim);
+  DoSample(t, n + nextra, x, f);
 
-  ResCopy(avg, flast);
+  FCopy(avg, flast);
   flast += t->ncomp;
   for( i = 2; i < n; ++i )
     for( comp = 0; comp < t->ncomp; ++comp )
@@ -149,25 +152,21 @@ static count SamplesLookup(This *t, Samples *samples, cint key,
   number n;
 
   if( key == 13 && t->ndim == 2 ) {
-    if( RuleIniQ(&t->rule13) ) Rule13Alloc(t);
     samples->rule = &t->rule13;
     samples->n = n = nmin = t->rule13.n;
     samples->sampler = SampleRule;
   }
   else if( key == 11 && t->ndim == 3 ) {
-    if( RuleIniQ(&t->rule11) ) Rule11Alloc(t);
     samples->rule = &t->rule11;
     samples->n = n = nmin = t->rule11.n;
     samples->sampler = SampleRule;
   }
   else if( key == 9 ) {
-    if( RuleIniQ(&t->rule9) ) Rule9Alloc(t);
     samples->rule = &t->rule9;
     samples->n = n = nmin = t->rule9.n;
     samples->sampler = SampleRule;
   }
   else if( key == 7 ) {
-    if( RuleIniQ(&t->rule7) ) Rule7Alloc(t);
     samples->rule = &t->rule7;
     samples->n = n = nmin = t->rule7.n;
     samples->sampler = SampleRule;
@@ -250,11 +249,13 @@ static real Sample(This *t, creal *x0)
     n = 2;
   }
 
-  DoSample(t, n, xtmp, ftmp, t->ndim);
+  DoSample(t, n, xtmp, ftmp);
+
+#define fin(x) Min(Max(x, -1/NOTZERO), 1/NOTZERO) 
 
   comp = Untag(t->selectedcomp);
-  f = ftmp[comp];
-  if( n > 1 ) f += dist*(f - ftmp[comp + t->ncomp]);
+  f = fin(ftmp[comp]);
+  if( n > 1 ) f += dist*(f - fin(ftmp[comp + t->ncomp]));
 
   return Sign(t->selectedcomp)*f;
 }

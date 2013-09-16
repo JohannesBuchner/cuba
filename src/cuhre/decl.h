@@ -2,7 +2,7 @@
 	decl.h
 		Type declarations
 		this file is part of Cuhre
-		last modified 4 Oct 11 th
+		last modified 24 Apr 13 th
 */
 
 
@@ -30,7 +30,6 @@ typedef struct {
 typedef const Bounds cBounds;
 
 typedef struct {
-  real *x, *f;
   void *first, *last;
   real errcoeff[3];
   count n;
@@ -45,16 +44,23 @@ typedef struct _this {
 #ifndef MLVERSION
   Integrand integrand;
   void *userdata;
+#ifdef HAVE_FORK
   int ncores, *child;
+  SHM_ONLY(int shmid;)
 #endif
+#endif
+  real *frame;
   real epsrel, epsabs;
   int flags;
   number mineval, maxeval;
   count key, nregions;
+  cchar *statefile;
   number neval;
   Rule rule;
   jmp_buf abort;
 } This;
+
+#define nframe rule.n
 
 typedef const This cThis;
 

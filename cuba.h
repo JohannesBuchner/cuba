@@ -2,7 +2,7 @@
 	cuba.h
 		Prototypes for the Cuba library
 		this file is part of Cuba
-		last modified 16 Jun 10 th
+		last modified 30 Apr 13 th
 */
 
 #ifdef __cplusplus
@@ -48,6 +48,7 @@ void Suave(const int ndim, const int ncomp,
   const int flags, const int seed,
   const int mineval, const int maxeval,
   const int nnew, const double flatness,
+  const char *statefile,
   int *nregions, int *neval, int *fail,
   double integral[], double error[], double prob[]);
 
@@ -57,6 +58,7 @@ void llSuave(const int ndim, const int ncomp,
   const int flags, const int seed,
   const long long int mineval, const long long int maxeval,
   const long long int nnew, const double flatness,
+  const char *statefile,
   int *nregions, long long int *neval, int *fail,
   double integral[], double error[], double prob[]);
 
@@ -69,6 +71,7 @@ void Divonne(const int ndim, const int ncomp,
   const double border, const double maxchisq, const double mindeviation,
   const int ngiven, const int ldxgiven, double xgiven[],
   const int nextra, peakfinder_t peakfinder,
+  const char *statefile,
   int *nregions, int *neval, int *fail,
   double integral[], double error[], double prob[]);
 
@@ -82,6 +85,7 @@ void llDivonne(const int ndim, const int ncomp,
   const long long int ngiven, const int ldxgiven, double xgiven[],
   const long long int nextra,
   void (*peakfinder)(const int *, const double [], int *, double []),
+  const char *statefile,
   int *nregions, long long int *neval, int *fail,
   double integral[], double error[], double prob[]);
 
@@ -90,6 +94,7 @@ void Cuhre(const int ndim, const int ncomp,
   const double epsrel, const double epsabs,
   const int flags, const int mineval, const int maxeval,
   const int key,
+  const char *statefile,
   int *nregions, int *neval, int *fail,
   double integral[], double error[], double prob[]);
 
@@ -99,8 +104,14 @@ void llCuhre(const int ndim, const int ncomp,
   const int flags,
   const long long int mineval, const long long int maxeval,
   const int key,
+  const char *statefile,
   int *nregions, long long int *neval, int *fail,
   double integral[], double error[], double prob[]);
+
+void cubasetinit(void (*)(), void *);
+void cubasetexit(void (*)(), void *);
+void cubaruninit(void);
+void cubaruninit(void);
 
 #ifdef __cplusplus
 }

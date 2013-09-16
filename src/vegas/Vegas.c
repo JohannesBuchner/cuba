@@ -2,22 +2,17 @@
 	Vegas.c
 		Vegas Monte-Carlo integration
 		by Thomas Hahn
-		last modified 27 Sep 11 th
+		last modified 2 May 13 th
 */
 
 
-#include "decl.h"
-
-#define Print(s) puts(s); fflush(stdout)
-
-/*********************************************************************/
-
 #define VEGAS
-#include "DoSample.c"
+#define ROUTINE "Vegas"
+
+#include "decl.h"
+#include "CSample.c"
 
 /*********************************************************************/
-
-#include "common.c"
 
 Extern void EXPORT(Vegas)(ccount ndim, ccount ncomp,
   Integrand integrand, void *userdata,
@@ -44,14 +39,9 @@ Extern void EXPORT(Vegas)(ccount ndim, ccount ncomp,
   t.nbatch = nbatch;
   t.gridno = gridno;
   t.statefile = statefile;
-  t.neval = 0;
-
-  ForkCores(&t);
 
   *pfail = Integrate(&t, integral, error, prob);
   *pneval = t.neval;
-
-  WaitCores(&t);
 }
 
 /*********************************************************************/
@@ -63,9 +53,8 @@ Extern void EXPORT(vegas)(ccount *pndim, ccount *pncomp,
   cnumber *pnstart, cnumber *pnincrease, 
   cnumber *pnbatch, cint *pgridno, cchar *statefile,
   number *pneval, int *pfail,
-  real *integral, real *error, real *prob, int statefilelen)
+  real *integral, real *error, real *prob, cint statefilelen)
 {
-  char *s = NULL;
   This t;
   t.ndim = *pndim;
   t.ncomp = *pncomp;
@@ -81,25 +70,9 @@ Extern void EXPORT(vegas)(ccount *pndim, ccount *pncomp,
   t.nincrease = *pnincrease;
   t.nbatch = *pnbatch;
   t.gridno = *pgridno;
-  t.neval = 0;
-
-  if( statefile ) {
-	/* strip trailing spaces */
-    while( statefilelen > 0 && statefile[statefilelen - 1] == ' ' )
-      --statefilelen;
-    if( statefilelen > 0 && (s = malloc(statefilelen + 1)) ) {
-      memcpy(s, statefile, statefilelen);
-      s[statefilelen] = 0;
-    }
-  }
-  t.statefile = s;
-
-  ForkCores(&t);
+  t.statefile = CString(statefile, statefilelen);
 
   *pfail = Integrate(&t, integral, error, prob);
   *pneval = t.neval;
-
-  free(s);
-  WaitCores(&t);
 }
 

@@ -1,7 +1,7 @@
 /*
 	Random.c
 		quasi- and pseudo-random-number generation
-		last modified 8 Jun 10 th
+		last modified 17 Dec 11 th
 */
 
 
@@ -122,7 +122,7 @@ static inline void SobolIni(This *t)
   }
 
   t->rng.sobol.seq = 0;
-  VecClear(t->rng.sobol.prev);
+  XClear(t->rng.sobol.prev);
 
   t->rng.getrandom = SobolGet;
   t->rng.skiprandom = SobolSkip;

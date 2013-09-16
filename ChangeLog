@@ -1,3 +1,70 @@
+4 May 13:
+
+- Version 3.1: Added check-pointing (state file) for Suave,
+  Divonne, Cuhre, too.  Implementation by B. Chokoufe.
+
+- Improved handling of infinities by Divonne.
+
+
+28 Mar 13:
+
+- Fixed segfault in parallel Divonne for integration rules
+  (key = 7, 9, 11, 13).
+
+
+25 Mar 13:
+
+- Fixed segfault in parallel Divonne for non-Korobov random numbers.
+
+
+9 Jan 13:
+
+- Fixed bug for parallel Divonne, the 'children' fd_set was not
+  properly initialized.
+
+
+21 Dec 12:
+
+- Fixed bug for parallel Divonne and ncomp > 1.
+  (Workers transmitted only partial results and thus the master
+  waited indefinitely for data.)
+
+
+27 Nov 12:
+
+- Fixed bug when running Divonne with ngiven != 0 and CUBACORES > 1.
+
+
+6 Sep 12:
+
+- Added functions for (de)initialization of worker processes
+  (e.g. close file descriptors before exit).
+
+
+3 Jul 12:
+
+- Added fflush(NULL) before fork to avoid multiple write-out
+  of buffered content at child's exit(0).
+
+
+17 Apr 12:
+
+- Added 'keep state file' flag (bit 5) to not remove the state
+  file in Vegas even if the integration terminated normally.
+
+
+19 Mar 12:
+
+- Fixed two bugs in MathLink interfacing, obvious oversight from
+  last release.
+
+
+16 Feb 12:
+
+- Added shared memory communication for the processes running
+  in parallel.
+
+
 24 Nov 11:
 
 - Significantly rearranged Divonne, e.g. unrolled the recursion

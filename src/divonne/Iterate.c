@@ -2,7 +2,7 @@
 	Iterate.c
 		recursion over regions
 		this file is part of Divonne
-		last modified 15 Nov 11 th
+		last modified 21 Dec 11 th
 */
 
 
@@ -25,7 +25,7 @@ static void Iterate(This *t, count iregion, cint depth, cint isamples,
   if( isamples < 0 ) Split(t, iregion);
   else {
     region->isamples = isamples;
-    Explore(t, iregion);
+    ExploreSerial(t, iregion);
   }
 
   ireg = iregion + RegionPtr(iregion)->next;
@@ -34,8 +34,8 @@ static void Iterate(This *t, count iregion, cint depth, cint isamples,
     region = RegionPtr(ireg);
     if( region->depth > 0 ) {
       --region->depth;
-more:
-      ireg = ExploreParent(t, ireg);
+FORK_ONLY(more:)
+      ireg = Explore(t, ireg);
       if( ireg == -1 ) return;
       region = RegionPtr(ireg);
     }
@@ -43,9 +43,7 @@ more:
     ireg += region->next;
   } while( ireg > 0 );
 
-#ifndef MLVERSION
-  if( t->running ) goto more;
-#endif
+  FORK_ONLY(if( t->running ) goto more;)
 
   maxsplit = 1;
   for( ireg = mreg; ireg >= iregion; --ireg ) {

@@ -2,22 +2,17 @@
 	Suave.c
 		Subregion-adaptive Vegas Monte-Carlo integration
 		by Thomas Hahn
-		last modified 27 Sep 11 th
+		last modified 2 May 13 th
 */
 
 
-#include "decl.h"
-
-#define Print(s) puts(s); fflush(stdout)
-
-/*********************************************************************/
-
 #define SUAVE
-#include "DoSample.c"
+#define ROUTINE "Suave"
+
+#include "decl.h"
+#include "CSample.c"
 
 /*********************************************************************/
-
-#include "common.c"
 
 Extern void EXPORT(Suave)(ccount ndim, ccount ncomp,
   Integrand integrand, void *userdata,
@@ -25,6 +20,7 @@ Extern void EXPORT(Suave)(ccount ndim, ccount ncomp,
   cint flags, cint seed,
   cnumber mineval, cnumber maxeval,
   cnumber nnew, creal flatness,
+  cchar *statefile,
   count *pnregions, number *pneval, int *pfail,
   real *integral, real *error, real *prob)
 {
@@ -41,16 +37,11 @@ Extern void EXPORT(Suave)(ccount ndim, ccount ncomp,
   t.maxeval = maxeval;
   t.nnew = nnew;
   t.flatness = flatness;
-  t.nregions = 0;
-  t.neval = 0;
-
-  ForkCores(&t);
+  t.statefile = statefile;
 
   *pfail = Integrate(&t, integral, error, prob);
   *pnregions = t.nregions;
   *pneval = t.neval;
-
-  WaitCores(&t);
 }
 
 /*********************************************************************/
@@ -61,8 +52,9 @@ Extern void EXPORT(suave)(ccount *pndim, ccount *pncomp,
   cint *pflags, cint *pseed,
   cnumber *pmineval, cnumber *pmaxeval,
   cnumber *pnnew, creal *pflatness,
+  cchar *statefile,
   count *pnregions, number *pneval, int *pfail,
-  real *integral, real *error, real *prob)
+  real *integral, real *error, real *prob, cint statefilelen)
 {
   This t;
   t.ndim = *pndim;
@@ -77,15 +69,10 @@ Extern void EXPORT(suave)(ccount *pndim, ccount *pncomp,
   t.maxeval = *pmaxeval;
   t.nnew = *pnnew;
   t.flatness = *pflatness;
-  t.nregions = 0;
-  t.neval = 0;
-
-  ForkCores(&t);
+  t.statefile = CString(statefile, statefilelen);
 
   *pfail = Integrate(&t, integral, error, prob);
   *pnregions = t.nregions;
   *pneval = t.neval;
-
-  WaitCores(&t);
 }
 

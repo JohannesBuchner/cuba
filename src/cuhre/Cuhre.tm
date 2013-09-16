@@ -4,6 +4,9 @@
 	"Cuhre[f, {x, xmin, xmax}..] computes a numerical approximation to the integral of the real scalar or vector function f.
 	The output is a list with entries of the form {integral, error, chi-square probability} for each component of the integrand."
 
+:Evaluate: MinPoints::usage = "MinPoints is an option of Cuhre.
+	It specifies the minimum number of points to sample."
+
 :Evaluate: Key::usage = "Key is an option of Cuhre.
 	It specifies the basic integration rule:\n
 	7 = use a degree-7 rule,\n
@@ -12,11 +15,15 @@
 	13 = use a degree-13 rule (available only in 2 dimensions),\n
 	otherwise the default rule is used: the degree-13 rule in 2 dimensions, the degree-11 rule in 3 dimensions, else the degree-9 rule."
 
-:Evaluate: MinPoints::usage = "MinPoints is an option of Cuhre.
-	It specifies the minimum number of points to sample."
+:Evaluate: StateFile::usage = "StateFile is an option of Cuhre.
+	It specifies a file in which the internal state is stored after each iteration and from which it can be restored on a subsequent run.
+	The state file is removed once the prescribed accuracy has been reached."
 
 :Evaluate: Final::usage = "Final is an option of Cuhre.
 	It can take the values Last or All which determine whether only the last (largest) or all sets of samples collected on a subregion over the iterations contribute to the final result."
+
+:Evaluate: RetainStateFile::usage = "RetainStateFile is an option of Cuhre.
+	It determines whether a chosen state file is kept even if the integration terminates normally."
 
 :Evaluate: Regions::usage = "Regions is an option of Cuhre.
 	It specifies whether the regions into which the integration region has been cut are returned together with the integration results."
@@ -34,30 +41,32 @@
 :Function: Cuhre
 :Pattern: MLCuhre[ndim_, ncomp_,
   epsrel_, epsabs_, flags_, mineval_, maxeval_,
-  key_]
+  key_, statefile_]
 :Arguments: {ndim, ncomp,
   epsrel, epsabs, flags, mineval, maxeval,
-  key}
+  key, statefile}
 :ArgumentTypes: {Integer, Integer,
   Real, Real, Integer, Integer, Integer,
-  Integer}
+  Integer, String}
 :ReturnType: Manual
 :End:
 
 :Evaluate: Attributes[Cuhre] = {HoldFirst}
 
 :Evaluate: Options[Cuhre] = {PrecisionGoal -> 3, AccuracyGoal -> 12,
-	MinPoints -> 0, MaxPoints -> 50000, Key -> 0,
-	Verbose -> 1, Final -> Last, Regions -> False, Compiled -> True}
+	MinPoints -> 0, MaxPoints -> 50000, Key -> 0, StateFile -> "",
+	Verbose -> 1, Final -> Last, RetainStateFile -> False,
+	Regions -> False, Compiled -> True}
 
 :Evaluate: Cuhre[f_, v:{_, _, _}.., opt___Rule] :=
 	Block[ {ff = HoldForm[f], ndim = Length[{v}], ncomp,
 	tags, vars, lower, range, jac, tmp, defs, intT,
-	rel, abs, mineval, maxeval, key, verbose, final, regions, compiled},
+	rel, abs, mineval, maxeval, key, state, verbose, final,
+	retain, regions, compiled},
 	  Message[Cuhre::optx, #, Cuhre]&/@
 	    Complement[First/@ {opt}, tags = First/@ Options[Cuhre]];
-	  {rel, abs, mineval, maxeval, key,
-	    verbose, final, regions, compiled} =
+	  {rel, abs, mineval, maxeval, key, state,
+	    verbose, final, retain, regions, compiled} =
 	    tags /. {opt} /. Options[Cuhre];
 	  {vars, lower, range} = Transpose[{v}];
 	  jac = Simplify[Times@@ (range -= lower)];
@@ -70,8 +79,9 @@
 	    MLCuhre[ndim, ncomp, 10.^-rel, 10.^-abs,
 	      Min[Max[verbose, 0], 3] +
 	        If[final === Last, 4, 0] +
+	        If[TrueQ[retain], 16, 0] +
 	        If[TrueQ[regions], 128, 0],
-	      mineval, maxeval, key]
+	      mineval, maxeval, key, state]
 	  ]& @ vars
 	]
 
@@ -121,12 +131,16 @@
 	Cuhre.tm
 		Adaptive integration using cubature rules
 		by Thomas Hahn
-		last modified 11 Jul 11 th
+		last modified 2 May 13 th
 */
 
 
+#define CUHRE
+#define ROUTINE "Cuhre"
+
 #include "mathlink.h"
 #include "decl.h"
+#include "MSample.c"
 
 /*********************************************************************/
 
@@ -142,53 +156,6 @@ static void Status(MLCONST char *msg, cint n1, cint n2)
 }
 
 /*********************************************************************/
-
-static void Print(MLCONST char *s)
-{
-  MLPutFunction(stdlink, "EvaluatePacket", 1);
-  MLPutFunction(stdlink, "Print", 1);
-  MLPutString(stdlink, s);
-  MLEndPacket(stdlink);
-
-  MLNextPacket(stdlink);
-  MLNewPacket(stdlink);
-}
-
-/*********************************************************************/
-
-static void DoSample(This *t, cnumber n, real *x, real *f)
-{
-  real *mma_f;
-  long mma_n;
-
-  if( MLAbort ) longjmp(t->abort, -99);
-
-  MLPutFunction(stdlink, "EvaluatePacket", 1);
-  MLPutFunction(stdlink, "Cuba`Cuhre`sample", 1);
-  MLPutRealList(stdlink, x, n*t->ndim);
-  MLEndPacket(stdlink);
-
-  MLNextPacket(stdlink);
-  if( !MLGetRealList(stdlink, &mma_f, &mma_n) ) {
-    MLClearError(stdlink);
-    MLNewPacket(stdlink);
-    longjmp(t->abort, -99);
-  }
-
-  if( mma_n != n*t->ncomp ) {
-    MLDisownRealList(stdlink, mma_f, mma_n);
-    longjmp(t->abort, -3);
-  }
-
-  Copy(f, mma_f, n*t->ncomp);
-  MLDisownRealList(stdlink, mma_f, mma_n);
-
-  t->neval += n;
-}
-
-/*********************************************************************/
-
-#include "common.c"
 
 static inline void DoIntegrate(This *t)
 {
@@ -224,7 +191,7 @@ static inline void DoIntegrate(This *t)
 void Cuhre(cint ndim, cint ncomp,
   creal epsrel, creal epsabs,
   cint flags, cnumber mineval, cnumber maxeval,
-  cint key)
+  cint key, cchar *statefile)
 {
   This t;
   t.ndim = ndim;
@@ -235,8 +202,7 @@ void Cuhre(cint ndim, cint ncomp,
   t.mineval = mineval;
   t.maxeval = maxeval;
   t.key = key;
-  t.nregions = 0;
-  t.neval = 0;
+  t.statefile = statefile;
 
   DoIntegrate(&t);
   MLEndPacket(stdlink);

@@ -2,7 +2,7 @@
 	Sample.c
 		the sampling step of Suave
 		this file is part of Suave
-		last modified 12 Aug 11 th
+		last modified 20 Dec 11 th
 */
 
 
@@ -23,7 +23,7 @@ static void Sample(This *t, cnumber nnew, void *voidregion,
   count comp, dim, df;
   number n;
   Cumulants cumul[NCOMP];
-  char **ss, *s;
+  char **ss = NULL, *s = NULL;
   ccount chars = 128*(region->div + 1);
 
   creal jacobian = 1/ldexp((real)nnew, region->div);

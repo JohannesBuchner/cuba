@@ -1,7 +1,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.59)
-AC_INIT([Cuba], [3.0], [hahn@feynarts.de])
+AC_INIT([Cuba], [3.1], [hahn@feynarts.de])
 AC_CONFIG_SRCDIR([cuba.h])
 
 LIBS=-lm
@@ -19,7 +19,7 @@ AS_IF([test "$GCC" = yes],
     [*LLVM*], [opt=-O3],
     [*gcc*4.2* | *gcc*4.4.3*], [opt=-O0],
     [opt=-O3])
-   CFLAGS=${USER_CFLAGS:-$opt -fomit-frame-pointer -ffast-math}],
+   CFLAGS=${USER_CFLAGS:-$opt -fomit-frame-pointer -ffast-math -Wall}],
   [CFLAGS=${USER_CFLAGS:--O}])
 
 AC_C_CONST
@@ -28,6 +28,15 @@ AC_C_LONG_DOUBLE
 
 AC_CHECK_FUNCS([powl])
 AC_CHECK_FUNCS([erf])
+AC_CHECK_FUNCS([fork])
+
+AC_DEFUN([chk_shmget], [dnl
+AC_REQUIRE([AC_CANONICAL_HOST])
+AS_CASE([$host_os],
+  [*cygwin*], [],
+  [AC_CHECK_FUNCS([shmget])])
+])
+chk_shmget
 AC_CHECK_FUNCS([getloadavg])
 
 MAXDIM=${MAXDIM:-16}

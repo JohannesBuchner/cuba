@@ -4,6 +4,9 @@
 	"Divonne[f, {x, xmin, xmax}..] computes a numerical approximation to the integral of the real scalar or vector function f.
 	The output is a list with entries of the form {integral, error, chi-square probability} for each component of the integrand."
 
+:Evaluate: MinPoints::usage = "MinPoints is an option of Divonne.
+	It specifies the minimum number of points to sample."
+
 :Evaluate: Key1::usage = "Key1 is an option of Divonne.
 	It determines sampling in the partitioning phase.\n
 	Special cases:\n
@@ -74,8 +77,9 @@
 	This function is called whenever a region is up for subdivision and is supposed to point out possible peaks lying in the region, thus acting as the dynamic counterpart of the static list of points supplied with Given.
 	It is invoked with two arguments, the multidimensional equivalents of the lower left and upper right corners of the region being investigated, and must return a (possibly empty) list of points."
 
-:Evaluate: MinPoints::usage = "MinPoints is an option of Divonne.
-	It specifies the minimum number of points to sample."
+:Evaluate: StateFile::usage = "StateFile is an option of Divonne.
+	It specifies a file in which the internal state is stored after each iteration and from which it can be restored on a subsequent run.
+	The state file is removed once the prescribed accuracy has been reached."
 
 :Evaluate: Final::usage = "Final is an option of Divonne.
 	It can take the values Last or All which determine whether only the last (largest) or all sets of samples collected on a subregion over the integration phases contribute to the final result."
@@ -88,6 +92,9 @@
 
 :Evaluate: PseudoRandomSeed::usage = "PseudoRandomSeed is an option of Divonne.
 	It specifies the seed for the pseudo-random number generator."
+
+:Evaluate: RetainStateFile::usage = "RetainStateFile is an option of Divonne.
+	It determines whether a chosen state file is kept even if the integration terminates normally."
 
 :Evaluate: Regions::usage = "Regions is an option of Divonne.
 	It specifies whether the regions into which the integration region has been cut are returned together with the integration results."
@@ -115,19 +122,19 @@
   mineval_, maxeval_,
   key1_, key2_, key3_, maxpass_,
   border_, maxchisq_, mindeviation_,
-  xgiven_, fgiven_, nextra_]
+  xgiven_, fgiven_, nextra_, statefile_]
 :Arguments: {ndim, ncomp,
   epsrel, epsabs, flags, seed,
   mineval, maxeval,
   key1, key2, key3, maxpass,
   border, maxchisq, mindeviation,
-  xgiven, fgiven, nextra}
+  xgiven, fgiven, nextra, statefile}
 :ArgumentTypes: {Integer, Integer,
   Real, Real, Integer, Integer,
   Integer, Integer,
   Integer, Integer, Integer, Integer,
   Real, Real, Real,
-  RealList, RealList, Integer}
+  RealList, RealList, Integer, String}
 :ReturnType: Manual
 :End:
 
@@ -138,22 +145,22 @@
 	Key1 -> 47, Key2 -> 1, Key3 -> 1, MaxPass -> 5,
 	Border -> 0, MaxChisq -> 10, MinDeviation -> .25,
 	Given -> {}, NExtra -> 0, PeakFinder -> ({}&),
-	Verbose -> 1, Final -> All,
+	StateFile -> "", Verbose -> 1, Final -> All,
 	PseudoRandom -> False, PseudoRandomSeed -> 5489,
-	Regions -> False, Compiled -> True}
+	RetainStateFile -> False, Regions -> False, Compiled -> True}
 
 :Evaluate: Divonne[f_, v:{_, _, _}.., opt___Rule] :=
 	Block[ {ff = HoldForm[f], ndim = Length[{v}], ncomp,
 	tags, vars, lower, range, jac, tmp, defs, intT, intX,
 	rel, abs, mineval, maxeval, key1, key2, key3, maxpass, border,
-	maxchisq, mindeviation,	given, nextra, peakfinder,
-	final, verbose, level, seed, regions, compiled,
+	maxchisq, mindeviation,	given, nextra, peakfinder, state,
+	final, verbose, level, seed, retain, regions, compiled,
 	$Phase},
 	  Message[Divonne::optx, #, Divonne]&/@
 	    Complement[First/@ {opt}, tags = First/@ Options[Divonne]];
 	  {rel, abs, mineval, maxeval, key1, key2, key3, maxpass, border,
-	    maxchisq, mindeviation, given, nextra, peakfinder,
-	    verbose, final, level, seed, regions, compiled} =
+	    maxchisq, mindeviation, given, nextra, peakfinder, state,
+	    verbose, final, level, seed, retain, regions, compiled} =
 	    tags /. {opt} /. Options[Divonne];
 	  {vars, lower, range} = Transpose[{v}];
 	  jac = Simplify[Times@@ (range -= lower)];
@@ -167,13 +174,14 @@
 	    MLDivonne[ndim, ncomp, 10.^-rel, 10.^-abs,
 	      Min[Max[verbose, 0], 3] +
 	        If[final === Last, 4, 0] +
+	        If[TrueQ[retain], 16, 0] +
 	        If[TrueQ[regions], 128, 0] +
 	        If[IntegerQ[level], 256 level, 0],
 	      If[level =!= False && IntegerQ[seed], seed, 0],
 	      mineval, maxeval,
 	      key1, key2, key3, maxpass,
 	      N[border], N[maxchisq], N[mindeviation],
-	      given, sample[given, 0, intX], nextra]
+	      given, sample[given, 0, intX], nextra, state]
 	  ]& @ vars
 	]
 
@@ -233,14 +241,16 @@
 		originally by J.H. Friedman and M.H. Wright
 		(CERNLIB subroutine D151)
 		this version by Thomas Hahn
-		last modified 12 Oct 11 th
+		last modified 2 May 13 th
 */
 
 
+#define DIVONNE
+#define ROUTINE "Divonne"
+
 #include "mathlink.h"
 #include "decl.h"
-
-#define ExploreParent Explore
+#include "MSample.c"
 
 /*********************************************************************/
 
@@ -257,88 +267,6 @@ static void Status(MLCONST char *msg, cint n1, cint n2, cint n3)
 }
 
 /*********************************************************************/
-
-static void Print(MLCONST char *s)
-{
-  MLPutFunction(stdlink, "EvaluatePacket", 1);
-  MLPutFunction(stdlink, "Print", 1);
-  MLPutString(stdlink, s);
-  MLEndPacket(stdlink);
-
-  MLNextPacket(stdlink);
-  MLNewPacket(stdlink);
-}
-
-/*********************************************************************/
-
-static void DoSample(This *t, cnumber n, real *x, real *f, ccount ldx)
-{
-  real *mma_f;
-  long mma_n;
-
-  if( MLAbort ) longjmp(t->abort, -99);
-
-  MLPutFunction(stdlink, "EvaluatePacket", 1);
-  MLPutFunction(stdlink, "Cuba`Divonne`sample", 2);
-  MLPutRealList(stdlink, x, n*t->ndim);
-  MLPutInteger(stdlink, t->phase);
-  MLEndPacket(stdlink);
-
-  MLNextPacket(stdlink);
-  if( !MLGetRealList(stdlink, &mma_f, &mma_n) ) {
-    MLClearError(stdlink);
-    MLNewPacket(stdlink);
-    longjmp(t->abort, -99);
-  }
-
-  if( mma_n != n*t->ncomp ) {
-    MLDisownRealList(stdlink, mma_f, mma_n);
-    longjmp(t->abort, -3);
-  }
-
-  t->neval += n;
-
-  Copy(f, mma_f, n*t->ncomp);
-  MLDisownRealList(stdlink, mma_f, mma_n);
-}
-
-/*********************************************************************/
-
-static count SampleExtra(This *t, cBounds *b)
-{
-  count n, nget;
-  real *mma_f;
-  long mma_n;
-
-  MLPutFunction(stdlink, "EvaluatePacket", 1);
-  MLPutFunction(stdlink, "Cuba`Divonne`findpeak", 2);
-  MLPutRealList(stdlink, (real *)b, 2*t->ndim);
-  MLPutInteger(stdlink, t->phase);
-  MLEndPacket(stdlink);
-
-  MLNextPacket(stdlink);
-  if( !MLGetRealList(stdlink, &mma_f, &mma_n) ) {
-    MLClearError(stdlink);
-    MLNewPacket(stdlink);
-    longjmp(t->abort, -99);
-  }
-
-  t->neval += nget = mma_n/(t->ndim + t->ncomp);
-
-  n = IMin(nget, t->nextra);
-  if( n ) {
-    Copy(t->xextra, mma_f, n*t->ndim);
-    Copy(t->fextra, mma_f + nget*t->ndim, n*t->ncomp);
-  }
-
-  MLDisownRealList(stdlink, mma_f, mma_n);
-
-  return n;
-}
-
-/*********************************************************************/
-
-#include "common.c"
 
 static inline void DoIntegrate(This *t)
 {
@@ -378,7 +306,7 @@ void Divonne(cint ndim, cint ncomp,
   cint key1, cint key2, cint key3, cint maxpass,
   creal border, creal maxchisq, creal mindeviation,
   real *xgiven, clong nxgiven, real *fgiven, clong nfgiven,
-  cnumber nextra)
+  cnumber nextra, cchar *statefile)
 {
   This t;
   t.ldxgiven = t.ndim = ndim;
@@ -396,27 +324,14 @@ void Divonne(cint ndim, cint ncomp,
   t.border.upper = 1 - (t.border.lower = border);
   t.maxchisq = maxchisq;
   t.mindeviation = mindeviation;
-  t.xgiven = NULL;
+  t.ngiven = nxgiven/ndim;
+  t.xgiven = xgiven;
+  t.fgiven = fgiven;
   t.nextra = nextra;
-  t.nregions = 0;
-  t.neval = t.ngiven = nxgiven/ndim;
-
-  if( t.ngiven | t.nextra ) {
-    cnumber nx = nxgiven + nextra*t.ndim;
-    cnumber nf = nfgiven + nextra*t.ncomp;
-
-    Alloc(t.xgiven, nx + nf);
-    t.xextra = t.xgiven + nxgiven;
-    t.fgiven = t.xgiven + nx;
-    t.fextra = t.fgiven + nfgiven;
-
-    Copy(t.xgiven, xgiven, nxgiven);
-    Copy(t.fgiven, fgiven, nfgiven);
-  }
+  t.statefile = statefile;
 
   DoIntegrate(&t);
 
-  free(t.xgiven);
   MLEndPacket(stdlink);
 }
 

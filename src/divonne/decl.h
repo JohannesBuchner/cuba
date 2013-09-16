@@ -2,11 +2,15 @@
 	decl.h
 		Type declarations
 		this file is part of Divonne
-		last modified 14 Nov 11 th
+		last modified 30 Apr 13 th
 */
 
 
 #include "stddecl.h"
+
+#define INIDEPTH 3
+#define DEPTH 5
+#define POSTDEPTH 15
 
 #define Tag(x) ((x) | INT_MIN)
 #define Untag(x) ((x) & INT_MAX)
@@ -25,6 +29,7 @@ typedef struct {
   real avg, spreadsq;
   real spread, secondspread;
   real nneed, maxerrsq, mindevsq;
+  real integral, sigsq, chisq;
   PhaseResult phase[2];
   int iregion;
 } Totals;
@@ -63,9 +68,12 @@ typedef struct _this {
   Integrand integrand;
   void *userdata;
   PeakFinder peakfinder;
-  int ncores, *child;
-  int running, nchildren;
-  fd_set children;
+#ifdef HAVE_FORK
+  int ncores, running, *child;
+  real *frame;
+  number nframe;
+  SHM_ONLY(int shmid;)
+#endif
 #endif
   real epsrel, epsabs;
   int flags, seed;
@@ -75,10 +83,12 @@ typedef struct _this {
   Bounds border;
   real maxchisq, mindeviation;
   number ngiven, nextra;
-  real *xgiven, *xextra, *fgiven, *fextra;
+  real *xgiven, *fgiven;
+  real *xextra, *fextra;
   count ldxgiven;
   count nregions;
-  number neval, neval_opt, neval_cut;
+  cchar *statefile;
+  number neval, neval_opt, neval_cut, nrand;
   count phase;
   count selectedcomp, size;
   Samples samples[3];
@@ -111,7 +121,7 @@ typedef const This cThis;
 #define CHUNKSIZE 4096
 
 #define AllocRegions(t) \
-  MemAlloc((t)->voidregion, ((t)->size = CHUNKSIZE)*sizeof(Region))
+  MemAlloc((t)->voidregion, (t)->size*sizeof(Region))
 
 #define EnlargeRegions(t, n) if( (t)->nregions + n > (t)->size ) \
   ReAlloc((t)->voidregion, ((t)->size += CHUNKSIZE)*sizeof(Region))

@@ -4,56 +4,16 @@
 		originally by J.H. Friedman and M.H. Wright
 		(CERNLIB subroutine D151)
 		this version by Thomas Hahn
-		last modified 15 Nov 11 th
+		last modified 2 May 13 th
 */
 
-#include "decl.h"
-
-#define Print(s) puts(s); fflush(stdout)
-
-/*********************************************************************/
-
 #define DIVONNE
-static void DoSample(This *t, number n, creal *x, real *f, ccount ldx);
-static int ExploreParent(This *t, cint iregion);
+#define ROUTINE "Divonne"
+
+#include "decl.h"
+#include "CSample.c"
 
 /*********************************************************************/
-
-static inline count SampleExtra(This *t, cBounds *b)
-{
-  number n = t->nextra;
-  t->peakfinder(&t->ndim, b, &n, t->xextra);
-  DoSample(t, n, t->xextra, t->fextra, t->ldxgiven);
-  return n;
-}
-
-/*********************************************************************/
-
-static inline void AllocGiven(This *t, creal *xgiven)
-{
-  if( t->ngiven | t->nextra ) {
-    cnumber nxgiven = t->ngiven*(t->ldxgiven = IMax(t->ldxgiven, t->ndim));
-    cnumber nxextra = t->nextra*t->ldxgiven;
-    cnumber nfgiven = t->ngiven*t->ncomp;
-    cnumber nfextra = t->nextra*t->ncomp;
-
-    Alloc(t->xgiven, nxgiven + nxextra + nfgiven + nfextra);
-    t->xextra = t->xgiven + nxgiven;
-    t->fgiven = t->xextra + nxextra;
-    t->fextra = t->fgiven + nfgiven;
-
-    if( nxgiven ) {
-      t->phase = 0;
-      Copy(t->xgiven, xgiven, nxgiven);
-      DoSample(t, t->ngiven, t->xgiven, t->fgiven, t->ldxgiven);
-    }
-  }
-}
-
-/*********************************************************************/
-
-#include "common.c"
-#include "DoSample.c"
 
 Extern void EXPORT(Divonne)(ccount ndim, ccount ncomp,
   Integrand integrand, void *userdata,
@@ -62,8 +22,9 @@ Extern void EXPORT(Divonne)(ccount ndim, ccount ncomp,
   cnumber mineval, cnumber maxeval,
   cint key1, cint key2, cint key3, ccount maxpass,
   creal border, creal maxchisq, creal mindeviation,
-  cnumber ngiven, ccount ldxgiven, creal *xgiven,
+  cnumber ngiven, ccount ldxgiven, real *xgiven,
   cnumber nextra, PeakFinder peakfinder,
+  cchar *statefile,
   int *pnregions, number *pneval, int *pfail,
   real *integral, real *error, real *prob)
 {
@@ -86,22 +47,15 @@ Extern void EXPORT(Divonne)(ccount ndim, ccount ncomp,
   t.maxchisq = maxchisq;
   t.mindeviation = mindeviation;
   t.ngiven = ngiven;
-  t.xgiven = NULL;
+  t.xgiven = xgiven;
   t.ldxgiven = ldxgiven;
   t.nextra = nextra;
   t.peakfinder = peakfinder;
-  t.nregions = 0;
-  t.neval = 0;
-
-  ForkCores(&t);
-  AllocGiven(&t, xgiven);
+  t.statefile = statefile;
 
   *pfail = Integrate(&t, integral, error, prob);
   *pnregions = t.nregions;
   *pneval = t.neval;
-
-  free(t.xgiven);
-  WaitCores(&t);
 }
 
 /*********************************************************************/
@@ -113,10 +67,11 @@ Extern void EXPORT(divonne)(ccount *pndim, ccount *pncomp,
   cnumber *pmineval, cnumber *pmaxeval,
   cint *pkey1, cint *pkey2, cint *pkey3, ccount *pmaxpass,
   creal *pborder, creal *pmaxchisq, creal *pmindeviation,
-  cnumber *pngiven, ccount *pldxgiven, creal *xgiven,
+  cnumber *pngiven, ccount *pldxgiven, real *xgiven,
   cnumber *pnextra, PeakFinder peakfinder,
+  cchar *statefile,
   int *pnregions, number *pneval, int *pfail,
-  real *integral, real *error, real *prob)
+  real *integral, real *error, real *prob, cint statefilelen)
 {
   This t;
   t.ndim = *pndim;
@@ -137,21 +92,14 @@ Extern void EXPORT(divonne)(ccount *pndim, ccount *pncomp,
   t.maxchisq = *pmaxchisq;
   t.mindeviation = *pmindeviation;
   t.ngiven = *pngiven;
-  t.xgiven = NULL;
+  t.xgiven = xgiven;
   t.ldxgiven = *pldxgiven;
   t.nextra = *pnextra;
   t.peakfinder = peakfinder;
-  t.nregions = 0;
-  t.neval = 0;
-
-  ForkCores(&t);
-  AllocGiven(&t, xgiven);
+  t.statefile = CString(statefile, statefilelen);
 
   *pfail = Integrate(&t, integral, error, prob);
   *pnregions = t.nregions;
   *pneval = t.neval;
-
-  free(t.xgiven);
-  WaitCores(&t);
 }
 

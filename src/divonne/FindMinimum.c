@@ -2,7 +2,7 @@
 	FindMinimum.c
 		find minimum (maximum) of hyperrectangular region
 		this file is part of Divonne
-		last modified 8 Jun 10 th
+		last modified 22 Dec 11 th
 */
 
 
@@ -190,7 +190,7 @@ static Point LineSearch(This *t, ccount nfree, ccount *ifree,
   real tol = ftol, tol2 = tol + tol;
   Point cur = {0, fini};
 
-  VecCopy(x, xini);
+  XCopy(x, xini);
 
   /* don't even try if
      a) we'd walk backwards,
@@ -369,7 +369,7 @@ static real LocalSearch(This *t, ccount nfree, ccount *ifree,
   /* Move along p until the integrand changes appreciably
      or we come close to a border. */
 
-  VecCopy(y, x);
+  XCopy(y, x);
   ftest = SUFTOL*(1 + fabs(fx));
   delta = RTDELTA/5;
   do {
@@ -422,7 +422,7 @@ static real LocalSearch(This *t, ccount nfree, ccount *ifree,
   /* Move along p' until the integrand changes appreciably
      or we come close to a border. */
 
-  VecCopy(z, y);
+  XCopy(z, y);
   ftest = SUFTOL*(1 + fabs(fy));
   delta = RTDELTA/5;
   do {
@@ -448,7 +448,7 @@ static real LocalSearch(This *t, ccount nfree, ccount *ifree,
       grad = (fy - fz)/delta;
       range = sopp/.9 + delta;
       step = Min(delta + delta, sopp);
-      VecCopy(y, z);
+      XCopy(y, z);
       fy = fz;
       for( i = 0; i < nfree; ++i )
         p[i] = -p[i];
@@ -560,7 +560,7 @@ static real FindMinimum(This *t, cBounds *b, real *xmin, real fmin)
     if( ftmp > fmin - (1 + fabs(fmin))*RTEPS )
       goto releasebounds;
     fmin = ftmp;
-    VecCopy(xmin, tmp);
+    XCopy(xmin, tmp);
   }
 
   while( t->neval <= maxeval ) {
@@ -612,13 +612,13 @@ fixbound:
             tmp[i] = Hessian(i + 1, mini);
 
           for( i = mini; i < nfree; ++i ) {
-            Copy(&Hessian(i, 0), &Hessian(i + 1, 0), i);
+            Move(&Hessian(i, 0), &Hessian(i + 1, 0), i);
             Hessian(i, i) = Hessian(i + 1, i + 1);
           }
           RenormalizeCholesky(t, nfree, hessian, tmp, diag);
 
-          Copy(&ifree[mini], &ifree[mini + 1], nfree - mini);
-          Copy(&gfree[mini], &gfree[mini + 1], nfree - mini);
+          Move(&ifree[mini], &ifree[mini + 1], nfree - mini);
+          Move(&gfree[mini], &gfree[mini + 1], nfree - mini);
         }
         continue;
       }
@@ -631,11 +631,11 @@ fixbound:
         real fdiff;
 
         fmin = low.f;
-        VecCopy(xmin, tmp);
+        XCopy(xmin, tmp);
 
         Gradient(t, nfree, ifree, b, xmin, fmin, tmp);
         BFGS(t, nfree, hessian, tmp, gfree, p, low.dx);
-        VecCopy(gfree, tmp);
+        XCopy(gfree, tmp);
 
         if( fabs(low.dx - minstep) < QEPS*minstep ) goto fixbound;
 
@@ -676,7 +676,7 @@ releasebounds:
         ++nfree;
 
         --nfix;
-        Copy(&ifix[mini], &ifix[mini + 1], nfix - mini);
+        Move(&ifix[mini], &ifix[mini + 1], nfix - mini);
         continue;
       }
     }

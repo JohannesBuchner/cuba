@@ -2,7 +2,7 @@
 	common.c
 		includes most of the modules
 		this file is part of Cuhre
-		last modified 7 Jun 10 th
+		last modified 19 Dec 11 th
 */
 
 
@@ -20,6 +20,4 @@ static inline bool BadComponent(cThis *t)
   if( t->ncomp > NCOMP ) return true;
   return t->ncomp < 1;
 }
-
-#include "Integrate.c"
 

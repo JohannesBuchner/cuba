@@ -2,28 +2,23 @@
 	Cuhre.c
 		Adaptive integration using cubature rules
 		by Thomas Hahn
-		last modified 27 Sep 11 th
+		last modified 1 May 13 th
 */
 
 
-#include "decl.h"
-
-#define Print(s) puts(s); fflush(stdout)
-
-/*********************************************************************/
-
 #define CUHRE
-#include "DoSample.c"
+#define ROUTINE "Cuhre"
+
+#include "decl.h"
+#include "CSample.c"
 
 /*********************************************************************/
-
-#include "common.c"
 
 Extern void EXPORT(Cuhre)(ccount ndim, ccount ncomp,
   Integrand integrand, void *userdata,
   creal epsrel, creal epsabs,
   cint flags, cnumber mineval, cnumber maxeval,
-  ccount key,
+  ccount key, cchar *statefile,
   count *pnregions, number *pneval, int *pfail,
   real *integral, real *error, real *prob)
 {
@@ -38,16 +33,11 @@ Extern void EXPORT(Cuhre)(ccount ndim, ccount ncomp,
   t.mineval = mineval;
   t.maxeval = maxeval;
   t.key = key;
-  t.nregions = 0;
-  t.neval = 0;
+  t.statefile = statefile;
  
-  ForkCores(&t);
-
   *pfail = Integrate(&t, integral, error, prob);
   *pnregions = t.nregions;
   *pneval = t.neval;
-
-  WaitCores(&t);
 }
 
 /*********************************************************************/
@@ -56,9 +46,9 @@ Extern void EXPORT(cuhre)(ccount *pndim, ccount *pncomp,
   Integrand integrand, void *userdata,
   creal *pepsrel, creal *pepsabs,
   cint *pflags, cnumber *pmineval, cnumber *pmaxeval,
-  ccount *pkey,
+  ccount *pkey, cchar *statefile,
   count *pnregions, number *pneval, int *pfail,
-  real *integral, real *error, real *prob)
+  real *integral, real *error, real *prob, cint statefilelen)
 {
   This t;
   t.ndim = *pndim;
@@ -71,15 +61,9 @@ Extern void EXPORT(cuhre)(ccount *pndim, ccount *pncomp,
   t.mineval = *pmineval;
   t.maxeval = *pmaxeval;
   t.key = *pkey;
-  t.nregions = 0;
-  t.neval = 0;
- 
-  ForkCores(&t);
+  t.statefile = CString(statefile, statefilelen);
 
   *pfail = Integrate(&t, integral, error, prob);
   *pnregions = t.nregions;
   *pneval = t.neval;
-
-  WaitCores(&t);
 }
-

@@ -4,7 +4,7 @@
 		code lifted with minor modifications from DCUHRE
 		by J. Berntsen, T. Espelid, and A. Genz
 		this file is part of Divonne
-		last modified 6 Nov 11 th
+		last modified 28 Apr 13 th
 */
 
 
@@ -76,74 +76,74 @@ static void Rule13Alloc(This *t)
   n = last->n = 1;
   Copy(last->weight, w[0], nrules);
 
-  ++last;
+  last = last + 1;
   n += last->n = 2*ndim;
   Copy(last->weight, w[1], nrules);
   last->gen[0] = g[0];
 
-  ++last;
+  last = last + 1;
   n += last->n = 2*ndim;
   Copy(last->weight, w[2], nrules);
   last->gen[0] = g[1];
 
-  ++last;
+  last = last + 1;
   n += last->n = 2*ndim;
   Copy(last->weight, w[3], nrules);
   last->gen[0] = g[2];
 
-  ++last;
+  last = last + 1;
   n += last->n = 2*ndim;
   Copy(last->weight, w[4], nrules);
   last->gen[0] = g[3];
 
-  ++last;
+  last = last + 1;
   n += last->n = 2*ndim;
   Copy(last->weight, w[5], nrules);
   last->gen[0] = g[4];
 
-  ++last;
+  last = last + 1;
   n += last->n = 2*ndim*(ndim - 1);
   Copy(last->weight, w[6], nrules);
   last->gen[0] = g[5];
   last->gen[1] = g[5];
 
-  ++last;
+  last = last + 1;
   n += last->n = 2*ndim*(ndim - 1);
   Copy(last->weight, w[7], nrules);
   last->gen[0] = g[6];
   last->gen[1] = g[6];
 
-  ++last;
+  last = last + 1;
   n += last->n = 2*ndim*(ndim - 1);
   Copy(last->weight, w[8], nrules);
   last->gen[0] = g[7];
   last->gen[1] = g[7];
 
-  ++last;
+  last = last + 1;
   n += last->n = 2*ndim*(ndim - 1);
   Copy(last->weight, w[9], nrules);
   last->gen[0] = g[8];
   last->gen[1] = g[8];
 
-  ++last;
+  last = last + 1;
   n += last->n = 2*ndim*(ndim - 1);
   Copy(last->weight, w[10], nrules);
   last->gen[0] = g[9];
   last->gen[1] = g[9];
 
-  ++last;
+  last = last + 1;
   n += last->n = 4*ndim*(ndim - 1);
   Copy(last->weight, w[11], nrules);
   last->gen[0] = g[10];
   last->gen[1] = g[11];
 
-  ++last;
+  last = last + 1;
   n += last->n = 4*ndim*(ndim - 1);
   Copy(last->weight, w[12], nrules);
   last->gen[0] = g[12];
   last->gen[1] = g[13];
 
-  ++last;
+  last = last + 1;
   n += last->n = 4*ndim*(ndim - 1);
   Copy(last->weight, w[13], nrules);
   last->gen[0] = g[14];
@@ -224,72 +224,72 @@ static void Rule11Alloc(This *t)
   n = last->n = 1;
   Copy(last->weight, w[0], nrules);
 
-  ++last;
+  last = last + 1;
   n += last->n = 2*ndim;
   Copy(last->weight, w[1], nrules);
   last->gen[0] = g[0];
 
-  ++last;
+  last = last + 1;
   n += last->n = 2*ndim;
   Copy(last->weight, w[2], nrules);
   last->gen[0] = g[1];
 
-  ++last;
+  last = last + 1;
   n += last->n = 2*ndim;
   Copy(last->weight, w[3], nrules);
   last->gen[0] = g[2];
 
-  ++last;
+  last = last + 1;
   n += last->n = 2*ndim;
   Copy(last->weight, w[4], nrules);
   last->gen[0] = g[3];
 
-  ++last;
+  last = last + 1;
   n += last->n = 2*ndim;
   Copy(last->weight, w[5], nrules);
   last->gen[0] = g[4];
 
-  ++last;
+  last = last + 1;
   n += last->n = 2*ndim*(ndim - 1);
   Copy(last->weight, w[6], nrules);
   last->gen[0] = g[5];
   last->gen[1] = g[5];
 
-  ++last;
+  last = last + 1;
   n += last->n = 2*ndim*(ndim - 1);
   Copy(last->weight, w[7], nrules);
   last->gen[0] = g[6];
   last->gen[1] = g[6];
 
-  ++last;
+  last = last + 1;
   n += last->n = 4*ndim*(ndim - 1)*(ndim - 2)/3;
   Copy(last->weight, w[8], nrules);
   last->gen[0] = g[7];
   last->gen[1] = g[7];
   last->gen[2] = g[7];
 
-  ++last;
+  last = last + 1;
   n += last->n = 4*ndim*(ndim - 1)*(ndim - 2)/3;
   Copy(last->weight, w[9], nrules);
   last->gen[0] = g[8];
   last->gen[1] = g[8];
   last->gen[2] = g[8];
 
-  ++last;
+  last = last + 1;
   n += last->n = 4*ndim*(ndim - 1)*(ndim - 2)/3;
   Copy(last->weight, w[10], nrules);
   last->gen[0] = g[9];
   last->gen[1] = g[9];
   last->gen[2] = g[9];
 
-  ++last;
+  last = last + 1;
   n += last->n = 4*ndim*(ndim - 1)*(ndim - 2);
   Copy(last->weight, w[11], nrules);
   last->gen[0] = g[10];
   last->gen[1] = g[11];
   last->gen[2] = g[11];
 
-  ++last;
+  last = last + 1;
   n += last->n = 4*ndim*(ndim - 1)*(ndim - 2);
   Copy(last->weight, w[12], nrules);
   last->gen[0] = g[12];
@@ -367,7 +367,7 @@ static void Rule9Alloc(This *t)
   last->weight[3] = ndim*(ndim*w[9] + w[10]) - 1 + last->weight[0];
   last->weight[4] = ndim*w[11] + 1 - last->weight[0];
 
-  ++last;
+  last = last + 1;
   n += last->n = 2*ndim;
   last->weight[0] = ndim*(ndim*w[12] + w[13]) + w[14];
   last->weight[1] = ndim*(ndim*w[15] + w[16]) + w[17];
@@ -376,7 +376,7 @@ static void Rule9Alloc(This *t)
   last->weight[4] = w[21] - last->weight[0];
   last->gen[0] = g[0];
 
-  ++last;
+  last = last + 1;
   n += last->n = 2*ndim;
   last->weight[0] = ndim*w[22] + w[23];
   last->weight[1] = ndim*w[24] + w[25];
@@ -385,7 +385,7 @@ static void Rule9Alloc(This *t)
   last->weight[4] = -last->weight[0];
   last->gen[0] = g[1];
 
-  ++last;
+  last = last + 1;
   n += last->n = 2*ndim;
   last->weight[0] = w[29];
   last->weight[1] = w[30];
@@ -394,12 +394,12 @@ static void Rule9Alloc(This *t)
   last->weight[4] = -w[29];
   last->gen[0] = g[2];
 
-  ++last;
+  last = last + 1;
   n += last->n = 2*ndim;
   last->weight[2] = w[32];
   last->gen[0] = g[3];
 
-  ++last;
+  last = last + 1;
   n += last->n = 2*ndim*(ndim - 1);
   last->weight[0] = w[33] - ndim*w[12];
   last->weight[1] = w[34] - ndim*w[15];
@@ -409,7 +409,7 @@ static void Rule9Alloc(This *t)
   last->gen[0] = g[0];
   last->gen[1] = g[0];
 
-  ++last;
+  last = last + 1;
   n += last->n = 4*ndim*(ndim - 1);
   last->weight[0] = w[36];
   last->weight[1] = w[37];
@@ -419,7 +419,7 @@ static void Rule9Alloc(This *t)
   last->gen[0] = g[0];
   last->gen[1] = g[1];
 
-  ++last;
+  last = last + 1;
   n += last->n = 4*ndim*(ndim - 1)*(ndim - 2)/3;
   last->weight[0] = w[39];
   last->weight[1] = w[40];
@@ -430,7 +430,7 @@ static void Rule9Alloc(This *t)
   last->gen[1] = g[0];
   last->gen[2] = g[0];
 
-  ++last;
+  last = last + 1;
   n += last->n = twondim;
   last->weight[0] = w[41]/twondim;
   last->weight[1] = w[7]/twondim;
@@ -500,7 +500,7 @@ static void Rule7Alloc(This *t)
   last->weight[3] = ndim*(ndim*w[7] + w[8]) - w[9];
   last->weight[4] = 1 - last->weight[0];
 
-  ++last;
+  last = last + 1;
   n += last->n = 2*ndim;
   last->weight[0] = w[10];
   last->weight[1] = w[11];
@@ -509,7 +509,7 @@ static void Rule7Alloc(This *t)
   last->weight[4] = -w[10];
   last->gen[0] = g[1];
 
-  ++last;
+  last = last + 1;
   n += last->n = 2*ndim;
   last->weight[0] = w[13] - ndim*w[0];
   last->weight[1] = w[14] - ndim*w[3];
@@ -518,12 +518,12 @@ static void Rule7Alloc(This *t)
   last->weight[4] = -last->weight[0];
   last->gen[0] = g[0];
 
-  ++last;
+  last = last + 1;
   n += last->n = 2*ndim;
   last->weight[2] = w[17];
   last->gen[0] = g[2];
 
-  ++last;
+  last = last + 1;
   n += last->n = 2*ndim*(ndim - 1);
   last->weight[0] = -w[7];
   last->weight[1] = w[18];
@@ -533,7 +533,7 @@ static void Rule7Alloc(This *t)
   last->gen[0] = g[0];
   last->gen[1] = g[0];
 
-  ++last;
+  last = last + 1;
   n += last->n = twondim;
   last->weight[0] = w[20]/twondim;
   last->weight[1] = w[5]/twondim;
@@ -564,23 +564,33 @@ static void Rule7Alloc(This *t)
 
 /*********************************************************************/
 
-static inline void RuleIni(Rule *rule)
+static inline void RuleAlloc(This *t)
 {
-  rule->first = NULL;
+  if( (t->ndim - 2) | (t->key1 - 13)*(t->key2 - 13)*(t->key3 - 13) )
+    t->rule13.first = NULL;
+  else Rule13Alloc(t);
+
+  if( (t->ndim - 3) | (t->key1 - 11)*(t->key2 - 11)*(t->key3 - 11) )
+    t->rule11.first = NULL;
+  else Rule11Alloc(t);
+
+  if( (t->key1 - 9)*(t->key2 - 9)*(t->key3 - 9) )
+    t->rule9.first = NULL;
+  else Rule9Alloc(t);
+
+  if( (t->key1 - 7)*(t->key2 - 7)*(t->key3 - 7) )
+    t->rule7.first = NULL;
+  else Rule7Alloc(t);
 }
 
 /*********************************************************************/
 
-static inline bool RuleIniQ(Rule *rule)
+static inline void RuleFree(cThis *t)
 {
-  return rule->first == NULL;
-}
-
-/*********************************************************************/
-
-static inline void RuleFree(Rule *rule)
-{
-  free(rule->first);
+  free(t->rule7.first);
+  free(t->rule9.first);
+  free(t->rule11.first);
+  free(t->rule13.first);
 }
 
 /*********************************************************************/
@@ -647,7 +657,7 @@ static void SampleRule(This *t, ccount iregion)
   for( s = first; s <= last; ++s )
     if( s->n ) x = ExpandFS(t, b, s->gen, x);
 
-  DoSample(t, n, samples->x, f, t->ndim);
+  DoSample(t, n, samples->x, f);
 
   for( comp = 0; comp < t->ncomp; ++comp ) {
     real sum[nrules];

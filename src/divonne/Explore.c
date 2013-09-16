@@ -2,7 +2,7 @@
 	Explore.c
 		sample region, determine min and max, split if necessary
 		this file is part of Divonne
-		last modified 15 Nov 11 th
+		last modified 28 Mar 13 th
 */
 
 
@@ -13,7 +13,7 @@ typedef struct {
 
 /*********************************************************************/
 
-static int Explore(This *t, ccount iregion)
+static int ExploreSerial(This *t, ccount iregion)
 {
   TYPEDEFREGION;
   Region *region = RegionPtr(iregion);
@@ -29,7 +29,7 @@ static int Explore(This *t, ccount iregion)
   cSamples *samples = &t->samples[region->isamples];
 
   /* needed as of gcc 3.3 to make gcc correctly address region #@$&! */
-  sizeof(*region);
+  (void)sizeof(*region);
 
   for( comp = 0; comp < t->ncomp; ++comp ) {
     Extrema *e = &extrema[comp];
@@ -100,19 +100,19 @@ skip:
 
     if( e->xmin ) {	/* not all NaNs */
       t->selectedcomp = comp;
-      VecCopy(xtmp, e->xmin);
+      XCopy(xtmp, e->xmin);
       ftmp = FindMinimum(t, bounds, xtmp, e->fmin);
       if( ftmp < r->fmin ) {
         r->fmin = ftmp;
-        VecCopy(r->xmin, xtmp);
+        XCopy(r->xmin, xtmp);
       }
 
       t->selectedcomp = Tag(comp);
-      VecCopy(xtmp, e->xmax);
+      XCopy(xtmp, e->xmax);
       ftmp = -FindMinimum(t, bounds, xtmp, -e->fmax);
       if( ftmp > r->fmax ) {
         r->fmax = ftmp;
-        VecCopy(r->xmax, xtmp);
+        XCopy(r->xmax, xtmp);
       }
     }
 
@@ -145,7 +145,7 @@ skip:
   }
 
   if( region->isamples == 0 ) {
-    if( r->spread < samples->neff*r->err ||
+    if( (region->depth < INIDEPTH && r->spread < samples->neff*r->err) ||
         r->spread < t->totals[maxcomp].secondspread ) region->depth = 0;
     if( region->depth == 0 )
       for( comp = 0; comp < t->ncomp; ++comp )

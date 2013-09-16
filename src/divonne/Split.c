@@ -2,7 +2,7 @@
 	Split.c
 		determine optimal cuts for splitting a region
 		this file is part of Divonne
-		last modified 15 Nov 11 th
+		last modified 18 Dec 11 th
 */
 
 
@@ -195,7 +195,7 @@ static count FindCuts(This *t, Cut *cut, Bounds *bounds, creal vol,
     }
 
     delta[mincut->i] = mincut->save;
-    memcpy(mincut, mincut + 1, (char *)&cut[ncuts] - (char *)mincut);
+    memmove(mincut, mincut + 1, (char *)&cut[ncuts] - (char *)mincut);
   }
 
   for( icut = 0; icut < ncuts; ++icut ) {
@@ -267,10 +267,9 @@ static void Split(This *t, ccount iregion)
   TYPEDEFREGION;
   Region *region = RegionPtr(iregion);
   Cut cut[2*NDIM], *c;
-  Errors errors[NCOMP];
   count ncuts, succ;
   int depth;
-  real *b, tmp;
+  real *b;
 
   t->selectedcomp = region->cutcomp;
   t->neval_cut -= t->neval;
@@ -289,7 +288,7 @@ static void Split(This *t, ccount iregion)
   b = (real *)region->bounds;
 
   region = RegionPtr(t->nregions);
-  VecCopy(region->bounds, b);
+  XCopy(region->bounds, b);
   region->depth = IDim(depth) + 1;
   region->next = 1;
   region->isamples = 0;
@@ -299,7 +298,7 @@ static void Split(This *t, ccount iregion)
     b[ci ^ 1] = b[ci];
     b[ci] = c->save;
     region = RegionPtr(++t->nregions);
-    VecCopy(region->bounds, b);
+    XCopy(region->bounds, b);
     region->depth = IDim(depth) + 1;
     region->next = 1;
     region->isamples = 0;

@@ -2,7 +2,7 @@
 	decl.h
 		Type declarations
 		this file is part of Vegas
-		last modified 4 Oct 11 th
+		last modified 21 Dec 11 th
 */
 
 
@@ -36,8 +36,12 @@ typedef struct _this {
 #ifndef MLVERSION
   Integrand integrand;
   void *userdata;
+#ifdef HAVE_FORK
   int ncores, *child;
+  SHM_ONLY(int shmid;)
 #endif
+#endif
+  real *frame;
   real epsrel, epsabs;
   int flags, seed;
   number mineval, maxeval;
@@ -48,6 +52,8 @@ typedef struct _this {
   RNGState rng;
   jmp_buf abort;
 } This;
+
+#define nframe nbatch
 
 typedef const This cThis;
 
