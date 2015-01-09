@@ -137,7 +137,7 @@
 	  ($Weight = #[[1]]; intT@@ #[[2]])&,
 	  Transpose[{w, Partition[x, ndim]}] ], {}] )
 
-:Evaluate: MapSample = Map
+:Evaluate: ValueQ[MapSample] || (MapSample = Map)
 
 :Evaluate: Vegas::badsample = "`` is not a real-valued function at ``."
 
@@ -159,7 +159,7 @@
 	Vegas.tm
 		Vegas Monte Carlo integration
 		by Thomas Hahn
-		last modified 20 Jan 14 th
+		last modified 27 Aug 14 th
 */
 
 

@@ -2,7 +2,7 @@
 # this script jumps in if there is no working mcc on the path:
 # - on Mac OS it (hopefully) figures out the location of mcc,
 # - on Cygwin it substitutes mcc completely
-# last modified 19 Jul 11 th
+# last modified 14 Jul 14 th
 
 
 sdkpath()
@@ -40,7 +40,9 @@ cygmcc()
 {
   sdkpath math \
     "`cygpath '$ProgramW6432'`/Wolfram Research/Mathematica"/* \
-    "`cygpath '$PROGRAMFILES'`/Wolfram Research/Mathematica"/*
+    "`cygpath '$PROGRAMFILES'`/Wolfram Research/Mathematica"/* \
+    "/cygdrive/c/Program Files/Wolfram Research/Mathematica"/* \
+    "/cygdrive/c/Program Files (x86)/Wolfram Research/Mathematica"/*
 
   for sdk in "$sdk"/m* ; do
     break
@@ -49,12 +51,10 @@ cygmcc()
   cache=MLcyg-cache
   test -d $cache || mkdir $cache
 
-  MLversion=3
-  for OSbits in 32 64 ; do
-    dllname=ml${OSbits}i$MLversion
-    libname="$sdk/lib/${dllname}m.lib"
-    test -f "$libname" && break
+  for libname in "$sdk"/lib/ml*m.lib ; do
+    :
   done
+  dllname=`basename "$libname" m.lib`
 
   lib="$cache/${dllname}m"
   test -f "$lib.a" || {

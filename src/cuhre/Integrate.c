@@ -3,7 +3,7 @@
 		integrate over the unit hypercube
 		this file is part of Cuhre
 		checkpointing by B. Chokoufe
-		last modified 18 Apr 14 th
+		last modified 23 May 14 th
 */
 
 
@@ -61,10 +61,9 @@ static int Integrate(This *t, real *integral, real *error, real *prob)
 
   t->epsabs = Max(t->epsabs, NOTZERO);
 
-  InitWorker(t);
   RuleAlloc(t);
   t->mineval = IMax(t->mineval, t->rule.n + 1);
-  FrameAlloc(t, ShmRm(t));
+  FrameAlloc(t, Master);
   ForkCores(t);
 
   if( (fail = setjmp(t->abort)) ) goto abort;
@@ -269,13 +268,10 @@ abort:
     cur = cur->next;
     free(pool);
   }
-
-  WaitCores(t);
-  FrameFree(t);
+  FrameFree(t, Master);
   RuleFree(t);
 
   StateRemove(t);
-  ExitWorker(t);
 
   return fail;
 }

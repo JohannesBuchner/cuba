@@ -4,11 +4,12 @@
 		code lifted with minor modifications from DCUHRE
 		by J. Berntsen, T. Espelid, and A. Genz
 		this file is part of Cuhre
-		last modified 5 Aug 13 th
+		last modified 24 Nov 14 th
 */
 
 
 #define NextSet(p) p = (Set *)((char *)p + setsize)
+#define IndexSet(p, n) ((Set *)((char *)p + n*setsize))
 
 /*********************************************************************/
 
@@ -630,7 +631,8 @@ static void Sample(This *t, Region *region)
   Bounds *b, *B = region->bounds + t->ndim;
   Result *result = RegionResult(region), *res, *Res = result + t->ncomp;
   creal *errcoeff = t->rule.errcoeff;
-  creal ratio = Sq(first[2].gen[0]/first[1].gen[0]);
+  creal ratio = Sq(IndexSet(first,2)->gen[0]/
+                   IndexSet(first,1)->gen[0]);
 
   ccount offset = 2*t->ndim*t->ncomp;
   count dim, rul, n, maxdim = 0;

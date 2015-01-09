@@ -1,7 +1,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.59)
-AC_INIT([Cuba], [3.3], [hahn@feynarts.de])
+AC_INIT([Cuba], [4.0], [hahn@feynarts.de])
 AC_CONFIG_SRCDIR([cuba.h])
 
 LIBS=-lm
@@ -90,12 +90,17 @@ int main(int argc, char **argv) {
 _EOF_
 FCC="$srcdir/tools/fcc"
 rm -f conftest$EXEEXT
-REALCC="$CC" CC="$FCC" CXX="$FCC" PATH="$PATH:$srcdir/tools" \
-  mcc $MCFLAGS $CFLAGS -o conftest$EXEEXT conftest.tm > /dev/null 2>&1
+MCSTDCPP=
+for MCSTDCPP in "" -stdlib=libstdc++ ; do
+  REALCC="$CC" CC="$FCC" CXX="$FCC $MCSTDCPP" PATH="$PATH:$srcdir/tools" \
+    mcc $MCFLAGS $CFLAGS -o conftest$EXEEXT conftest.tm > /dev/null 2>&1
+  AS_IF([test -x conftest$EXEEXT], [break])
+done
 AS_IF([test -x conftest$EXEEXT],
   [AC_MSG_RESULT([yes])
    MATH_DEFAULT=math],
   [AC_MSG_RESULT([no])])
+AC_SUBST([MCSTDCPP])
 AC_SUBST([MATH_DEFAULT])
 
 AC_CHECK_PROGS([HAVE_QMAKE], [qmake])

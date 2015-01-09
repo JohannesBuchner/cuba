@@ -2,7 +2,7 @@
 	decl.h
 		Type declarations
 		this file is part of Divonne
-		last modified 5 Jun 14 th
+		last modified 9 Oct 14 th
 */
 
 
@@ -43,6 +43,8 @@ typedef struct {
 } Set;
 
 #define SetSize (sizeof(Set) + t->ndim*sizeof(real))
+
+#define NextSet(p) p = (Set *)((char *)p + setsize)
 
 typedef struct {
   Set *first, *last;
@@ -94,9 +96,9 @@ typedef struct region {
 
 
 typedef int (*Integrand)(ccount *, creal *, ccount *, real *,
-  void *, cnumber *, cint *);
+  void *, cnumber *, cint *, cint *);
 
-typedef void (*PeakFinder)(ccount *, cBounds *, number *, real *);
+typedef void (*PeakFinder)(ccount *, cBounds *, number *, real *, void *);
 
 typedef struct _this {
   count ndim, ncomp;
@@ -104,14 +106,14 @@ typedef struct _this {
   Integrand integrand;
   void *userdata;
   number nvec;
-  PeakFinder peakfinder;
-  subroutine initfun, exitfun;
 #ifdef HAVE_FORK
-  real *frame;
-  int *child, ncores, running;
-  number nframe;
   SHM_ONLY(int shmid;)
+  Spin *spin;
+  real *frame;
+  number nframe;
+  int running;
 #endif
+  PeakFinder peakfinder;
 #endif
   real epsrel, epsabs;
   int flags, seed;

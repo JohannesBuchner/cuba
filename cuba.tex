@@ -24,6 +24,8 @@
 \newcommand\norm[1]{\|#1\|_1}
 \newcommand\lbrac{\symbol{123}}
 \newcommand\rbrac{\symbol{125}}
+\newcommand\accel{_{\mathrm{accel}}}
+\newcommand\cores{_{\mathrm{cores}}}
 \newcommand\Code[1]{\ensuremath{\texttt{#1}}}
 \newcommand\Var[1]{\ensuremath{\mathit{#1}}}
 \newcommand\VarIn[1]{\item\Code{#1} \textit{$\langle$in\/$\rangle$},}
@@ -68,7 +70,7 @@
 Max-Planck-Institut f\"ur Physik \\
 F\"ohringer Ring 6, D--80805 Munich, Germany}
 
-\date{Dec 11, 2013}
+\date{Aug 28, 2014}
 
 \maketitle
 
@@ -83,7 +85,7 @@ integrands and have very similar Fortran, C/C++, and Mathematica
 interfaces.
 \end{abstract}
 
-%------------------------------------------------------------------------
+%========================================================================
 
 \section{Introduction}
 
@@ -146,7 +148,7 @@ declarations have been chosen such that the routines can be called from
 Fortran directly.  The Mathematica versions are based on the same C code
 and use the MathLink API to communicate with Mathematica.
 
-%------------------------------------------------------------------------
+%========================================================================
 
 \section{Vegas}
 
@@ -203,7 +205,7 @@ function.  As a consequence, Vegas can offer significant improvements
 only as far as the integrand's characteristic regions are aligned with
 the coordinate axes.
 
-%------------------------------------------------------------------------
+%========================================================================
 
 \section{Suave}
 
@@ -448,7 +450,7 @@ $$
 $$
 \end{enumerate}
 
-%------------------------------------------------------------------------
+%========================================================================
 
 \section{Divonne}
 
@@ -537,7 +539,7 @@ Due to its complexity, the new Divonne implementation was painstakingly
 tested against the CERNLIB routine to make sure it produces the same
 results before adding the new features.
 
-%------------------------------------------------------------------------
+%========================================================================
 
 \section{Cuhre}
 
@@ -582,10 +584,7 @@ points in degree-9 rule &
 \end{tabular}
 \end{center}
 
-
-
-
-%------------------------------------------------------------------------
+%========================================================================
 
 \section{Download and Compilation}
 
@@ -634,9 +633,9 @@ straightforward, just add \Code{-lcuba} (for the \cuba\ library) and
 \end{verbatim}
 The \Code{demo} subdirectory contains the source for the demonstration
 programs in Fortran 77, C, and Mathematica, as well as the test suite
-used in Sect.\ \ref{sect:tests}, which is also written in Mathematica.
+used in Sect.~\ref{sect:tests}, which is also written in Mathematica.
 
-%------------------------------------------------------------------------
+%========================================================================
 
 \section{User Manual}
 
@@ -649,13 +648,13 @@ they were Fortran subroutines respectively declared as
 \begin{verbatim}
         subroutine vegas(ndim, ncomp, integrand, userdata, nvec,
      &    epsrel, epsabs, flags, seed, mineval, maxeval,
-     &    nstart, nincrease, nbatch, gridno, statefile,
+     &    nstart, nincrease, nbatch, gridno, statefile, spin,
      &    neval, fail, integral, error, prob)
 \end{verbatim}
 \begin{verbatim}
         subroutine suave(ndim, ncomp, integrand, userdata, nvec,
      &    epsrel, epsabs, flags, seed, mineval, maxeval,
-     &    nnew, flatness, statefile,
+     &    nnew, flatness, statefile, spin,
      &    nregions, neval, fail, integral, error, prob)
 \end{verbatim}
 \begin{verbatim}
@@ -664,13 +663,13 @@ they were Fortran subroutines respectively declared as
      &    key1, key2, key3, maxpass,
      &    border, maxchisq, mindeviation,
      &    ngiven, ldxgiven, xgiven, nextra, peakfinder,
-     &    statefile,
+     &    statefile, spin,
      &    nregions, neval, fail, integral, error, prob)
 \end{verbatim}
 \begin{verbatim}
         subroutine cuhre(ndim, ncomp, integrand, userdata, nvec,
      &    epsrel, epsabs, flags, mineval, maxeval,
-     &    key, statefile,
+     &    key, statefile, spin,
      &    nregions, neval, fail, integral, error, prob)
 \end{verbatim}
 
@@ -689,15 +688,29 @@ the number of components of the integrand.
 the integrand.  The external function which computes the 
 integrand is expected to be declared as
 \begin{verbatim}
-  integer function integrand(ndim, x, ncomp, f, userdata, nvec)
-  integer ndim, ncomp, nvec
+  integer function integrand(ndim, x, ncomp, f, userdata, nvec, core)
+  integer ndim, ncomp, nvec, core
   double precision x(ndim,nvec), f(ncomp,nvec)
 \end{verbatim}
-The integration is aborted immediately if the integrand returns $-999$.  
+The integrand receives \Code{nvec} samples in \Code{x} and is supposed 
+to fill the array \Code{f} with the corresponding integrand values.  
+Note that \Code{nvec} indicates the actual number of points passed to 
+the integrand here and may be smaller than the \Code{nvec} given to the 
+integrator.
 
-The \Code{userdata} argument may be omitted if unused and likewise
-if only \Code{nvec} = 1 is used in the invocation all \Code{nvec}
-in the above definition may be dropped, \ie the minimal version is
+The return value is irrelevant unless it is $-999$, in the case of which 
+the integration will be aborted immediately.  This might happen if a 
+parameterized integrand turns out not to yield sensible values for a 
+particular parameter set (passed \eg through \Code{userdata}).
+
+The worker process the integrand is running on is indicated in 
+\Code{core}, where $\Code{core} < 0$ indicates an Accelerator, 
+$\Code{core}\geqslant 0$ a regular (CPU) core, and \Code{32768} the 
+master itself (more details in Sect.~\ref{sect:cores}).
+
+The latter three arguments, \Code{userdata}, \Code{nvec}, and 
+\Code{core} are optional and may be omitted if unused, \ie the integrand 
+is minimally declared (for $\Code{nvec} = 1$) as
 \begin{verbatim}
   integer function integrand(ndim, x, ncomp, f)
   integer ndim, ncomp
@@ -723,7 +736,9 @@ which for every component $c$ fulfills $|\hat I_c - I_c|\leqslant
 \VarIn{integer flags}
 flags governing the integration:
 \begin{itemize}
-\item Bits 0 and 1 encode the verbosity level, \ie 0 to 3.
+\item Bits 0 and 1 are taken as the verbosity level, \ie 0 to 3, 
+unless the \Code{CUBAVERBOSE} environment variable contains an even
+higher value (used for debugging).
 
 Level 0 does not print any output, level 1 prints `reasonable'
 information on the progress of the integration, level 2 also echoes the
@@ -745,9 +760,9 @@ Bit 3 = 1,
 use the importance function without smoothing, this should be chosen if 
 the integrand has sharp edges.
 
-\item (Vegas only) Bit 4 = 0,
-delete the state file (if one is chosen) when then integration
-terminates successfully,
+\item Bit 4 = 0,
+delete the state file (if one is chosen) when the integration terminates 
+successfully,
 
 Bit 4 = 1,
 retain the state file.
@@ -790,7 +805,7 @@ follows:
 \end{itemize}
 Levels 5--23 default to 3, values above 24 directly specify the period
 $p$.  Note that Ranlux's original level 0, (mis)used for selecting
-Mersenne Twister in Cuba, is equivalent to \Code{level = 24}.
+Mersenne Twister in \cuba, is equivalent to \Code{level = 24}.
 
 \VarIn{integer mineval}
 the minimum number of integrand evaluations required.
@@ -799,12 +814,13 @@ the minimum number of integrand evaluations required.
 the (approximate) maximum number of integrand evaluations allowed.
 
 \VarIn{character*(*) statefile}
-a filename for storing the internal state.
+a filename for storing the internal state.  To not store the internal 
+state, put \Code{""} (empty string) or \Code{\%VAL(0)} (null pointer).
 
-Cuba can store its entire internal state (\ie all the information to 
+\cuba\ can store its entire internal state (\ie all the information to 
 resume an interrupted integration) in an external file.  The state file 
 is updated after every iteration.  If, on a subsequent invocation, a
-Cuba routine finds a file of the specified name, it loads the internal
+\cuba\ routine finds a file of the specified name, it loads the internal
 state and continues from the point it left off.  Needless to say, using
 an existing state file with a different integrand generally leads to
 wrong results.
@@ -813,8 +829,31 @@ This feature is useful mainly to define `check-points' in long-running
 integrations from which the calculation can be restarted.
 
 Once the integration reaches the prescribed accuracy, the state file
-is removed, unless bit 5 of \Code{flags} explicitly requests that it
-be kept.
+is removed, unless bit 4 of \Code{flags} (see above) explicitly requests 
+that it be kept.
+
+\VarIn{integer*8 spin}
+the `spinning cores' pointer, which has three options:
+\begin{itemize}
+\item A value of \Code{-1} or \Code{\%VAL(0)} (null pointer) means that 
+the integrator completely takes care of starting and terminating child 
+processes for the integration (if available/enabled), \ie after the 
+integrator returns there are no child processes running any longer.  
+Note that a `naive' \Code{-1} (which is an \Code{integer}, not an 
+\Code{integer*8}) is explicitly allowed.
+
+\item A zero-initialized variable \Code{spin} instructs the integrator 
+to start child processes for the integration but keep them running and 
+store the `spinning cores' pointer in \Code{spin} on exit.  Take care 
+that in this case you have to explicitly terminate the child processes 
+using \Code{cubawait} later on (see Sect.~\ref{sect:spinning}).
+
+\item A non-zero variable \Code{spin} means that the cores are already 
+running as the result of some prior integration or an explicit 
+\Code{cubafork} call (see Sect.~\ref{sect:spinning}).
+\end{itemize}
+The actual type of \Code{spin} is irrelevant, the variable must merely
+be wide enough to store a C \Code{void *}.
 
 \VarOut{integer nregions}
 the actual number of subregions needed (not present in Vegas).
@@ -895,13 +934,13 @@ memory, in which case the negative of the grid number should be set.
 Vegas actually passes the integrand two more arguments, \ie the 
 integrand subroutine is really declared as
 \begin{verbatim}
-  integer function integrand(ndim, x, ncomp, f, userdata, nvec,
+  integer function integrand(ndim, x, ncomp, f, userdata, nvec, core,
     weight, iter)
-  integer ndim, ncomp, nvec, iter
+  integer ndim, ncomp, nvec, core, iter
   double precision x(ndim,nvec), f(ncomp,nvec), weight(nvec)
 \end{verbatim}
 where \Code{weight} contains the weight of the point being sampled and
-\Code{iter} the current iteration number.  These extra arguments can
+\Code{iter} the current iteration number.  These extra arguments may
 safely be ignored, however.
 
 
@@ -1045,7 +1084,7 @@ is up for subdivision and is supposed to point out possible peaks lying
 in the region, thus acting as the dynamic counterpart of the static list 
 of points supplied in \Code{xgiven}.  It is expected to be declared as
 \begin{verbatim}
-  subroutine peakfinder(ndim, b, n, x)
+  subroutine peakfinder(ndim, b, n, x, userdata)
   integer ndim, n
   double precision b(2,ndim)
   double precision x(ldxgiven,n)
@@ -1059,8 +1098,9 @@ must contain the actual number of points in \Code{x}.
 Divonne actually passes the integrand one more argument, \ie the 
 integrand subroutine is really declared as
 \begin{verbatim}
-  subroutine integrand(ndim, x, ncomp, f, userdata, nvec, phase)
-  integer ndim, ncomp, nvec, phase
+  subroutine integrand(ndim, x, ncomp, f, userdata, nvec, core,
+    phase)
+  integer ndim, ncomp, nvec, core, phase
   double precision x(ndim,nvec), f(ncomp,nvec)
 \end{verbatim}
 The last argument, \Code{phase}, indicates the integration phase:
@@ -1123,7 +1163,7 @@ typedef int (*integrand_t)(const int *ndim, const double x[],
   const int *ncomp, double f[], void *userdata);
 
 typedef void (*peakfinder_t)(const int *ndim, const double b[],
-  int *n, double x[]);
+  int *n, double x[], void *userdata);
 \end{verbatim}
 \begin{verbatim}
 void Vegas(const int ndim, const int ncomp,
@@ -1132,7 +1172,7 @@ void Vegas(const int ndim, const int ncomp,
   const int flags, const int seed,
   const int mineval, const int maxeval,
   const int nstart, const int nincrease, const int nbatch,
-  const int gridno, const char *statefile,
+  const int gridno, const char *statefile, void *spin,
   int *neval, int *fail,
   double integral[], double error[], double prob[])
 \end{verbatim}
@@ -1143,7 +1183,7 @@ void Suave(const int ndim, const int ncomp,
   const int flags, const int seed,
   const int mineval, const int maxeval,
   const int nnew, const double flatness,
-  const char *statefile,
+  const char *statefile, void *spin,
   int *nregions, int *neval, int *fail,
   double integral[], double error[], double prob[])
 \end{verbatim}
@@ -1158,7 +1198,7 @@ void Divonne(const int ndim, const int ncomp,
   const double maxchisq, const double mindeviation,
   const int ngiven, const int ldxgiven, double xgiven[],
   const int nextra, peakfinder_t peakfinder,
-  const char *statefile,
+  const char *statefile, void *spin,
   int *nregions, int *neval, int *fail,
   double integral[], double error[], double prob[])
 \end{verbatim}
@@ -1168,7 +1208,7 @@ void Cuhre(const int ndim, const int ncomp,
   const double epsrel, const double epsabs,
   const int flags,
   const int mineval, const int maxeval,
-  const int key, const char *statefile,
+  const int key, const char *statefile, void *spin,
   int *nregions, int *neval, int *fail,
   double integral[], double error[], double prob[])
 \end{verbatim}
@@ -1181,14 +1221,17 @@ pointers to integers rather than integers.  This is required for
 compatibility with Fortran.
 
 The \verb=integrand_t= type glosses over the fact that the extra 
-\Code{nvec} argument is routinely passed to the integrand and 
-neither does it mention the extra arguments passed by \Code{Vegas}, 
+\Code{nvec} argument is routinely passed to the integrand and neither 
+does it mention the extra arguments passed by \Code{Vegas}, 
 \Code{Suave}, and \Code{Divonne} (see Sects.\ \ref{sect:vegasargs} and 
 \ref{sect:divonneargs}).  This is usually just what is needed for 
 `simple' invocations, \ie with the `correct' prototypes the compiler 
 would only generate unnecessary warnings (in C) or errors (in C++).  In 
 the rare cases where the integrand actually has more arguments, an 
-explicit typecast to \verb=integrand_t= must be used in the invocation.
+explicit typecast to \verb=integrand_t= must be used in the invocation. 
+In the presence of an \Code{nvec} argument, the \Code{x} and \Code{f} 
+arguments are actually two-dimensional arrays, \Code{x[*nvec][*ndim]} 
+and \Code{f[*nvec][*ncomp]}.
 
 
 \subsection{Usage in Mathematica}
@@ -1218,10 +1261,11 @@ chosen different from the unit hypercube.  Innermore boundaries may
 depend on outermore integration variables, \eg
 \verb=Cuhre[1, {x,0,1}, {y,0,x}]= gives the area of the unit triangle.
 
-The sampling function uses \Code{MapSample} to map the integrand
-over the data points.  This is by default set to \Code{Map}, but
-can be changed (after \Code{Install}) \eg to \Code{ParallelMap}
-to take advantage of parallelization.
+The sampling function uses \Code{MapSample} to map the integrand over 
+the data points.  This is by default set to \Code{Map}, but can be 
+changed (after \Code{Install}) \eg to \Code{ParallelMap} to take 
+advantage of parallelization (see Sect.~\ref{sect:parallel} for more 
+details).
 
 The functions return a list which contains the results for each
 component of the integrand in a sublist \{integral estimate, estimated 
@@ -1276,7 +1320,7 @@ final result.
 whether pseudo-random numbers are used for sampling instead of Sobol
 quasi-random numbers.  Values \Code{True} and \Code{0} select the
 Mersenne Twister algorithm, any other integer $n$ chooses Ranlux with
-luxury level $n$ (see Sect.\ \ref{sect:commonargs}).
+luxury level $n$ (see Sect.~\ref{sect:commonargs}).
 
 \Option{PseudoRandomSeed}{Automatic}
 the seed for the pseudo-random-number generator.
@@ -1558,13 +1602,13 @@ prefix.  Their specific invocations are, in Fortran,
 \begin{alltt}
         subroutine llvegas(ndim, ncomp, integrand, userdata, \ul{nvec},
      &    epsrel, epsabs, flags, seed, \ul{mineval}, \ul{maxeval},
-     &    \ul{nstart}, \ul{nincrease}, \ul{nbatch}, gridno, statefile,
+     &    \ul{nstart}, \ul{nincrease}, \ul{nbatch}, gridno, statefile, spin,
      &    \ul{neval}, fail, integral, error, prob)
 \end{alltt}
 \begin{alltt}
         subroutine llsuave(ndim, ncomp, integrand, userdata, \ul{nvec},
      &    epsrel, epsabs, flags, seed, \ul{mineval}, \ul{maxeval},
-     &    \ul{nnew}, flatness,
+     &    \ul{nnew}, flatness, statefile, spin,
      &    nregions, \ul{neval}, fail, integral, error, prob)
 \end{alltt}
 \begin{alltt}
@@ -1573,12 +1617,13 @@ prefix.  Their specific invocations are, in Fortran,
      &    key1, key2, key3, maxpass,
      &    border, maxchisq, mindeviation,
      &    \ul{ngiven}, ldxgiven, xgiven, \ul{nextra}, peakfinder,
+     &    statefile, spin,
      &    nregions, \ul{neval}, fail, integral, error, prob)
 \end{alltt}
 \begin{alltt}
         subroutine llcuhre(ndim, ncomp, integrand, userdata, \ul{nvec},
      &    epsrel, epsabs, flags, seed, \ul{mineval}, \ul{maxeval},
-     &    key,
+     &    key, statefile, spin,
      &    nregions, \ul{neval}, fail, integral, error, prob)
 \end{alltt}
 The correspondences for C/C++ are obvious and are given explicitly in
@@ -1586,42 +1631,274 @@ the include file \Code{cuba.h}.  The arguments are as for the normal
 versions except that all underlined variables are of type
 \Code{integer*8} in Fortran and \Code{long long int} in C/C++.
 
+%========================================================================
 
-\subsection{Parallelization}
+\section{Parallelization}
+\label{sect:parallel}
 
-Cuba can parallelize the sampling of the integrand.  This is implemented 
-through \Code{fork} and \Code{wait}, with communication of the 
-coordinates and samples through shared memory (if available) or pipes. 
-Though slightly less performant than pthreads, this method does not 
-require reentrant code, which is not straightforward to write in 
-particular in languages like Fortran, where \eg I/O is usually 
-non-reentrant.  After entering a Cuba integration routine, \Code{fork} 
-is executed exactly once for each worker process, so the performance 
-penalty over pthreads is very minor.
+Numerical integration is perfectly suited for parallel execution, which 
+can significantly speed up the computation as it generally incurs only a 
+very small overhead.  The parallelization procedure is rather different 
+in Fortran/C/C++ and in Mathematica.  We shall deal with the latter 
+first because it needs only a short explanation.  The remainder of this 
+chapter is then devoted to the Fortran/C/C++ case.
 
-When using the Cuba library (Fortran and C/C++), the number of cores is 
-determined from the environment variable \Code{CUBACORES}, or if this is 
-unset, the idle cores on the present system are taken (total cores minus 
-load average).  That is, unless the user explicitly sets 
-\Code{CUBACORES}, a program calling a Cuba routine will automatically 
-parallelize on the available cores.  It also means that changing the 
+%------------------------------------------------------------------------
+
+\subsection{Parallelization in Mathematica}
+
+The Mathematica version of \cuba\ performs its sampling through a 
+function \Code{MapSample}.  By default this is identical to \Code{Map}, 
+\ie the serial version, so to parallelize one merely needs to redefine 
+\Code{MapSample = ParallelMap} (after loading \cuba).
+
+If the integrand depends on user-defined symbols or functions, their 
+definitions must be distributed to the workers beforehand using 
+\Code{DistributeDefinitions} and likewise required packages must be 
+loaded with \Code{ParallelNeeds} instead of \Code{Needs}; this is 
+explained in detail in the Mathematica manual.
+
+%------------------------------------------------------------------------
+
+\subsection{Parallelization in Fortran and C/C++}
+
+In Fortran and C/C++ the \cuba\ library can (and usually does) 
+automatically parallelize the sampling of the integrand.  It 
+parallelizes through \Code{fork} and \Code{wait} which, though slightly 
+less performant than pthreads, do not require reentrant code.  
+(Reentrancy may not even be under full control of the programmer, for 
+example Fortran's I/O is usually non-reentrant.)  Worker processes are 
+started and shut down only as few times as possible, however, so the 
+performance penalty is really quite minor even for non-native fork 
+implementations such as Cygwin's.  Parallelization is not available on 
+native Windows for lack of the \Code{fork} function.
+
+The communication of samples to and from the workers happens through IPC 
+shared memory (\Code{shmget} and colleagues), or if that is not 
+available, through a \Code{socketpair} (two-way pipe).  Remarkably, the 
+former's anticipated performance advantage turned out to be hardly 
+perceptible.  Possibly there are cache-coherence issues introduced by 
+several workers writing simultaneously to the same shared-memory area.
+
+%------------------------------------------------------------------------
+
+\subsubsection{Starting and stopping the workers}
+\label{sect:spinning}
+
+The workers are usually started and stopped automatically by \cuba's 
+integration routines, but the user may choose to start them manually or 
+keep them running after one integration and shut them down later, \eg at 
+the end of the program, which can be slightly more efficient.  The 
+latter mode is referred to as `Spinning Cores' and must be employed with 
+certain care, for running workers will not `see' subsequent changes in 
+the main program's data (\eg global variables, common blocks) or code 
+(\eg via \Code{dlsym}) unless special arrangements are made (\eg shared 
+memory).
+
+The spinning cores are controlled through the `\Code{spin}' argument of 
+the \cuba\ integration routines (Sect.~\ref{sect:commonargs}):
+\begin{itemize}
+\item A value of \Code{-1} or \Code{\%VAL(0)} (in Fortran) or 
+\Code{NULL} (in C/C++) tells the integrator to start and shut down the 
+workers autonomously.  This is the usual case.  No workers will still be 
+running after the integrator returns.  No special precautions need to be 
+taken to communicate \eg global data to the workers.  Note that it is 
+expressly allowed to pass a `naive' \Code{-1} (which is an 
+\Code{integer}, not an \Code{integer*8}) in Fortran.
+
+\item Passing a zero-initialized variable for \Code{spin} instructs the 
+integrator to start the workers but keep them running on return and 
+store the `spinning cores' pointer in \Code{spin} for future use.  The 
+spinning cores must later be terminated explicitly by \Code{cubawait}, 
+thus invocation would schematically look like this:
+
+\hfill\begin{minipage}{.4\hsize}
+\begin{verbatim}
+integer*8 spin
+spin = 0
+call vegas(..., spin, ...)
+...
+call cubawait(spin)
+\end{verbatim}
+\end{minipage}\hfill\begin{minipage}{.4\hsize}
+\begin{verbatim}
+void *spin = NULL;
+
+Vegas(..., &spin, ...);
+...
+cubawait(&spin);
+\end{verbatim}
+\end{minipage}\hfill
+
+\item A non-zero \Code{spin} variable is assumed to contain a valid 
+`spinning cores' pointer either from a former integration or an explicit 
+invocation of \Code{cubafork}, as in:
+
+\hfill\begin{minipage}{.4\hsize}
+\begin{verbatim}
+integer*8 spin
+call cubafork(spin)
+call vegas(..., spin, ...)
+...
+call cubawait(spin)
+\end{verbatim}
+\end{minipage}\hfill\begin{minipage}{.4\hsize}
+\begin{verbatim}
+void *spin;
+cubafork(&spin);
+Vegas(..., &spin, ...);
+...
+cubawait(&spin);
+\end{verbatim}
+\end{minipage}\hfill
+\end{itemize}
+
+%------------------------------------------------------------------------
+
+\subsubsection{Accelerators and Cores}
+\label{sect:cores}
+
+Based on the strategy used to distribute samples, \cuba\ distinguishes 
+two kinds of workers.
+
+Workers of the first kind are referred to as `Accelerators' even though 
+\cuba\ does not actually send anything to a GPU or Accelerator in the 
+system by itself -- this can only be done by the integrand routine.  The 
+assumption behind this strategy is that the integrand evaluation is 
+running on a device so highly parallel that the sampling time is more or 
+less independent of the number of points, up to the number of threads 
+$p\accel$ available in hardware.  \cuba\ tries to send exactly $p\accel$ 
+points to each core -- never more, less only for the last batch.  To 
+sample \eg 2400 points on three accelerators with $p\accel = 1000$, 
+\cuba\ sends batches of 1000/1000/400 and not, for example, 800/800/800 
+or 1200/1200.  The number of accelerators $n\accel$ and their value of 
+$p\accel$ can be set through the environment variables
+\begin{tabbing}
+\verb|   CUBAACCEL=|$n\accel$ \hspace{10em}\= (default: 0) \\
+\verb|   CUBAACCELMAX=|$p\accel$    \> (default: 1000)
+\end{tabbing}
+or, superseding the environment, an explicit
+\begin{alltt}
+   call cubaaccel(\(n\accel\), \(p\accel\))
+\end{alltt}
+
+CPU-bound workers are just called `Cores'.  Their distribution strategy 
+is different in that all available cores are used and points are 
+distributed evenly.  In the example above, the batches would be 
+800/800/800 thus.  Each core receives at least 10 points, or else fewer 
+cores are used.  If no more than 10 points are requested in total, 
+\cuba\ uses no workers at all but lets the master sample those few 
+points.  This happens during the partitioning phase of Divonne, for 
+instance, where only single points are evaluated in the minimum/maximum 
+search. Conversely, if the division of points by cores does not come out 
+even, the remaining few points ($< n\cores$) are simply added to the 
+existing batches, to avoid an extra batch because of rounding.  Sampling 
+2001 points on two cores with $p\cores = 1000$ will hence give two 
+batches 1001/1000 and not three batches 1000/1000/1.
+
+Although there is typically no hardware limit, a maximum number of 
+points per core, $p\cores$, can be prescribed for Cores, too.  Unless 
+the integrand is known to evaluate equally fast at all points, a 
+moderate number for $p\cores$ (10000, say) may actually increase 
+performance because it effectively load-levels the sampling.  For, a 
+batch always goes to the next free core so it doesn't matter much 
+if one core is tied up with a batch that takes longer.
+
+The number of cores $n\cores$ and the value of $p\cores$ can be set 
+analogously through the environment variables
+\begin{tabbing}
+\verb|   CUBACORES=|$n\cores$ \hspace{10em}\= (default: no.\ of idle cores) \\
+\verb|   CUBACORESMAX=|$p\cores$ \> (default: 10000)
+\end{tabbing}
+If \Code{CUBACORES} is unset, the idle cores on the present system are 
+taken (total cores minus load average), which means that a program 
+calling a \cuba\ routine will by default automatically parallelize on 
+the available cores.  Again, the environment can be overruled with an 
+explicit
+\begin{alltt}
+   call cubacores(\(n\cores\), \(p\cores\))   
+\end{alltt}
+Using the environment has the advantage, though, that changing the 
 number of cores to use does not require a re-compile, which is 
-particularly useful as the program image should be able to run on 
-several computers (with possibly different numbers of cores) 
-simultaneously.
+particularly useful if one wants to run the program on several computers 
+(with potentially different numbers of cores) simultaneously, say in a 
+batch queue.
 
-A master process orchestrates the parallelization but does not count 
-towards the number of cores, \eg \Code{CUBACORES = 4} means four workers 
-and one master.  Very importantly, the samples are generated by the 
-master process only and distributed to the workers, such that random 
-numbers are never used more than once.
+The integrand function may use the `\Code{core}' argument 
+(Sect.~\ref{sect:commonargs}) to distinguish Accelerators ($\Code{core} 
+< 0$) and Cores ($\Code{core}\geqslant 0$).  The special value 
+$\Code{core} = 32768$ ($2^{15}$) indicates that the master itself is 
+doing the sampling.
 
-While \Code{fork}/\Code{wait} takes care of most concurrency issues, a 
-few precautions must nevertheless be taken.  For example, if the 
-integrand function writes to a file (debug output, say), there is no 
-telling in which order the lines will end up in the file, or even if 
-they will end up as complete lines at all.  A possible workaround is to 
-have every worker process write the output to its own file, with a 
+%------------------------------------------------------------------------
+
+\subsubsection{Worker initialization}
+
+User subroutines for (de)initialization may be registered with
+\begin{alltt}
+   call cubainit(initfun, initarg)           \textrm{Fortran}
+   call cubaexit(exitfun, exitarg)
+\end{alltt}
+\begin{alltt}
+   cubainit(initfun, initarg);               \textrm{C/C++}
+   cubaexit(exitfun, exitarg);
+\end{alltt}
+and will be executed in every process before and after sampling.
+Passing a null pointer (\Code{\%VAL(0)} in Fortran, \Code{NULL} in
+C/C++) as the first argument unregisters either subroutine.
+
+The init/exit functions are actually called as
+\begin{alltt}
+   call initfun(initarg, core)               \textrm{Fortran}
+   call exitfun(exitarg, core)
+\end{alltt}
+\begin{alltt}
+   initfun(initarg, &core);                  \textrm{C/C++}
+   exitfun(exitarg, &core);
+\end{alltt}
+where \Code{initarg} and \Code{exitarg} are the user arguments given 
+with the registration (arbitrary in Fortran, \Code{void *} in C/C++) 
+and \Code{core} indicates the core the function is being executed on, 
+with (as before) $\Code{core} < 0$ for Accelerators, 
+$\Code{core}\geqslant 0$ for Cores, and $\Code{core} = 32768$ for the 
+master.
+
+On worker processes, the functions are respectively executed after 
+\Code{fork} and before \Code{wait}, independently of whether the worker 
+actually receives any samples.  The master executes them only when 
+actual sampling is done.
+For Accelerators, the init and exit functions are typically used to set 
+up the device for the integrand evaluations, which for many devices must 
+be done per process, \ie after the \Code{fork}.
+
+%------------------------------------------------------------------------
+
+\subsubsection{Concurrency issues}
+
+By creating a new process image, \Code{fork} circumvents all memory 
+concurrency, to wit: each worker modifies only its own copy of the 
+parent's memory and never overwrites any other's data.  The programmer 
+should be aware of a few potential problems nevertheless:
+\begin{itemize}
+\item Communicating back results other than the intended output from the 
+integrand to the main program is not straightforward because, by the 
+same token, a worker cannot overwrite any common data of the master, it 
+will only modify its own copy.
+
+Data exchange between workers is likewise not directly possible.  For 
+example, if one worker stores an intermediate result in a common block, 
+this will not be seen by the other workers.
+
+Possible solutions include using shared memory (\Code{shmget} etc., see 
+App.~\ref{app:shm}) and writing the output to file (but see next item 
+below).
+
+\item \Code{fork} does not guard against competing use of other common 
+resources.  For example, if the integrand function writes to a file 
+(debug output, say), there is no telling in which order the lines will 
+end up in the file, or even if they will end up as complete lines at 
+all.  Buffered output should be avoided at the very least; better still, 
+every worker should write the output to its own file, \eg with a 
 filename that includes the process id, as in:
 \begin{verbatim}
    character*32 filename
@@ -1630,35 +1907,56 @@ filename that includes the process id, as in:
    if( pid .eq. 0 ) then  
      pid = getpid()
      write(filename,'("output.",I5.5)') pid
-     open(unit=20, file=filename)
+     open(unit=4711, file=filename)
    endif
 \end{verbatim}
-Likewise, the integrand may write on shared memory (\Code{shmget} and 
-friends) only in a way that concurrently executed versions do not
-overwrite each other's results.
 
-Cuba can execute a user subroutine at the beginning and end of every 
-worker process.  These subroutines have to be registered with
-\begin{verbatim}
-   call cubasetinit(initfun, initarg)
-   call cubasetexit(exitfun, exitarg)
-\end{verbatim}
-where \Code{initarg}, \Code{exitarg} are user arguments (arbitrary in
-Fortran, \Code{void *} in C/C++) respectively passed to \Code{initfun},
-\Code{exitfun}.  To unregister a subroutine pass a null pointer
-(\Code{\%VAL(0)} in Fortran, \Code{NULL} in C/C++).  Execution of
-the registered functions can also be forced with
-\begin{verbatim}
-   call cubaruninit
-   call cubarunexit
-\end{verbatim}
-
-In Mathematica one has to substitute \Code{MapSample} by \eg 
-\Code{ParallelMap} and possibly use \Code{LaunchKernels} and 
-\Code{DistributeDefinitions} to make the integrand known on the worker 
-Kernels.
+\item Fortran users are advised to flush (or close) any open files 
+before calling \cuba, \ie \Code{call flush(\Var{unit})}.  The reason is 
+that the child processes inherit all file buffers, and \emph{each} of 
+them will write out the buffer content at exit.  \cuba\ preemptively 
+flushes the system buffers already (\Code{fflush(NULL)}) but has no 
+control over Fortran's buffers.
+\end{itemize}
+For debugging, or if a malfunction due to concurrency issues is 
+suspected, a program should be tested in serial mode first, \eg by 
+setting $\Code{CUBACORES} = 0$ (Sect.~\ref{sect:cores}).
 
 %------------------------------------------------------------------------
+
+\subsubsection{Vectorization}
+
+Vectorization means evaluating the integrand function for several points 
+at once.  This is also known as Single Instruction Multiple Data (SIMD) 
+paradigm and is different from ordinary parallelization where 
+independent threads are executed concurrently.  It is usually possible 
+to employ vectorization on top of parallelization.
+
+Vector instructions are commonly available in hardware, \eg on x86 
+platforms under acronyms such as SSE or AVX.  Language support varies: 
+Fortran 90's syntax naturally embeds vector operations.  Many C/C++ 
+compilers offer auto-vectorization options, some have extensions for 
+vector data types (usually for a limited set of mathematical functions), 
+and even hardware-specific access to the CPU's vector instructions.  And 
+then there are vectorized libraries of numerical functions available.
+
+\cuba\ cannot automatically vectorize the integrand function, of course, 
+but it does pass (up to) \Code{nvec} points per integrand call 
+(Sect.~\ref{sect:commonargs}).  This value need not correspond to the 
+hardware vector length -- computing several points in one call can also 
+make sense \eg if the computations have significant intermediate results 
+in common.  The actual number of points passed is indicated through the 
+corresponding \Code{nvec} argument of the integrand.
+
+\medskip
+
+A note for disambiguation: The \Code{nbatch} argument of Vegas is 
+related in purpose but not identical to \Code{nvec}.  It internally 
+partitions the sampling done by Vegas but has no bearing on the number 
+of points given to the integrand.  On the other hand, it it pointless to 
+choose $\Code{nvec} > \Code{nbatch}$ for Vegas.
+
+%========================================================================
 
 \section{Tests and Comparisons}
 \label{sect:tests}
@@ -1871,8 +2169,7 @@ to stop at around the limit of \Code{MaxPoints -> $\nmax$}, but always
 samples considerably more points.}
 \end{table}
 
-
-%------------------------------------------------------------------------
+%========================================================================
 
 \section{Summary}
 
@@ -1941,6 +2238,7 @@ it would of course be folly to believe they are completely error-free.
 The author welcomes any kind of feedback, in particular bug and 
 performance reports, at hahn@feynarts.de.
 
+%========================================================================
 
 \section*{Acknowledgements}
 
@@ -1949,6 +2247,66 @@ concept of the Mathematica interface was born and T.~Fritzsche,
 M.~Rauch, and A.M.~de~la~Ossa for testing.  B.~Chokoufe implemented
 check-pointing (state file) for Suave, Divonne, and Cuhre.
 
+%========================================================================
+
+\begin{appendix}
+
+\section{Shared Memory in Fortran}
+\label{app:shm}
+
+IPC shared memory is not natively available in Fortran, but it is not 
+difficult to make it available using two small C functions 
+\Code{shmalloc} and \Code{shmfree}:
+\begin{verbatim}
+#include <sys/shm.h>
+#include <assert.h>
+
+typedef long long int memindex;
+typedef struct { void *addr; int id; } shminfo;
+
+void shmalloc_(shminfo *base, memindex *i, const int *n, const int *size) {
+  base->id = shmget(IPC_PRIVATE, *size*(*n + 1) - 1, IPC_CREAT | 0600);
+  assert(base->id != -1);
+  base->addr = shmat(base->id, NULL, 0);
+  assert(base->addr != (void *)-1);
+  *i = ((char *)(base->addr + *size - 1) - (char *)base)/(long)*size;
+}
+
+void shmfree_(shminfo *base) {
+  shmdt(base->addr);
+  shmctl(base->id, IPC_RMID, NULL);
+}
+\end{verbatim}
+The function \Code{shmalloc} allocates (suitably aligned) \Code{n} 
+elements of size \Code{size} and returns a mock index into \Code{base}, 
+through which the memory is addressed in Fortran.  The array \Code{base} 
+must be of the desired type and large enough to store the struct 
+\Code{shminfo}, \eg two doubles wide.  Be careful to invoke 
+\Code{shmfree} after use, for the memory will not automatically be freed 
+upon exit but stay allocated until the next reboot (or explicit removal 
+with \Code{ipcs}).
+
+The following test program demonstrates how to use \Code{shmalloc} and 
+\Code{shmfree}:
+\begin{verbatim}
+     program test
+     implicit none
+     integer*8 i
+     double precision base(2)
+
+     call shmalloc(base, i, 100, 8)     ! allocate 100 doubles
+
+     base(i) = 1                        ! now use the memory
+     ...
+     base(i+99) = 100
+
+     call shmfree(base)                 ! don't forget to free it
+     end
+\end{verbatim}
+
+\end{appendix}
+
+%========================================================================
 
 \begin{thebibliography}{99}
 
@@ -2024,7 +2382,6 @@ P.~Keast, G.~Fairweather (eds.), Numerical Integration, Kluwer,
 Dordrecht, 1986.
 
 \end{thebibliography}
-
 
 \end{document}
 

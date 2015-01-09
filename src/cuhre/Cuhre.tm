@@ -107,7 +107,7 @@
 :Evaluate: sample[x_] :=
 	Check[Flatten @ MapSample[intT@@ # &, Partition[x, ndim]], {}]
 
-:Evaluate: MapSample = Map
+:Evaluate: ValueQ[MapSample] || (MapSample = Map)
 
 :Evaluate: region[bounds_, r___] := Region[##, r]&@@
 	MapThread[TtoX, Partition[bounds, 2]]
@@ -132,7 +132,7 @@
 	Cuhre.tm
 		Adaptive integration using cubature rules
 		by Thomas Hahn
-		last modified 20 Jan 14 th
+		last modified 27 Aug 14 th
 */
 
 

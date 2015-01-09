@@ -5,7 +5,7 @@
 		then do a main integration over all regions
 		this file is part of Divonne
 		checkpointing by B. Chokoufe
-		last modified 18 Apr 14 th
+		last modified 24 May 14 th
 */
 
 
@@ -75,7 +75,6 @@ static int Integrate(This *t, real *integral, real *error, real *prob)
   t->epsabs = Max(t->epsabs, NOTZERO);
   t->totals = state->totals;
 
-  InitWorker(t);
   ForkCores(t);
 
   if( (fail = setjmp(t->abort)) ) goto abort;
@@ -135,7 +134,7 @@ static int Integrate(This *t, real *integral, real *error, real *prob)
   /* Step 1: partition the integration region */
 
   if( t->phase == 1 ) {
-    if( VERBOSE ) Print("Partitioning phase:");
+    if( VERBOSE ) Print("\nPartitioning phase:");
 
     if( ini ) Iterate(t, 0, INIDEPTH, 0, NULL);
 
@@ -485,8 +484,7 @@ refine:
 #endif
 
 abort:
-  WaitCores(t);
-  FORK_ONLY(FrameFree(t, ShmRm(t));)
+  FORK_ONLY(FrameFree(t, Master);)
 
   RuleFree(t);
   SamplesFree(&t->samples[2]);
@@ -496,7 +494,6 @@ abort:
   free(t->xgiven);
 
   StateRemove(t);
-  ExitWorker(t);
 
   return fail;
 }

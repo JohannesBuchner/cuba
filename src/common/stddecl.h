@@ -1,7 +1,7 @@
 /*
 	stddecl.h
 		declarations common to all Cuba routines
-		last modified 11 Apr 14 th
+		last modified 22 Jul 14 th
 */
 
 
@@ -83,6 +83,26 @@ void *alloca (size_t);
 
 #define SAMPLESIZE (NW + t->ndim + t->ncomp)*sizeof(real)
 
+
+enum { uninitialized = 0x61627563 };
+
+#define EnvInit(var, name, default) \
+  if( var == uninitialized ) { \
+    cchar *env = getenv(name); \
+    if( env == NULL ) var = default; \
+    else { \
+      var = atoi(env); \
+      if( cubaverb_ ) { \
+        char out[64]; \
+        sprintf(out, "env " name " = %d", (int)var); \
+        Print(out); \
+      } \
+    } \
+  }
+
+#define VerboseInit() EnvInit(cubaverb_, "CUBAVERBOSE", 0)
+#define MaxVerbose(flags) (flags + IDim(IMin(cubaverb_, 3) - ((flags) & 3)))
+
 #define VERBOSE (t->flags & 3)
 #define LAST (t->flags & 4)
 #define SHARPEDGES (t->flags & 8)
@@ -158,13 +178,20 @@ void *alloca (size_t);
 #ifdef MLVERSION
 #define ML_ONLY(...) __VA_ARGS__
 #define ML_NOT(...)
-#define InitWorker(t)
-#define ExitWorker(t)
 #else
 #define ML_ONLY(...)
 #define ML_NOT(...) __VA_ARGS__
-#define InitWorker(t) t->initfun = cubaini.initfun, t->exitfun = NULL
-#define ExitWorker(t) if( t->exitfun ) t->exitfun(cubaini.exitarg)
+
+#define CORE_MASTER (int []){32768}
+#define MasterInit() do if( !cubafun_.init ) { \
+  cubafun_.init = true; \
+  if( cubafun_.initfun ) cubafun_.initfun(cubafun_.initarg, CORE_MASTER); \
+} while( 0 )
+#define MasterExit() do if( cubafun_.init ) { \
+  cubafun_.init = false; \
+  if( cubafun_.exitfun ) cubafun_.exitfun(cubafun_.exitarg, CORE_MASTER); \
+} while( 0 )
+#define Invalid(s) ((s) == NULL || *(int *)(s) == -1)
 
 #ifdef HAVE_FORK
 #undef FORK_ONLY
@@ -174,37 +201,40 @@ void *alloca (size_t);
 #undef SHM_ONLY
 #define SHM_ONLY(...) __VA_ARGS__
 
-#define ShmMap(t, ...) if( t->shmid != -1 ) { \
-  t->frame = shmat(t->shmid, NULL, 0); \
-  if( t->frame == (void *)-1 ) Abort("shmat"); \
-  __VA_ARGS__ \
-}
-
-#define ShmRm(t) shmctl(t->shmid, IPC_RMID, NULL);
+#define MasterAlloc(t) \
+  t->shmid = shmget(IPC_PRIVATE, t->nframe*SAMPLESIZE, IPC_CREAT | 0600)
+#define MasterFree(t) shmctl(t->shmid, IPC_RMID, NULL)
+#define WorkerAlloc(t)
+#define WorkerFree(r)
 
 #undef ShmAlloc
-#define ShmAlloc(t, ...) \
-  t->shmid = shmget(IPC_PRIVATE, t->nframe*SAMPLESIZE, IPC_CREAT | 0600); \
-  ShmMap(t, __VA_ARGS__)
+#define ShmAlloc(t, who) \
+  who##Alloc(t); \
+  if( t->shmid != -1 ) { \
+    t->frame = shmat(t->shmid, NULL, 0); \
+    if( t->frame == (void *)-1 ) Abort("shmat"); \
+  }
 
 #undef ShmFree
-#define ShmFree(t, ...) if( t->shmid != -1 ) { \
-  shmdt(t->frame); \
-  __VA_ARGS__ \
-}
+#define ShmFree(t, who) \
+  if( t->shmid != -1 ) { \
+    shmdt(t->frame); \
+    who##Free(t); \
+  }
 
 #endif
 #endif
 #endif
   
-#define FrameAlloc(t, ...) \
-  SHM_ONLY(ShmAlloc(t, __VA_ARGS__) else) \
+#define FrameAlloc(t, who) \
+  SHM_ONLY(ShmAlloc(t, who) else) \
   MemAlloc(t->frame, t->nframe*SAMPLESIZE);
 
-#define FrameFree(t, ...) DIV_ONLY(if( t->nframe )) { \
-  SHM_ONLY(ShmFree(t, __VA_ARGS__) else) \
-  free(t->frame); \
-}
+#define FrameFree(t, who) \
+  DIV_ONLY(if( t->nframe )) { \
+    SHM_ONLY(ShmFree(t, who) else) \
+    free(t->frame); \
+  }
 
 
 #define StateDecl \
@@ -225,7 +255,9 @@ struct stat st
 
 typedef long long int signature_t;
 
-#define StateSignature(t, i) (0x41425543 + \
+enum { signature = 0x41425543 };
+
+#define StateSignature(t, i) (signature + \
   ((signature_t)(i) << 60) + \
   ((signature_t)(t)->ncomp << 48) + \
   ((signature_t)(t)->ndim << 32))
@@ -335,17 +367,35 @@ typedef /*long*/ double real;
 
 typedef const real creal;
 
-typedef void (*subroutine)();
+typedef void (*subroutine)(void *, cint *);
 
 typedef struct {
   subroutine initfun;
   void *initarg;
   subroutine exitfun;
   void *exitarg;
-} workerini;
+  bool init;
+} coreinit;
+
+typedef struct {
+  int ncores, naccel;
+  int pcores, paccel;
+} corespec;
+
+typedef struct {
+  corespec spec;
+  int fd[];
+} Spin;
 
 
 struct _this;
+
+typedef struct {
+  void (*worker)(struct _this *, csize_t, cint, cint);
+  struct _this *thisptr;
+  size_t thissize;
+} dispatch;
+
 
 typedef unsigned int state_t;
 

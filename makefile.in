@@ -23,7 +23,8 @@ MATH_DEFAULT = @MATH_DEFAULT@
 TOOLS_DEFAULT = @TOOLS_DEFAULT@
 DEMO_FORTRAN_DEFAULT = @DEMO_FORTRAN_DEFAULT@$(EXE)
 
-MCC = CC="$(tools)/fcc" CXX="$(tools)/fcc" REALCC="$(CC)" PATH="$(PATH):$(tools)" mcc
+MCC = CC="$(tools)/fcc" CXX="$(tools)/fcc @MCSTDCPP@" \
+  REALCC="$(CC)" PATH="$(PATH):$(tools)" mcc
 
 TARDIR = @PACKAGE_NAME@-@PACKAGE_VERSION@
 TARFILE = $(TARDIR).tar.gz
@@ -80,7 +81,7 @@ tools = $(srcdir)/tools
 
 
 COMMON_DEPS = $(common)/stddecl.h $(common)/ChiSquare.c $(common)/Erf.c
-COMMON_CDEPS = $(COMMON_DEPS) $(common)/CSample.c $(common)/Fork.c
+COMMON_CDEPS = $(COMMON_DEPS) $(common)/CSample.c $(common)/Parallel.c $(common)/sock.h
 COMMON_TMDEPS = $(COMMON_DEPS) $(common)/MSample.c
 
 VEGAS_C = $(vegas)/Vegas.c
@@ -214,15 +215,32 @@ Cuhre$(EXE): config.h $(CUHRE_TM) $(CUHRE_DEPS) $(COMMON_TMDEPS)
 	strip Cuhre$(EXE)
 
 
-$(LIB)(WorkerIni.o): $(common)/WorkerIni.c
-	$(CC) $(CFLAGS) -DNOUNDERSCORE -c -o WorkerIni.o $(common)/WorkerIni.c
-	$(AR) $(ARFLAGS) $(LIB) WorkerIni.o
-	$(RM) WorkerIni.o
+$(LIB)(Fork.o): $(common)/Fork.c $(common)/stddecl.h $(common)/sock.h
+	$(CC) $(CFLAGS) -DNOUNDERSCORE -c -o Fork.o $(common)/Fork.c
+	$(AR) $(ARFLAGS) $(LIB) Fork.o
+	$(RM) Fork.o
 
-$(LIB)(WorkerIni_.o): $(common)/WorkerIni.c
-	$(CC) $(CFLAGS) -c -o WorkerIni_.o $(common)/WorkerIni.c
-	$(AR) $(ARFLAGS) $(LIB) WorkerIni_.o
-	$(RM) WorkerIni_.o
+$(LIB)(Fork_.o): $(common)/Fork.c $(common)/stddecl.h $(common)/sock.h
+	$(CC) $(CFLAGS) -c -o Fork_.o $(common)/Fork.c
+	$(AR) $(ARFLAGS) $(LIB) Fork_.o
+	$(RM) Fork_.o
+
+
+$(LIB)(Global.o): $(common)/Global.c
+	$(CC) $(CFLAGS) -DNOUNDERSCORE -c -o Global.o $(common)/Global.c
+	$(AR) $(ARFLAGS) $(LIB) Global.o
+	$(RM) Global.o
+
+$(LIB)(Global_.o): $(common)/Global.c
+	$(CC) $(CFLAGS) -c -o Global_.o $(common)/Global.c
+	$(AR) $(ARFLAGS) $(LIB) Global_.o
+	$(RM) Global_.o
+
+
+$(LIB)(Data.o): $(common)/Data.c
+	$(CC) $(CFLAGS) -c -o Data.o $(common)/Data.c
+	$(AR) $(ARFLAGS) $(LIB) Data.o
+	$(RM) Data.o
 
 
 $(LIB): $(LIB)(Vegas.o)     $(LIB)(Vegas_.o)     \
@@ -233,7 +251,9 @@ $(LIB): $(LIB)(Vegas.o)     $(LIB)(Vegas_.o)     \
 	$(LIB)(llDivonne.o) $(LIB)(llDivonne_.o) \
 	$(LIB)(Cuhre.o)     $(LIB)(Cuhre_.o)     \
 	$(LIB)(llCuhre.o)   $(LIB)(llCuhre_.o)   \
-	$(LIB)(WorkerIni.o) $(LIB)(WorkerIni_.o)
+	$(LIB)(Fork.o)      $(LIB)(Fork_.o)      \
+	$(LIB)(Global.o)    $(LIB)(Global_.o)    \
+	$(LIB)(Data.o)
 	-$(RANLIB) $(LIB)
 
 
@@ -264,7 +284,8 @@ TARCONTENTS = $(srcdir)/COPYING $(srcdir)/ChangeLog \
   $(srcdir)/config.sub $(srcdir)/config.guess $(srcdir)/install-sh \
   $(srcdir)/makefile.in $(srcdir)/config.h.in \
   $(srcdir)/cuba.pdf $(srcdir)/cuba.tex $(srcdir)/cuba.h \
-  $(COMMON_CDEPS) $(COMMON_TMDEPS) $(common)/WorkerIni.c \
+  $(COMMON_CDEPS) $(COMMON_TMDEPS) \
+  $(common)/Global.c $(common)/Fork.c $(common)/Data.c \
   $(VEGAS) $(SUAVE) $(DIVONNE) $(CUHRE) \
   $(DEMO) $(PARTVIEW) $(tools)/partview.m \
   $(tools)/mcc $(tools)/fcc $(tools)/mkstatic

@@ -140,7 +140,7 @@
 	  ($Weight = #[[1]]; intT@@ #[[2]])&,
 	  Transpose[{w, Partition[x, ndim]}] ], {}] )
 
-:Evaluate: MapSample = Map
+:Evaluate: ValueQ[MapSample] || (MapSample = Map)
 
 :Evaluate: region[bounds_, r___] := Region[##, r]&@@
 	MapThread[TtoX, Partition[bounds, 2]]
@@ -165,7 +165,7 @@
 	Suave.tm
 		Subregion-adaptive Vegas Monte Carlo integration
 		by Thomas Hahn
-		last modified 20 Jan 14 th
+		last modified 27 Aug 14 th
 */
 
 

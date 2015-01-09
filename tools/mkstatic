@@ -6,14 +6,15 @@ mlmach=
 case `uname -s` in
 Linux)	tag=Linux
 	st=-static
-	mach=-m32
-	mlmach=-b32
+	#mach=-m32
+	#mlmach=-b32
 	;;
 Darwin)	tag=Mac
 	st=-static-libgcc
+	mach=-mmacosx-version-min=10.6
 	;;
 CYG*)	tag=Windows
-	export CC=i686-pc-mingw32-gcc
+	export CC=i686-pc-cygwin-gcc
 	st="-static -static-libgcc"
 	exe=.exe
 	;;

@@ -4,13 +4,9 @@
 		code lifted with minor modifications from DCUHRE
 		by J. Berntsen, T. Espelid, and A. Genz
 		this file is part of Divonne
-		last modified 26 Jul 13 th
+		last modified 27 May 14 th
 */
 
-
-#define NextSet(p) p = (Set *)((char *)p + setsize)
-
-/*********************************************************************/
 
 static void Rule13Alloc(This *t)
 {

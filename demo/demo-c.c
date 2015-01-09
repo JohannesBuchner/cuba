@@ -64,6 +64,7 @@ static int Integrand(const int *ndim, const double xx[],
 #define NVEC 1
 #define EPSREL 1e-3
 #define EPSABS 1e-12
+#define VERBOSE 2
 #define LAST 4
 #define SEED 0
 #define MINEVAL 0
@@ -74,6 +75,7 @@ static int Integrand(const int *ndim, const double xx[],
 #define NBATCH 1000
 #define GRIDNO 0
 #define STATEFILE NULL
+#define SPIN NULL
 
 #define NNEW 1000
 #define FLATNESS 25.
@@ -92,20 +94,16 @@ static int Integrand(const int *ndim, const double xx[],
 #define KEY 0
 
 int main() {
-  int verbose, comp, nregions, neval, fail;
+  int comp, nregions, neval, fail;
   double integral[NCOMP], error[NCOMP], prob[NCOMP];
-
-  const char *env = getenv("CUBAVERBOSE");
-  verbose = 2;
-  if( env ) verbose = atoi(env);
 
 #if 1
   printf("-------------------- Vegas test --------------------\n");
 
   Vegas(NDIM, NCOMP, Integrand, USERDATA, NVEC,
-    EPSREL, EPSABS, verbose, SEED,
+    EPSREL, EPSABS, VERBOSE, SEED,
     MINEVAL, MAXEVAL, NSTART, NINCREASE, NBATCH,
-    GRIDNO, STATEFILE,
+    GRIDNO, STATEFILE, SPIN,
     &neval, &fail, integral, error, prob);
 
   printf("VEGAS RESULT:\tneval %d\tfail %d\n",
@@ -119,9 +117,9 @@ int main() {
   printf("\n-------------------- Suave test --------------------\n");
 
   Suave(NDIM, NCOMP, Integrand, USERDATA, NVEC,
-    EPSREL, EPSABS, verbose | LAST, SEED,
+    EPSREL, EPSABS, VERBOSE | LAST, SEED,
     MINEVAL, MAXEVAL, NNEW, FLATNESS,
-    STATEFILE,
+    STATEFILE, SPIN,
     &nregions, &neval, &fail, integral, error, prob);
 
   printf("SUAVE RESULT:\tnregions %d\tneval %d\tfail %d\n",
@@ -135,11 +133,11 @@ int main() {
   printf("\n------------------- Divonne test -------------------\n");
 
   Divonne(NDIM, NCOMP, Integrand, USERDATA, NVEC,
-    EPSREL, EPSABS, verbose, SEED,
+    EPSREL, EPSABS, VERBOSE, SEED,
     MINEVAL, MAXEVAL, KEY1, KEY2, KEY3, MAXPASS,
     BORDER, MAXCHISQ, MINDEVIATION,
     NGIVEN, LDXGIVEN, NULL, NEXTRA, NULL,
-    STATEFILE,
+    STATEFILE, SPIN,
     &nregions, &neval, &fail, integral, error, prob);
 
   printf("DIVONNE RESULT:\tnregions %d\tneval %d\tfail %d\n",
@@ -153,9 +151,9 @@ int main() {
   printf("\n-------------------- Cuhre test --------------------\n");
 
   Cuhre(NDIM, NCOMP, Integrand, USERDATA, NVEC,
-    EPSREL, EPSABS, verbose | LAST,
+    EPSREL, EPSABS, VERBOSE | LAST,
     MINEVAL, MAXEVAL, KEY,
-    STATEFILE,
+    STATEFILE, SPIN,
     &nregions, &neval, &fail, integral, error, prob);
 
   printf("CUHRE RESULT:\tnregions %d\tneval %d\tfail %d\n",

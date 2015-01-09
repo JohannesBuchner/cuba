@@ -211,7 +211,7 @@
 	$Phase = p;
 	Check[Flatten @ MapSample[i@@ # &, Partition[x, ndim]], {}] )
 
-:Evaluate: MapSample = Map
+:Evaluate: ValueQ[MapSample] || (MapSample = Map)
 
 :Evaluate: findpeak[b_, p_] := Check[Join[#, sample[#, p, intX]]& @
 	N[Flatten[peakfinder@@ MapThread[TtoX, Partition[b, 2]]]], {}]
@@ -242,7 +242,7 @@
 		originally by J.H. Friedman and M.H. Wright
 		(CERNLIB subroutine D151)
 		this version by Thomas Hahn
-		last modified 20 Jan 14 th
+		last modified 27 Aug 14 th
 */
 
 

@@ -3,7 +3,7 @@
 		the sampling routine for the
 		Mathematica versions of the Cuba routines
 		by Thomas Hahn
-		last modified 19 Mar 12 th
+		last modified 21 Jul 14 th
 */
 
 
@@ -33,12 +33,12 @@ static void DoSample(This *t, cnumber n, real *x, real *f
   t->neval += mma_n;
 
   if( mma_n != n*t->ncomp ) {
-    MLDisownRealList(stdlink, mma_f, mma_n);
+    MLReleaseRealList(stdlink, mma_f, mma_n);
     longjmp(t->abort, -3);
   }
  
   Copy(f, mma_f, n*t->ncomp);
-  MLDisownRealList(stdlink, mma_f, mma_n);
+  MLReleaseRealList(stdlink, mma_f, mma_n);
 }
 
 /*********************************************************************/
@@ -73,7 +73,7 @@ static count SampleExtra(This *t, cBounds *b)
     Copy(t->fextra, mma_f + nget*t->ndim, n*t->ncomp);
   }
 
-  MLDisownRealList(stdlink, mma_f, mma_n);
+  MLReleaseRealList(stdlink, mma_f, mma_n);
 
   return n;
 }

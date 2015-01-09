@@ -1,3 +1,36 @@
+9 Oct 14:
+
+- Divonne now passes the userdata argument to the peakfinder
+  function, too.
+
+
+27 Aug 14:
+
+- Fixed problem due to which CUBACORESMAX was effectively ignored.
+
+- Fixed issues with MathLink compile for Mathematica 10.
+
+
+15 Aug 14:
+
+- Version 4.0: distinguishes Accelerators (GPUs) and Cores.
+  New distribution strategy (see manual), e.g. can now prescribe
+  maximum number of points per core, necessary for accelerators,
+  allows for load-levelling on cores.
+
+- No. of cores/accelerators and max. points per core/accel
+  can be set with environment variables
+  CUBACORES (as before) and CUBACORESMAX (or API call cubacores),
+  CUBAACCEL and CUBAACCELMAX (or API call cubaaccel).
+  API calls generally supersede the environment.
+
+- Can choose minimum verbosity level via environment variable
+  CUBAVERBOSE = 0..3 (or API call cubaverbose).
+
+- Can start cores/accels explicitly via cubafork/cubawait calls,
+  or have the integrator keep them running at exit.
+
+
 18 Apr 14:
 
 - Fixed uninitialized variable in update of Apr 11 that could lead

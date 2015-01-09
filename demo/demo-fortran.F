@@ -1,6 +1,6 @@
 * demo-fortran.F
 * test program for the Cuba library
-* last modified 9 Dec 13 th
+* last modified 22 Jul 14 th
 
 
 	program CubaTest
@@ -20,12 +20,14 @@
 	parameter (maxeval = 50000)
 
 	integer nstart, nincrease, nbatch, gridno
+	integer*8 spin
 	character*(*) statefile	
 	parameter (nstart = 1000)
 	parameter (nincrease = 500)
 	parameter (nbatch = 1000)
 	parameter (gridno = 0)
 	parameter (statefile = "")
+	parameter (spin = -1)
 
 	integer nnew
 	double precision flatness
@@ -67,7 +69,7 @@
 	call vegas(ndim, ncomp, integrand, userdata, nvec,
      &    epsrel, epsabs, verbose, seed,
      &    mineval, maxeval, nstart, nincrease, nbatch,
-     &    gridno, statefile,
+     &    gridno, statefile, spin,
      &    neval, fail, integral, error, prob)
 
 	print *, "neval    =", neval
@@ -81,7 +83,7 @@
 	call suave(ndim, ncomp, integrand, userdata, nvec,
      &    epsrel, epsabs, verbose + last, seed,
      &    mineval, maxeval, nnew, flatness,
-     &    statefile,
+     &    statefile, spin,
      &    nregions, neval, fail, integral, error, prob)
 
 	print *, "nregions =", nregions
@@ -98,7 +100,7 @@
      &    mineval, maxeval, key1, key2, key3, maxpass,
      &    border, maxchisq, mindeviation,
      &    ngiven, ldxgiven, 0, nextra, 0,
-     &    statefile,
+     &    statefile, spin,
      &    nregions, neval, fail, integral, error, prob)
 
 	print *, "nregions =", nregions
@@ -113,7 +115,7 @@
 	call cuhre(ndim, ncomp, integrand, userdata, nvec,
      &    epsrel, epsabs, verbose + last,
      &    mineval, maxeval, key,
-     &    statefile,
+     &    statefile, spin,
      &    nregions, neval, fail, integral, error, prob)
 
 	print *, "nregions =", nregions

@@ -2,7 +2,7 @@
 	decl.h
 		Type declarations
 		this file is part of Suave
-		last modified 11 Apr 14 th
+		last modified 21 Jul 14 th
 */
 
 
@@ -35,7 +35,7 @@ typedef struct {
 typedef const Bounds cBounds;
 
 typedef int (*Integrand)(ccount *, creal *, ccount *, real *,
-  void *, cnumber *, creal *, cint *);
+  void *, cnumber *, cint *, creal *, cint *);
 
 typedef struct _this {
   count ndim, ncomp;
@@ -43,11 +43,10 @@ typedef struct _this {
   Integrand integrand;
   void *userdata;
   number nvec;
-  subroutine initfun, exitfun;
 #ifdef HAVE_FORK
-  real *frame;
-  int *child, ncores;
   SHM_ONLY(int shmid;)
+  Spin *spin;
+  real *frame;
 #endif
 #endif
   real epsrel, epsabs;
