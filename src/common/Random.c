@@ -1,7 +1,7 @@
 /*
 	Random.c
 		quasi- and pseudo-random-number generation
-		last modified 7 Aug 13 th
+		last modified 18 Mar 14 th
 */
 
 
@@ -88,14 +88,13 @@ static inline void SobolIni(This *t)
     299,   1,   3,   3,   9,   9,  25, 107,  39 };
 
   count dim, bit, nbits;
-  number max, *pini = ini;
-  cnumber nmax = 2*t->maxeval;
+  number *pini = ini, max;
 
-  for( nbits = 0, max = 1; max <= nmax; max <<= 1 ) ++nbits;
-  t->rng.sobol.norm = 1./max;
+  for( nbits = 0, max = t->maxeval; max; max >>= 1 ) ++nbits;
+  t->rng.sobol.norm = ldexp(.5, -nbits);
 
-  for( bit = 0; bit < nbits; ++bit )
-    t->rng.sobol.v[0][bit] = (max >>= 1);
+  for( bit = 0; bit <= nbits; ++bit )
+    t->rng.sobol.v[0][bit] = (number)1 << (nbits - bit);
 
   for( dim = 1; dim < t->ndim; ++dim ) {
     number *pv = t->rng.sobol.v[dim], *pvv = pv;
@@ -103,10 +102,10 @@ static inline void SobolIni(This *t)
     int inibits = -1, bit;
     for( j = powers; j; j >>= 1 ) ++inibits;
 
-    memcpy(pv, pini, inibits*sizeof(*pini));
+    memcpy(pv, pini, inibits*sizeof *pini);
     pini += 8;
 
-    for( bit = inibits; bit < nbits; ++bit ) {
+    for( bit = inibits; bit <= nbits; ++bit ) {
       number newv = *pvv, j = powers;
       int b;
       for( b = 0; b < inibits; ++b ) {
@@ -117,8 +116,8 @@ static inline void SobolIni(This *t)
       ++pvv;
     }
 
-    for( bit = 0; bit < nbits - 1; ++bit )
-      pv[bit] <<= nbits - bit - 1;
+    for( bit = 0; bit < nbits; ++bit )
+      pv[bit] <<= nbits - bit;
   }
 
   t->rng.sobol.seq = 0;

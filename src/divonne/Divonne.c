@@ -4,7 +4,7 @@
 		originally by J.H. Friedman and M.H. Wright
 		(CERNLIB subroutine D151)
 		this version by Thomas Hahn
-		last modified 2 May 13 th
+		last modified 9 Dec 13 th
 */
 
 #define DIVONNE
@@ -16,7 +16,7 @@
 /*********************************************************************/
 
 Extern void EXPORT(Divonne)(ccount ndim, ccount ncomp,
-  Integrand integrand, void *userdata,
+  Integrand integrand, void *userdata, cnumber nvec,
   creal epsrel, creal epsabs,
   cint flags, cint seed,
   cnumber mineval, cnumber maxeval,
@@ -33,6 +33,7 @@ Extern void EXPORT(Divonne)(ccount ndim, ccount ncomp,
   t.ncomp = ncomp;
   t.integrand = integrand;
   t.userdata = userdata;
+  t.nvec = nvec;
   t.epsrel = epsrel;
   t.epsabs = epsabs;
   t.flags = flags;
@@ -61,7 +62,7 @@ Extern void EXPORT(Divonne)(ccount ndim, ccount ncomp,
 /*********************************************************************/
 
 Extern void EXPORT(divonne)(ccount *pndim, ccount *pncomp,
-  Integrand integrand, void *userdata,
+  Integrand integrand, void *userdata, cnumber *pnvec,
   creal *pepsrel, creal *pepsabs,
   cint *pflags, cint *pseed,
   cnumber *pmineval, cnumber *pmaxeval,
@@ -78,6 +79,7 @@ Extern void EXPORT(divonne)(ccount *pndim, ccount *pncomp,
   t.ncomp = *pncomp;
   t.integrand = integrand;
   t.userdata = userdata;
+  t.nvec = *pnvec;
   t.epsrel = *pepsrel;
   t.epsabs = *pepsabs;
   t.flags = *pflags;
@@ -96,7 +98,7 @@ Extern void EXPORT(divonne)(ccount *pndim, ccount *pncomp,
   t.ldxgiven = *pldxgiven;
   t.nextra = *pnextra;
   t.peakfinder = peakfinder;
-  t.statefile = CString(statefile, statefilelen);
+  CString(t.statefile, statefile, statefilelen);
 
   *pfail = Integrate(&t, integral, error, prob);
   *pnregions = t.nregions;

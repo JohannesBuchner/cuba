@@ -1,7 +1,7 @@
 /*
 	demo-c.c
 		test program for the Cuba library
-		last modified 10 Jun 13 th
+		last modified 9 Dec 13 th
 */
 
 #include <stdio.h>
@@ -61,6 +61,7 @@ static int Integrand(const int *ndim, const double xx[],
 #define NDIM 3
 #define NCOMP 1
 #define USERDATA NULL
+#define NVEC 1
 #define EPSREL 1e-3
 #define EPSABS 1e-12
 #define LAST 4
@@ -101,7 +102,7 @@ int main() {
 #if 1
   printf("-------------------- Vegas test --------------------\n");
 
-  Vegas(NDIM, NCOMP, Integrand, USERDATA,
+  Vegas(NDIM, NCOMP, Integrand, USERDATA, NVEC,
     EPSREL, EPSABS, verbose, SEED,
     MINEVAL, MAXEVAL, NSTART, NINCREASE, NBATCH,
     GRIDNO, STATEFILE,
@@ -117,7 +118,7 @@ int main() {
 #if 1
   printf("\n-------------------- Suave test --------------------\n");
 
-  Suave(NDIM, NCOMP, Integrand, USERDATA,
+  Suave(NDIM, NCOMP, Integrand, USERDATA, NVEC,
     EPSREL, EPSABS, verbose | LAST, SEED,
     MINEVAL, MAXEVAL, NNEW, FLATNESS,
     STATEFILE,
@@ -133,7 +134,7 @@ int main() {
 #if 1
   printf("\n------------------- Divonne test -------------------\n");
 
-  Divonne(NDIM, NCOMP, Integrand, USERDATA,
+  Divonne(NDIM, NCOMP, Integrand, USERDATA, NVEC,
     EPSREL, EPSABS, verbose, SEED,
     MINEVAL, MAXEVAL, KEY1, KEY2, KEY3, MAXPASS,
     BORDER, MAXCHISQ, MINDEVIATION,
@@ -151,7 +152,7 @@ int main() {
 #if 1
   printf("\n-------------------- Cuhre test --------------------\n");
 
-  Cuhre(NDIM, NCOMP, Integrand, USERDATA,
+  Cuhre(NDIM, NCOMP, Integrand, USERDATA, NVEC,
     EPSREL, EPSABS, verbose | LAST,
     MINEVAL, MAXEVAL, KEY,
     STATEFILE,

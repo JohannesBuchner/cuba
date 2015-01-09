@@ -119,11 +119,11 @@
 :Evaluate: Attributes[foo] = {HoldAll}
 
 :Evaluate: define[True, tmp_, defs_, jac_] :=
-	integrandT[f_] := Compile[tmp, eval[defs, Chop[f jac]//N],
+	integrandT[f_] := Compile[tmp, eval[defs, N[f jac]],
 	  {{_eval, _Real, 1}}]
 
 :Evaluate: define[_, tmp_, defs_, jac_] :=
-	integrandT[f_] := Function[tmp, eval[defs, Chop[f jac]//N]]
+	integrandT[f_] := Function[tmp, eval[defs, N[f jac]]]
 
 :Evaluate: eval[_, f_Real] = {f}
 
@@ -159,7 +159,7 @@
 	Vegas.tm
 		Vegas Monte Carlo integration
 		by Thomas Hahn
-		last modified 2 May 13 th
+		last modified 20 Jan 14 th
 */
 
 

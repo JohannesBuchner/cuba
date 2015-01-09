@@ -2,7 +2,7 @@
 	Split.c
 		determine optimal cuts for splitting a region
 		this file is part of Divonne
-		last modified 31 Aug 13 th
+		last modified 28 May 14 th
 */
 
 
@@ -276,7 +276,7 @@ static void Split(This *t, ccount iregion)
   t->selectedcomp = region->cutcomp;
   t->neval_cut -= t->neval;
   ncuts = FindCuts(t, cut, region->bounds, region->vol,
-    (real *)RegionResult(region) + region->xmajor, region->fmajor,
+    RegionMinMax(region) + region->xmajor, region->fmajor,
     region->fmajor - region->fminor);
   t->neval_cut += t->neval;
 

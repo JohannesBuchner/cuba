@@ -1,3 +1,74 @@
+18 Apr 14:
+
+- Fixed uninitialized variable in update of Apr 11 that could lead
+  to a potential segfault in Divonne.
+
+
+11 Apr 14:
+
+- Added invocation of worker init/exit functions also for the master
+  whenever the number of samples is too small to be distributed.
+
+
+21 Mar 14:
+
+- Fixed glitch in Sobol quasi-random numbers for the long long int
+  versions introduced in the last update (forgotten typecast).
+
+
+18 Mar 14:
+
+- Fixed infinite loop in Sobol quasi-random numbers for maxeval
+  values >~ 2^30 (32-bit versions) or 2^62 (64-bit 'll' versions).
+
+
+22 Jan 14:
+
+- Removed 'Chop' from the Mathematica sampling procedure, which would
+  introduce an absolute lower scale for integrals quite close to zero.
+
+
+8 Jan 14:
+
+- Restricted detection of Qt to version 4.
+
+
+18 Dec 13:
+
+- Minor fixes in the MacOS build of partview (thanks to Hong Xu).
+
+
+11 Dec 13:
+
+- Version 3.3: Added new argument 'nvec' to let the integrand
+  function have more than one point at a time, e.g. to take advantage
+  of vectorization. 
+
+
+5 Nov 13:
+
+- Fixed MathLink compilation issues with MacOS 10.9/clang++.
+
+- Fixed spurious warning in partview.
+
+
+25 Sep 13:
+
+- Fixed issue with distribution of points to cores.  Because of
+  rounding up the number of points for each core it could happen
+  that the last one got nothing and kept waiting indefinitely.
+
+- Fixed bug in shared memory allocation of Divonne.
+
+- Added Korobov tables for Divonne extending the integration
+  dimension up to 257.
+
+
+17 Sep 13:
+
+- More compliance: Repaired some compiler hiccups.
+
+
 7 Aug 13:
 
 - Version 3.2: Moved all variable-size arrays to alloca and

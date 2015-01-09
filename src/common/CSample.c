@@ -3,19 +3,25 @@
 		the serial sampling routine
 		for the C versions of the Cuba routines
 		by Thomas Hahn
-		last modified 19 Dec 11 th
+		last modified 11 Apr 14 th
 */
+
+
+workerini cubaini;
 
 
 static inline number SampleRaw(cThis *t, number n, creal *x, real *f
   VES_ONLY(, creal *w, ccount iter))
 {
-  for( ; n; --n ) {
-    if( t->integrand(&t->ndim, x, &t->ncomp, f, t->userdata
-          VES_ONLY(, w++, &iter)
+  number nvec = t->nvec;
+  for( ; n > 0; n -= nvec ) {
+    nvec = IMin(n, nvec);
+    if( t->integrand(&t->ndim, x, &t->ncomp, f, t->userdata, &nvec
+          VES_ONLY(, w, &iter)
           DIV_ONLY(, &t->phase)) == ABORT ) return -1;
-    x += t->ndim;
-    f += t->ncomp;
+    VES_ONLY(w += nvec;)
+    x += nvec*t->ndim;
+    f += nvec*t->ncomp;
   }
   return 0;
 }
@@ -25,6 +31,11 @@ static inline number SampleRaw(cThis *t, number n, creal *x, real *f
 static inline void DoSampleSerial(This *t, cnumber n, creal *x, real *f
   VES_ONLY(, creal *w, ccount iter))
 {
+  if( t->initfun ) {
+    t->initfun(cubaini.initarg);
+    t->initfun = NULL;
+    t->exitfun = cubaini.exitfun;
+  }
   t->neval += n;
   if( SampleRaw(t, n, x, f VES_ONLY(, w, iter)) ) 
     longjmp(t->abort, -99);

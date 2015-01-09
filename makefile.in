@@ -256,7 +256,7 @@ partview$(EXE): $(PARTVIEW)
 	qmake -o makefile.partview $(tools)/partview.pro
 	$(MAKE) -f makefile.partview
 	$(RM) partview.o partview.moc makefile.partview
-	strip partview$(EXE)
+	-strip partview$(EXE)
 
 
 TARCONTENTS = $(srcdir)/COPYING $(srcdir)/ChangeLog \

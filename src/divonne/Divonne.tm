@@ -191,15 +191,15 @@
 
 :Evaluate: define[True, tmp_, vars_, defs_, jac_] := (
 	TtoX := TtoX = Compile[tmp, defs];
-	integrandT[f_] := Compile[tmp, eval[defs, Chop[f jac]//N],
+	integrandT[f_] := Compile[tmp, eval[defs, N[f jac]],
 	  {{_eval, _Real, 1}}];
-	integrandX[f_] := Compile[vars, eval[vars, Chop[f jac]//N],
+	integrandX[f_] := Compile[vars, eval[vars, N[f jac]],
 	  {{_eval, _Real, 1}}] )
 
 :Evaluate: define[_, tmp_, vars_, defs_, jac_] := (
 	TtoX := TtoX = Function[tmp, defs];
-	integrandT[f_] := Function[tmp, eval[defs, Chop[f jac]//N]];
-	integrandX[f_] := Function[vars, eval[vars, Chop[f jac]//N]] )
+	integrandT[f_] := Function[tmp, eval[defs, N[f jac]]];
+	integrandX[f_] := Function[vars, eval[vars, N[f jac]]] )
 
 :Evaluate: eval[_, f_Real] := {f}
 
@@ -242,7 +242,7 @@
 		originally by J.H. Friedman and M.H. Wright
 		(CERNLIB subroutine D151)
 		this version by Thomas Hahn
-		last modified 1 Aug 13 th
+		last modified 20 Jan 14 th
 */
 
 

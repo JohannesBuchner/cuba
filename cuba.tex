@@ -68,7 +68,7 @@
 Max-Planck-Institut f\"ur Physik \\
 F\"ohringer Ring 6, D--80805 Munich, Germany}
 
-\date{May 3, 2013}
+\date{Dec 11, 2013}
 
 \maketitle
 
@@ -647,19 +647,19 @@ routines are directly accessible from Fortran, \ie no wrapper code is
 needed.  In fact, Vegas, Suave, Divonne, and Cuhre can be called as if 
 they were Fortran subroutines respectively declared as
 \begin{verbatim}
-        subroutine vegas(ndim, ncomp, integrand, userdata,
+        subroutine vegas(ndim, ncomp, integrand, userdata, nvec,
      &    epsrel, epsabs, flags, seed, mineval, maxeval,
      &    nstart, nincrease, nbatch, gridno, statefile,
      &    neval, fail, integral, error, prob)
 \end{verbatim}
 \begin{verbatim}
-        subroutine suave(ndim, ncomp, integrand, userdata,
+        subroutine suave(ndim, ncomp, integrand, userdata, nvec,
      &    epsrel, epsabs, flags, seed, mineval, maxeval,
      &    nnew, flatness, statefile,
      &    nregions, neval, fail, integral, error, prob)
 \end{verbatim}
 \begin{verbatim}
-        subroutine divonne(ndim, ncomp, integrand, userdata,
+        subroutine divonne(ndim, ncomp, integrand, userdata, nvec,
      &    epsrel, epsabs, flags, seed, mineval, maxeval,
      &    key1, key2, key3, maxpass,
      &    border, maxchisq, mindeviation,
@@ -668,7 +668,7 @@ they were Fortran subroutines respectively declared as
      &    nregions, neval, fail, integral, error, prob)
 \end{verbatim}
 \begin{verbatim}
-        subroutine cuhre(ndim, ncomp, integrand, userdata,
+        subroutine cuhre(ndim, ncomp, integrand, userdata, nvec,
      &    epsrel, epsabs, flags, mineval, maxeval,
      &    key, statefile,
      &    nregions, neval, fail, integral, error, prob)
@@ -689,17 +689,30 @@ the number of components of the integrand.
 the integrand.  The external function which computes the 
 integrand is expected to be declared as
 \begin{verbatim}
-  integer function integrand(ndim, x, ncomp, f, userdata)
+  integer function integrand(ndim, x, ncomp, f, userdata, nvec)
+  integer ndim, ncomp, nvec
+  double precision x(ndim,nvec), f(ncomp,nvec)
+\end{verbatim}
+The integration is aborted immediately if the integrand returns $-999$.  
+
+The \Code{userdata} argument may be omitted if unused and likewise
+if only \Code{nvec} = 1 is used in the invocation all \Code{nvec}
+in the above definition may be dropped, \ie the minimal version is
+\begin{verbatim}
+  integer function integrand(ndim, x, ncomp, f)
   integer ndim, ncomp
   double precision x(ndim), f(ncomp)
 \end{verbatim}
-The integration is aborted immediately if the integrand returns
-$-999$.  The \Code{userdata} argument may be omitted if unused.
 
 \VarIn{(arbitrary type) userdata}
 user data passed to the integrand.  Unlike its counterpart in the
 integrand definition, this argument must be present though it may
 contain a dummy value, \eg \Code{0}.
+
+\VarIn{integer nvec}
+The maximum number of points to be given to the integrand
+routine in each invocation.  Usually this is 1 but if the integrand
+can profit from \eg SIMD vectorization, a larger value can be chosen.
 
 \VarIn{double precision epsrel, epsabs}
 the requested relative and absolute accuracies.
@@ -882,15 +895,14 @@ memory, in which case the negative of the grid number should be set.
 Vegas actually passes the integrand two more arguments, \ie the 
 integrand subroutine is really declared as
 \begin{verbatim}
-  integer function integrand(ndim, x, ncomp, f, userdata, weight, iter)
-  integer ndim, ncomp, iter
-  double precision x(ndim), f(ncomp), weight
+  integer function integrand(ndim, x, ncomp, f, userdata, nvec,
+    weight, iter)
+  integer ndim, ncomp, nvec, iter
+  double precision x(ndim,nvec), f(ncomp,nvec), weight(nvec)
 \end{verbatim}
 where \Code{weight} contains the weight of the point being sampled and
 \Code{iter} the current iteration number.  These extra arguments can
-safely be ignored, \ie the integrand may be (and usually is) defined
-with just five (or even four, if \Code{userdata} is also ignored) 
-arguments.
+safely be ignored, however.
 
 
 \subsubsection{Suave-specific Arguments}
@@ -1047,11 +1059,11 @@ must contain the actual number of points in \Code{x}.
 Divonne actually passes the integrand one more argument, \ie the 
 integrand subroutine is really declared as
 \begin{verbatim}
-  subroutine integrand(ndim, x, ncomp, f, phase)
-  integer ndim, ncomp, phase
-  double precision x(ndim), f(ncomp)
+  subroutine integrand(ndim, x, ncomp, f, userdata, nvec, phase)
+  integer ndim, ncomp, nvec, phase
+  double precision x(ndim,nvec), f(ncomp,nvec)
 \end{verbatim}
-The fifth argument, \Code{phase}, indicates the integration phase:
+The last argument, \Code{phase}, indicates the integration phase:
 \begin{itemize}
 \item 0, sampling of the points in \Code{xgiven},
 \item 1, partitioning phase,
@@ -1068,7 +1080,7 @@ fine details might hence be a perfectly viable and much faster
 substitute when $\Code{phase} < 2$.
 
 In all other instances, \Code{phase} can be ignored and it is
-entirely admissible to define the integrand with only five arguments.
+entirely admissible to define the integrand without it.
 
 
 \subsubsection{Cuhre-specific Arguments}
@@ -1115,7 +1127,7 @@ typedef void (*peakfinder_t)(const int *ndim, const double b[],
 \end{verbatim}
 \begin{verbatim}
 void Vegas(const int ndim, const int ncomp,
-  integrand_t integrand, void *userdata,
+  integrand_t integrand, void *userdata, const int nvec,
   const double epsrel, const double epsabs,
   const int flags, const int seed,
   const int mineval, const int maxeval,
@@ -1126,7 +1138,7 @@ void Vegas(const int ndim, const int ncomp,
 \end{verbatim}
 \begin{verbatim}
 void Suave(const int ndim, const int ncomp,
-  integrand_t integrand, void *userdata,
+  integrand_t integrand, void *userdata, const int nvec,
   const double epsrel, const double epsabs,
   const int flags, const int seed,
   const int mineval, const int maxeval,
@@ -1137,7 +1149,7 @@ void Suave(const int ndim, const int ncomp,
 \end{verbatim}
 \begin{verbatim}
 void Divonne(const int ndim, const int ncomp,
-  integrand_t integrand, void *userdata,
+  integrand_t integrand, void *userdata, const int nvec,
   const double epsrel, const double epsabs,
   const int flags, const int seed,
   const int mineval, const int maxeval,
@@ -1152,7 +1164,7 @@ void Divonne(const int ndim, const int ncomp,
 \end{verbatim}
 \begin{verbatim}
 void Cuhre(const int ndim, const int ncomp,
-  integrand_t integrand, void *userdata,
+  integrand_t integrand, void *userdata, const int nvec,
   const double epsrel, const double epsabs,
   const int flags,
   const int mineval, const int maxeval,
@@ -1168,15 +1180,15 @@ declarations of the integrand and peak-finder functions, which expect
 pointers to integers rather than integers.  This is required for
 compatibility with Fortran.
 
-For convenience, the \Code{Vegas}, \Code{Suave}, and \Code{Divonne}
-prototypes gloss over the fact that those integrators pass more
-(optional) arguments to the integrand (see Sects.\ \ref{sect:vegasargs}
-and \ref{sect:divonneargs}).  Usually the integrand is declared with
-only five arguments since this extra information is not needed.  With
-the `correct' prototype, the compiler would only generate unnecessary
-warnings (in C) or errors (in C++).  In the rare cases where the
-integrand really has more arguments, an explicit typecast to
-\verb=integrand_t= must be used in the invocation.
+The \verb=integrand_t= type glosses over the fact that the extra 
+\Code{nvec} argument is routinely passed to the integrand and 
+neither does it mention the extra arguments passed by \Code{Vegas}, 
+\Code{Suave}, and \Code{Divonne} (see Sects.\ \ref{sect:vegasargs} and 
+\ref{sect:divonneargs}).  This is usually just what is needed for 
+`simple' invocations, \ie with the `correct' prototypes the compiler 
+would only generate unnecessary warnings (in C) or errors (in C++).  In 
+the rare cases where the integrand actually has more arguments, an 
+explicit typecast to \verb=integrand_t= must be used in the invocation.
 
 
 \subsection{Usage in Mathematica}
@@ -1544,19 +1556,19 @@ reached within the ordinary 32-bit integer range ($2^{31} - 1$).
 The long-integer versions are distinguished by the ``\Code{ll}''
 prefix.  Their specific invocations are, in Fortran,
 \begin{alltt}
-        subroutine llvegas(ndim, ncomp, integrand, userdata,
+        subroutine llvegas(ndim, ncomp, integrand, userdata, \ul{nvec},
      &    epsrel, epsabs, flags, seed, \ul{mineval}, \ul{maxeval},
      &    \ul{nstart}, \ul{nincrease}, \ul{nbatch}, gridno, statefile,
      &    \ul{neval}, fail, integral, error, prob)
 \end{alltt}
 \begin{alltt}
-        subroutine llsuave(ndim, ncomp, integrand, userdata,
+        subroutine llsuave(ndim, ncomp, integrand, userdata, \ul{nvec},
      &    epsrel, epsabs, flags, seed, \ul{mineval}, \ul{maxeval},
      &    \ul{nnew}, flatness,
      &    nregions, \ul{neval}, fail, integral, error, prob)
 \end{alltt}
 \begin{alltt}
-        subroutine lldivonne(ndim, ncomp, integrand, userdata,
+        subroutine lldivonne(ndim, ncomp, integrand, userdata, \ul{nvec},
      &    epsrel, epsabs, flags, seed, \ul{mineval}, \ul{maxeval},
      &    key1, key2, key3, maxpass,
      &    border, maxchisq, mindeviation,
@@ -1564,7 +1576,7 @@ prefix.  Their specific invocations are, in Fortran,
      &    nregions, \ul{neval}, fail, integral, error, prob)
 \end{alltt}
 \begin{alltt}
-        subroutine llcuhre(ndim, ncomp, integrand, userdata,
+        subroutine llcuhre(ndim, ncomp, integrand, userdata, \ul{nvec},
      &    epsrel, epsabs, flags, seed, \ul{mineval}, \ul{maxeval},
      &    key,
      &    nregions, \ul{neval}, fail, integral, error, prob)

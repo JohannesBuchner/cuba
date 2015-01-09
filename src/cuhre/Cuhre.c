@@ -2,7 +2,7 @@
 	Cuhre.c
 		Adaptive integration using cubature rules
 		by Thomas Hahn
-		last modified 1 May 13 th
+		last modified 9 Dec 13 th
 */
 
 
@@ -15,7 +15,7 @@
 /*********************************************************************/
 
 Extern void EXPORT(Cuhre)(ccount ndim, ccount ncomp,
-  Integrand integrand, void *userdata,
+  Integrand integrand, void *userdata, cnumber nvec,
   creal epsrel, creal epsabs,
   cint flags, cnumber mineval, cnumber maxeval,
   ccount key, cchar *statefile,
@@ -27,6 +27,7 @@ Extern void EXPORT(Cuhre)(ccount ndim, ccount ncomp,
   t.ncomp = ncomp;
   t.integrand = integrand;
   t.userdata = userdata;
+  t.nvec = nvec;
   t.epsrel = epsrel;
   t.epsabs = epsabs;
   t.flags = flags;
@@ -43,7 +44,7 @@ Extern void EXPORT(Cuhre)(ccount ndim, ccount ncomp,
 /*********************************************************************/
 
 Extern void EXPORT(cuhre)(ccount *pndim, ccount *pncomp,
-  Integrand integrand, void *userdata,
+  Integrand integrand, void *userdata, cnumber *pnvec,
   creal *pepsrel, creal *pepsabs,
   cint *pflags, cnumber *pmineval, cnumber *pmaxeval,
   ccount *pkey, cchar *statefile,
@@ -55,15 +56,17 @@ Extern void EXPORT(cuhre)(ccount *pndim, ccount *pncomp,
   t.ncomp = *pncomp;
   t.integrand = integrand;
   t.userdata = userdata;
+  t.nvec = *pnvec;
   t.epsrel = *pepsrel;
   t.epsabs = *pepsabs;
   t.flags = *pflags;
   t.mineval = *pmineval;
   t.maxeval = *pmaxeval;
   t.key = *pkey;
-  t.statefile = CString(statefile, statefilelen);
+  CString(t.statefile, statefile, statefilelen);
 
   *pfail = Integrate(&t, integral, error, prob);
   *pnregions = t.nregions;
   *pneval = t.neval;
 }
+

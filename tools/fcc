@@ -1,25 +1,31 @@
 #! /bin/sh
 # script to compile C programs that are linked 
 # against Fortran libraries
-# last modified 19 Jul 11 th
+# last modified 5 Nov 13 th
 
 args=
+compileonly=
 objs=
 ldflags=
 fldflags=
-compileonly=
 
 cc="${REALCC:-cc}"
 cxx="${REALCXX:-c++}"
-test `basename $0` = f++ && cc="$cxx"
+test `basename $0 .in` = f++ && cc="$cxx"
+case `$cxx --version 2>&1` in
+*clang*) cxx="$cxx -stdlib=libstdc++" ;;
+esac
 
 while test $# -gt 0 ; do
   case "$1" in
+  -st | -b32 | -b64)
+	;; # ignore mcc-specific flags
   -arch)
 	shift
 	;;
-  -st | -b32 | -b64)
-	;; # ignore mcc-specific flags
+  -lstdc++)
+	cc="$cxx"
+	;; # or else -static-libstdc++ has no effect
   -Wno-long-double)
 	;; # mcc adds this on Macs & gcc 4 doesn't like it
   -[Ll]* | -Wl*)

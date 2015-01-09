@@ -3,7 +3,7 @@
 		integrate over the unit hypercube
 		this file is part of Cuhre
 		checkpointing by B. Chokoufe
-		last modified 5 Aug 13 th
+		last modified 18 Apr 14 th
 */
 
 
@@ -11,7 +11,7 @@
 
 typedef struct pool {
   struct pool *next;
-  Region region[];
+  char region[];
 } Pool;
 
 typedef struct {
@@ -42,11 +42,13 @@ static int Integrate(This *t, real *integral, real *error, real *prob)
   if( VERBOSE > 1 ) {
     sprintf(out, "Cuhre input parameters:\n"
       "  ndim " COUNT "\n  ncomp " COUNT "\n"
+      ML_NOT("  nvec " NUMBER "\n")
       "  epsrel " REAL "\n  epsabs " REAL "\n"
       "  flags %d\n  mineval " NUMBER "\n  maxeval " NUMBER "\n"
       "  key " COUNT "\n"
       "  statefile \"%s\"",
       t->ndim, t->ncomp,
+      ML_NOT(t->nvec,)
       t->epsrel, t->epsabs,
       t->flags, t->mineval, t->maxeval,
       t->key,
@@ -59,6 +61,7 @@ static int Integrate(This *t, real *integral, real *error, real *prob)
 
   t->epsabs = Max(t->epsabs, NOTZERO);
 
+  InitWorker(t);
   RuleAlloc(t);
   t->mineval = IMax(t->mineval, t->rule.n + 1);
   FrameAlloc(t, ShmRm(t));
@@ -91,7 +94,7 @@ static int Integrate(This *t, real *integral, real *error, real *prob)
     cur->next = NULL;
     state->ncur = t->nregions = 1;
 
-    region = cur->region;
+    region = (Region *)cur->region;
     region->div = 0;
     for( B = (b = region->bounds) + t->ndim; b < B; ++b ) {
       b->lower = 0;
@@ -147,7 +150,7 @@ static int Integrate(This *t, real *integral, real *error, real *prob)
     }
 
     maxerr = -INFTY;
-    regionL = cur->region;
+    regionL = (Region *)cur->region;
     npool = state->ncur;
     for( pool = cur; pool; npool = POOLSIZE, pool = pool->next )
       for( ipool = 0; ipool < npool; ++ipool ) {
@@ -272,6 +275,7 @@ abort:
   RuleFree(t);
 
   StateRemove(t);
+  ExitWorker(t);
 
   return fail;
 }

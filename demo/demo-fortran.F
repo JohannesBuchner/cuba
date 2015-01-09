@@ -1,16 +1,17 @@
 * demo-fortran.F
 * test program for the Cuba library
-* last modified 30 Apr 13 th
+* last modified 9 Dec 13 th
 
 
 	program CubaTest
 	implicit none
 
-	integer ndim, ncomp, last, seed, mineval, maxeval
+	integer ndim, ncomp, nvec, last, seed, mineval, maxeval
 	double precision epsrel, epsabs, userdata
 	parameter (ndim = 3)
 	parameter (ncomp = 1)
 	parameter (userdata = 0)
+	parameter (nvec = 1)
 	parameter (epsrel = 1D-3)
 	parameter (epsabs = 1D-12)
 	parameter (last = 4)
@@ -63,7 +64,7 @@
 
 	print *, "-------------------- Vegas test --------------------"
 
-	call vegas(ndim, ncomp, integrand, userdata,
+	call vegas(ndim, ncomp, integrand, userdata, nvec,
      &    epsrel, epsabs, verbose, seed,
      &    mineval, maxeval, nstart, nincrease, nbatch,
      &    gridno, statefile,
@@ -77,7 +78,7 @@
 	print *, " "
 	print *, "-------------------- Suave test --------------------"
 
-	call suave(ndim, ncomp, integrand, userdata,
+	call suave(ndim, ncomp, integrand, userdata, nvec,
      &    epsrel, epsabs, verbose + last, seed,
      &    mineval, maxeval, nnew, flatness,
      &    statefile,
@@ -92,7 +93,7 @@
 	print *, " "
 	print *, "------------------- Divonne test -------------------"
 
-	call divonne(ndim, ncomp, integrand, userdata,
+	call divonne(ndim, ncomp, integrand, userdata, nvec,
      &    epsrel, epsabs, verbose, seed,
      &    mineval, maxeval, key1, key2, key3, maxpass,
      &    border, maxchisq, mindeviation,
@@ -109,7 +110,7 @@
 	print *, " "
 	print *, "-------------------- Cuhre test --------------------"
 
-	call cuhre(ndim, ncomp, integrand, userdata,
+	call cuhre(ndim, ncomp, integrand, userdata, nvec,
      &    epsrel, epsabs, verbose + last,
      &    mineval, maxeval, key,
      &    statefile,

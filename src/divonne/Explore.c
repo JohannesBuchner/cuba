@@ -2,7 +2,7 @@
 	Explore.c
 		sample region, determine min and max, split if necessary
 		this file is part of Divonne
-		last modified 2 Aug 13 th
+		last modified 28 May 14 th
 */
 
 
@@ -19,10 +19,11 @@ static int ExploreSerial(This *t, ccount iregion)
   Region *region = RegionPtr(iregion);
   cBounds *bounds = region->bounds;
   Result *result = RegionResult(region);
+  real *minmax = RegionMinMax(region);
 
   Vector(Extrema, extrema, NCOMP);
   Vector(real, xtmp, NDIM);
-  Result *r, *r0;
+  Result *r;
   creal *x;
   real *f;
   real halfvol, maxerr;
@@ -102,7 +103,7 @@ skip:
       ftmp = FindMinimum(t, bounds, xtmp, e->fmin);
       if( ftmp < r->fmin ) {
         r->fmin = ftmp;
-        XCopy(&r->xminmax[0], xtmp);
+        XCopy(&minmax[2*comp*t->ndim], xtmp);
       }
 
       t->selectedcomp = Tag(comp);
@@ -110,7 +111,7 @@ skip:
       ftmp = -FindMinimum(t, bounds, xtmp, -e->fmax);
       if( ftmp > r->fmax ) {
         r->fmax = ftmp;
-        XCopy(&r->xminmax[t->ndim], xtmp);
+        XCopy(&minmax[(2*comp + 1)*t->ndim], xtmp);
       }
     }
 
@@ -130,22 +131,22 @@ skip:
   }
 
   region->cutcomp = maxcomp;
-  r0 = RegionResult(region);
-  r = r0 + maxcomp;
+  r = RegionResult(region) + maxcomp;
   if( halfvol*(r->fmin + r->fmax) > r->avg ) {
     region->fminor = r->fmin;
     region->fmajor = r->fmax;
-    region->xmajor = &r->xminmax[t->ndim] - (real *)r0;
+    region->xmajor = (2*maxcomp + 1)*t->ndim;
   }
   else {
     region->fminor = r->fmax;
     region->fmajor = r->fmin;
-    region->xmajor = &r->xminmax[0] - (real *)r0;
+    region->xmajor = 2*maxcomp*t->ndim;
   }
 
   if( region->isamples == 0 ) {
     if( (region->depth < INIDEPTH && r->spread < samples->neff*r->err) ||
-        r->spread < t->totals[maxcomp].secondspread ) region->depth = 0;
+        r->spread < t->totals[maxcomp].secondspread )
+      region->depth = 0;
     if( region->depth == 0 )
       for( comp = 0; comp < t->ncomp; ++comp )
         t->totals[comp].secondspread =

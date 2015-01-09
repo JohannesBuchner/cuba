@@ -2,13 +2,15 @@
 	Sample.c
 		most of what is related to sampling
 		this file is part of Divonne
-		last modified 31 Aug 13 th
+		last modified 25 Mar 14 th
 */
 
 
-#define MARKMASK 0xfffffff
+#define MARKMASK NUMBER_MAX
 #define Marked(x) ((x) & ~MARKMASK)
 #define Unmark(x) ((x) & MARKMASK)
+
+#define NWANTMAX NUMBER_MAX
 
 #define EXTRAPOLATE_EPS (.25*t->border.lower)
 /*#define EXTRAPOLATE_EPS 0x1p-26*/
@@ -148,7 +150,7 @@ static void SampleKorobov(This *t, ccount iregion)
          1..39 = multiplicator,        Korobov numbers,
        40..inf = absolute # of points, Korobov numbers.  */
 
-static count SamplesLookup(This *t, Samples *samples, cint key,
+static number SamplesLookup(This *t, Samples *samples, cint key,
   cnumber nwant, cnumber nmax, number nmin)
 {
   number n;
@@ -191,7 +193,8 @@ static count SamplesLookup(This *t, Samples *samples, cint key,
 static void SamplesAlloc(cThis *t, Samples *samples)
 {
 #define FIRST -INT_MAX
-#define MarkLast(x) (x | Marked(INT_MAX))
+#define MarkLast(x) ((x) | 0x40000000)
+#define UnmarkLast(x) ((x) & 0x3fffffff)
 
 #include "KorobovCoeff.c"
 
@@ -205,12 +208,12 @@ static void SamplesAlloc(cThis *t, Samples *samples)
 
     while( i = IMin(IDim(i), max),
            n > (p = prime[i + 1]) || n <= prime[i] ) {
-      cint d = (n - Unmark(p)) >> ++shift;
+      cint d = (n - UnmarkLast(p)) >> ++shift;
       i += Min1(d);
     }
 
     samples->coeff = coeff[i][t->ndim - KOROBOV_MINDIM];
-    samples->neff = p = Unmark(p);
+    samples->neff = p = UnmarkLast(p);
     samples->n = p/2 + 1;
   }
 

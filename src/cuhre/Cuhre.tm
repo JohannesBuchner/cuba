@@ -91,12 +91,12 @@
 
 :Evaluate: define[True, tmp_, defs_, jac_] := (
 	TtoX := TtoX = Compile[tmp, defs];
-	integrandT[f_] := Compile[tmp, eval[defs, Chop[f jac]//N],
+	integrandT[f_] := Compile[tmp, eval[defs, N[f jac]],
 	  {{_eval, _Real, 1}}] )
 
 :Evaluate: define[_, tmp_, defs_, jac_] := (
 	TtoX := TtoX = Function[tmp, defs];
-	integrandT[f_] := Function[tmp, eval[defs, Chop[f jac]//N]] )
+	integrandT[f_] := Function[tmp, eval[defs, N[f jac]]] )
 
 :Evaluate: eval[_, f_Real] = {f}
 
@@ -132,7 +132,7 @@
 	Cuhre.tm
 		Adaptive integration using cubature rules
 		by Thomas Hahn
-		last modified 26 Jul 13 th
+		last modified 20 Jan 14 th
 */
 
 

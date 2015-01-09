@@ -3,7 +3,7 @@
 		the parallel sampling routine
 		for the C versions of the Cuba routines
 		by Thomas Hahn
-		last modified 7 Aug 13 th
+		last modified 18 Apr 14 th
 */
 
 #define MINSLICE 10
@@ -16,8 +16,6 @@ typedef struct {
   DIV_ONLY(int phase SHM_ONLY(, shmid);)
 } Slice;
 
-workerini cubaini;
-
 #if defined HAVE_SHMGET && (defined SUAVE || defined DIVONNE)
 #define FRAMECOPY
 #endif
@@ -27,12 +25,24 @@ workerini cubaini;
 #define TERM_BLUE "\e[34m"
 #define TERM_RESET "\e[0m\n"
 #define MASTER(s, ...) \
-fprintf(stderr, TERM_RED ROUTINE " master: " s TERM_RESET, __VA_ARGS__)
+fprintf(stderr, TERM_RED ROUTINE " master %d(%d): " s TERM_RESET, core, getpid(), ##__VA_ARGS__)
 #define WORKER(s, ...) \
-fprintf(stderr, TERM_BLUE ROUTINE " worker: " s TERM_RESET, __VA_ARGS__)
+fprintf(stderr, TERM_BLUE ROUTINE " worker %d(%d): " s TERM_RESET, core, getpid(), ##__VA_ARGS__)
 #else
 #define MASTER(s, ...)
 #define WORKER(s, ...)
+#endif
+
+#ifdef LOW_LEVEL_DEBUG
+#define TERM_GREEN "\e[32m"
+#define TERM_MAGENTA "\e[35m"
+#define READ(s, ...) \
+fprintf(stderr, TERM_GREEN ROUTINE " pid %d: read " s TERM_RESET, getpid(), ##__VA_ARGS__)
+#define WRITE(s, ...) \
+fprintf(stderr, TERM_MAGENTA ROUTINE " pid %d: write " s TERM_RESET, getpid(), ##__VA_ARGS__)
+#else
+#define READ(s, ...)
+#define WRITE(s, ...)
 #endif
 
 /*********************************************************************/
@@ -48,6 +58,7 @@ static inline int readsock(int fd, void *data, size_t n)
   size_t remain = n;
   do got = recv(fd, data, remain, MSG_WAITALL);
   while( got > 0 && (data += got, remain -= got) > 0 );
+  READ("%lu bytes at %p from fd %d", n, data, fd);
   return got;
 }
 
@@ -57,6 +68,7 @@ static inline int writesock(int fd, const void *data, size_t n)
   size_t remain = n;
   do got = send(fd, data, remain, MSG_WAITALL);
   while( got > 0 && (data += got, remain -= got) > 0 );
+  WRITE("%lu bytes at %p to fd %d", n, data, fd);
   return got;
 }
 
@@ -71,11 +83,13 @@ static void DoSample(This *t, number n, creal *x, real *f
   else {
     Slice slice;
     int core, abort;
+    number nx;
     char s[128];
 
     t->neval += n;
 
-    slice.m = slice.n = (n + ncores - 1)/ncores;
+    nx = n % ncores;
+    slice.m = slice.n = n/ncores + 1;
     if( VERBOSE > 2 ) {
       sprintf(s, "sampling " NUMBER " points each on %d cores",
         slice.n, ncores);
@@ -105,6 +119,7 @@ static void DoSample(This *t, number n, creal *x, real *f
 
     for( core = 0; core < ncores; ++core ) {
       cint fd = t->child[core];
+      slice.n -= (core == nx);
       MASTER("sending samples (sli:%lu[+" VES_ONLY(NUMBER "w:%lu+")
         NUMBER "x:%lu]) to fd %d",
         sizeof slice, VES_ONLY(slice.n, sizeof *w,)
@@ -117,12 +132,10 @@ static void DoSample(This *t, number n, creal *x, real *f
         x += slice.n*t->ndim;
       }
       slice.i += slice.n;
-      n -= slice.n;
-      slice.n = IMin(slice.n, n);
     }
 
     abort = 0;
-    for( core = ncores; --core >= 0; ) {
+    for( core = 0; core < ncores; ++core ) {
       cint fd = t->child[core];
       readsock(fd, &slice, sizeof slice);
       MASTER("reading samples (sli:%lu[+" NUMBER "f:%lu]) from fd %d",
@@ -240,7 +253,7 @@ static int Explore(This *t, cint iregion)
 
 /*********************************************************************/
 
-static void DoChild(This *t, cint fd)
+static void DoChild(This *t, cint core, cint fd)
 {
   Slice slice;
 
@@ -260,8 +273,6 @@ static void DoChild(This *t, cint fd)
     MemAlloc(t->frame, t->nframe*SAMPLESIZE);
 #endif
 
-  if( cubaini.initfun ) cubaini.initfun(cubaini.initarg);
-
   while( readsock(fd, &slice, sizeof slice) ) {
     number n = slice.n;
     DIV_ONLY(t->phase = slice.phase;)
@@ -272,9 +283,9 @@ static void DoChild(This *t, cint fd)
         sizeof slice, VES_ONLY(n, sizeof *w,) n, t->ndim*sizeof *x, fd);
 
 #ifdef DIVONNE
-      if( n > t->nframe ) {
+      if( slice.m > t->nframe ) {
         FrameFree(t);
-        t->nframe = n;
+        t->nframe = slice.m;
         SHM_ONLY(t->shmid = slice.shmid; ShmMap(t) else)
         MemAlloc(t->frame, t->nframe*SAMPLESIZE);
       }
@@ -337,7 +348,8 @@ static void DoChild(This *t, cint fd)
 #endif
   }
 
-  if( cubaini.exitfun ) cubaini.exitfun(cubaini.exitarg);
+  WORKER("wrapping up");
+  ExitWorker(t);
 
   exit(0);
 }
@@ -389,10 +401,10 @@ static inline void ForkCores(This *t)
       (pid = fork()) != -1 );
     if( pid == 0 ) {
       close(fd[0]);
-      DoChild(t, fd[1]);
+      DoChild(t, core, fd[1]);
     }
-    MASTER("forked core %d pid %d pipe %d(master) -> %d(worker)",
-      core, pid, fd[0], fd[1]);
+    MASTER("forked pid %d pipe %d(master) -> %d(worker)",
+      pid, fd[0], fd[1]);
     close(fd[1]);
     t->child[core] = fd[0];
   }
@@ -406,14 +418,14 @@ static inline void WaitCores(cThis *t)
     int core;
     pid_t pid;
     for( core = 0; core < t->ncores; ++core ) {
-      MASTER("closing core %d fd %d", core, t->child[core]);
+      MASTER("closing fd %d", t->child[core]);
       close(t->child[core]);
     }
     free(t->child);
     for( core = 0; core < t->ncores; ++core ) {
-      MASTER("waiting for core %d", core);
+      MASTER("waiting for child");
       wait(&pid);
-      MASTER("core %d pid %d terminated", core, pid);
+      MASTER("pid %d terminated", pid);
     }
   }
 }

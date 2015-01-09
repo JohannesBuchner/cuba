@@ -1,7 +1,7 @@
 /*
 	partview.cpp
 		Partition viewer for Cuba
-		last modified 15 Feb 11 th
+		last modified 18 Dec 13 th
 */
 
 
@@ -97,8 +97,9 @@ void PartitionPlane::addBound( const int dim,
     }
     m_regions.insert(r, rect);
 
-    QPainter p(this);
-    drawRegion( &p, rect );
+//    QPainter p(this);
+//    drawRegion( &p, rect );
+    this->update(rect);
   }
 }
 
@@ -134,7 +135,7 @@ class PartitionViewer : public QMainWindow
   Q_OBJECT
 
 public:
-  PartitionViewer( QWidget *parent );
+  PartitionViewer( QWidget *parent = 0 );
   void addPlane( const int dimx, const int dimy );
   void addBound( const int dim, const double lower, const double upper );
   int count() const { return m_tabs->count(); }
@@ -151,7 +152,7 @@ private:
 };
 
 
-PartitionViewer::PartitionViewer( QWidget *parent = 0 )
+PartitionViewer::PartitionViewer( QWidget *parent )
 : QMainWindow(parent)
 {
   setWindowTitle(tr("Cuba Partition Viewer"));
@@ -160,11 +161,13 @@ PartitionViewer::PartitionViewer( QWidget *parent = 0 )
   addToolBar(Qt::LeftToolBarArea, toolbar);
 
   QAction *quit = new QAction( QPixmap(quit_xpm), tr("&Quit"), this );
+  quit->setShortcut(QKeySequence(tr("Ctrl+Q")));
   connect( quit, SIGNAL(activated()), qApp, SLOT(quit()) );
   toolbar->addAction(quit);
 
 #ifndef QT_NO_PRINTER
   QAction *print = new QAction( QPixmap(print_xpm), tr("&Print..."), this );
+  print->setShortcut(QKeySequence(tr("Ctrl+P")));
   connect( print, SIGNAL(activated()), this, SLOT(print()) );
   toolbar->addAction(print);
 
@@ -204,7 +207,8 @@ void PartitionViewer::print()
     QPainter p;
     if( p.begin(m_printer) ) {
       p.setViewport( QRect(QPoint(0, 0), plane->sizeHint()) );
-      plane->drawRegions( &p );
+//      plane->drawRegions( &p );
+      this->update();
     }
   }
 #endif

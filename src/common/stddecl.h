@@ -1,7 +1,7 @@
 /*
 	stddecl.h
 		declarations common to all Cuba routines
-		last modified 7 Aug 13 th
+		last modified 11 Apr 14 th
 */
 
 
@@ -13,7 +13,7 @@
 #endif
 
 #define _BSD_SOURCE
-#define _XOPEN_SOURCE
+#define _SVID_SOURCE
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -34,6 +34,23 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #endif
+#endif
+
+#ifdef HAVE_ALLOCA_H
+#include <alloca.h>
+#elif defined __GNUC__
+#define alloca __builtin_alloca
+#elif defined _AIX
+#define alloca __alloca
+#elif defined _MSC_VER
+#include <malloc.h>
+#define alloca _alloca
+#else
+#include <stddef.h>
+#ifdef  __cplusplus
+extern "C"
+#endif
+void *alloca (size_t);
 #endif
 
 #ifndef NDIM
@@ -140,8 +157,14 @@
 
 #ifdef MLVERSION
 #define ML_ONLY(...) __VA_ARGS__
+#define ML_NOT(...)
+#define InitWorker(t)
+#define ExitWorker(t)
 #else
 #define ML_ONLY(...)
+#define ML_NOT(...) __VA_ARGS__
+#define InitWorker(t) t->initfun = cubaini.initfun, t->exitfun = NULL
+#define ExitWorker(t) if( t->exitfun ) t->exitfun(cubaini.exitarg)
 
 #ifdef HAVE_FORK
 #undef FORK_ONLY
@@ -289,11 +312,13 @@ typedef const count ccount;
 #define PREFIX(s) ll##s
 #define NUMBER "%lld"
 #define NUMBER7 "%7lld"
+#define NUMBER_MAX LLONG_MAX
 typedef long long int number;
 #else
 #define PREFIX(s) s
 #define NUMBER "%d"
 #define NUMBER7 "%7d"
+#define NUMBER_MAX INT_MAX
 typedef int number;
 #endif
 typedef const number cnumber;
@@ -364,18 +389,18 @@ typedef struct {
 #define EXPORT_(s) SUFFIX(s)
 
 
-#define CString(s, len) ({ \
+#define CString(cs, fs, len) { \
   char *_s = NULL; \
-  if( s ) { \
+  if( fs ) { \
     int _l = len; \
-    while( _l > 0 && s[_l - 1] == ' ' ) --_l; \
+    while( _l > 0 && fs[_l - 1] == ' ' ) --_l; \
     if( _l > 0 && (_s = alloca(_l + 1)) ) { \
-      memcpy(_s, s, _l); \
+      memcpy(_s, fs, _l); \
       _s[_l] = 0; \
     } \
   } \
-  _s; \
-})
+  cs = _s; \
+}
 
 static inline real Sq(creal x) {
   return x*x;

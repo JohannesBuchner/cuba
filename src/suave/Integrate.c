@@ -3,7 +3,7 @@
 		integrate over the unit hypercube
 		this file is part of Suave
 		checkpointing by B. Chokoufe
-		last modified 5 Aug 13 th
+		last modified 18 Apr 14 th
 */
 
 
@@ -32,12 +32,14 @@ static int Integrate(This *t, real *integral, real *error, real *prob)
   if( VERBOSE > 1 ) {
     sprintf(out, "Suave input parameters:\n"
       "  ndim " COUNT "\n  ncomp " COUNT "\n"
+      ML_NOT("  nvec " NUMBER "\n")
       "  epsrel " REAL "\n  epsabs " REAL "\n"
       "  flags %d\n  seed %d\n"
       "  mineval " NUMBER "\n  maxeval " NUMBER "\n"
       "  nnew " NUMBER "\n  flatness " REAL "\n"
       "  statefile \"%s\"\n",
       t->ndim, t->ncomp,
+      ML_NOT(t->nvec,)
       t->epsrel, t->epsabs,
       t->flags, t->seed,
       t->mineval, t->maxeval,
@@ -49,6 +51,7 @@ static int Integrate(This *t, real *integral, real *error, real *prob)
   if( BadComponent(t) ) return -2;
   if( BadDimension(t) ) return -1;
 
+  InitWorker(t);
   ShmAlloc(t, ShmRm(t));
   ForkCores(t);
 
@@ -342,6 +345,7 @@ abort:
   ShmFree(t);
 
   StateRemove(t);
+  ExitWorker(t);
 
   return fail;
 }

@@ -1,7 +1,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.59)
-AC_INIT([Cuba], [3.2], [hahn@feynarts.de])
+AC_INIT([Cuba], [3.3], [hahn@feynarts.de])
 AC_CONFIG_SRCDIR([cuba.h])
 
 LIBS=-lm
@@ -26,9 +26,14 @@ AC_C_CONST
 AC_C_INLINE
 AC_C_LONG_DOUBLE
 
+AC_TYPE_SIZE_T
+AC_TYPE_SSIZE_T
+AC_TYPE_PID_T
+
 AC_CHECK_FUNCS([powl])
 AC_CHECK_FUNCS([erf])
-AC_CHECK_FUNCS([fork])
+AC_FUNC_FORK
+AC_FUNC_ALLOCA
 
 AC_DEFUN([chk_shmget], [dnl
 AC_REQUIRE([AC_CANONICAL_HOST])
@@ -94,7 +99,9 @@ AS_IF([test -x conftest$EXEEXT],
 AC_SUBST([MATH_DEFAULT])
 
 AC_CHECK_PROGS([HAVE_QMAKE], [qmake])
-test -n "$HAVE_QMAKE" && TOOLS_DEFAULT=tools
+AS_IF([test -n "$HAVE_QMAKE"],
+  [AS_CASE([`qmake -v`],
+    [*Qt?version?4*], [TOOLS_DEFAULT=tools])])
 AC_SUBST([TOOLS_DEFAULT])
 
 test -n "$F77" && DEMO_FORTRAN_DEFAULT=demo-fortran
