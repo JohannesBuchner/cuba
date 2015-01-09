@@ -1,7 +1,7 @@
 /*
 	demo-c.c
 		test program for the Cuba library
-		last modified 9 Dec 13 th
+		last modified 28 Nov 14 th
 */
 
 #include <stdio.h>
@@ -78,6 +78,7 @@ static int Integrand(const int *ndim, const double xx[],
 #define SPIN NULL
 
 #define NNEW 1000
+#define NMIN 2
 #define FLATNESS 25.
 
 #define KEY1 47
@@ -118,7 +119,7 @@ int main() {
 
   Suave(NDIM, NCOMP, Integrand, USERDATA, NVEC,
     EPSREL, EPSABS, VERBOSE | LAST, SEED,
-    MINEVAL, MAXEVAL, NNEW, FLATNESS,
+    MINEVAL, MAXEVAL, NNEW, NMIN, FLATNESS,
     STATEFILE, SPIN,
     &nregions, &neval, &fail, integral, error, prob);
 

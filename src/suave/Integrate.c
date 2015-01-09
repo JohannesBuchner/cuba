@@ -3,7 +3,7 @@
 		integrate over the unit hypercube
 		this file is part of Suave
 		checkpointing by B. Chokoufe
-		last modified 24 Apr 14 th
+		last modified 28 Nov 14 th
 */
 
 
@@ -26,6 +26,7 @@ static int Integrate(This *t, real *integral, real *error, real *prob)
   Result *tot, *Tot = state->totals + t->ncomp;
   Result *res, *resL, *resR;
   Bounds *b, *B;
+  cnumber minsamples = IMax(t->nmin, MINSAMPLES);
   count dim, comp;
   int fail;
 
@@ -36,14 +37,16 @@ static int Integrate(This *t, real *integral, real *error, real *prob)
       "  epsrel " REAL "\n  epsabs " REAL "\n"
       "  flags %d\n  seed %d\n"
       "  mineval " NUMBER "\n  maxeval " NUMBER "\n"
-      "  nnew " NUMBER "\n  flatness " REAL "\n"
+      "  nnew " NUMBER "\n  nmin " NUMBER "\n"
+      "  flatness " REAL "\n"
       "  statefile \"%s\"",
       t->ndim, t->ncomp,
       ML_NOT(t->nvec,)
       t->epsrel, t->epsabs,
       t->flags, t->seed,
       t->mineval, t->maxeval,
-      t->nnew, t->flatness,
+      t->nnew, t->nmin,
+      t->flatness,
       t->statefile);
     Print(out);
   }
@@ -192,9 +195,9 @@ static int Integrate(This *t, real *integral, real *error, real *prob)
     minfluct = vLR[0].fluct + vLR[1].fluct;
     nnewL = IMax(
       (minfluct == 0) ? t->nnew/2 : (count)(vLR[0].fluct/minfluct*t->nnew),
-      MINSAMPLES );
+      minsamples );
     nL = vLR[0].n + nnewL;
-    nnewR = IMax(t->nnew - nnewL, MINSAMPLES);
+    nnewR = IMax(t->nnew - nnewL, minsamples);
     nR = vLR[1].n + nnewR;
 
     regionL = RegionAlloc(t, nL, nnewL);

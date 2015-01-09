@@ -1,6 +1,6 @@
 * demo-fortran.F
 * test program for the Cuba library
-* last modified 22 Jul 14 th
+* last modified 28 Nov 14 th
 
 
 	program CubaTest
@@ -29,9 +29,10 @@
 	parameter (statefile = "")
 	parameter (spin = -1)
 
-	integer nnew
+	integer nnew, nmin
 	double precision flatness
 	parameter (nnew = 1000)
+	parameter (nmin = 2)
 	parameter (flatness = 25D0)
 
 	integer key1, key2, key3, maxpass
@@ -82,7 +83,7 @@
 
 	call suave(ndim, ncomp, integrand, userdata, nvec,
      &    epsrel, epsabs, verbose + last, seed,
-     &    mineval, maxeval, nnew, flatness,
+     &    mineval, maxeval, nnew, nmin, flatness,
      &    statefile, spin,
      &    nregions, neval, fail, integral, error, prob)
 

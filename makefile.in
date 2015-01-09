@@ -226,18 +226,18 @@ $(LIB)(Fork_.o): $(common)/Fork.c $(common)/stddecl.h $(common)/sock.h
 	$(RM) Fork_.o
 
 
-$(LIB)(Global.o): $(common)/Global.c
+$(LIB)(Global.o): $(common)/Global.c $(common)/stddecl.h
 	$(CC) $(CFLAGS) -DNOUNDERSCORE -c -o Global.o $(common)/Global.c
 	$(AR) $(ARFLAGS) $(LIB) Global.o
 	$(RM) Global.o
 
-$(LIB)(Global_.o): $(common)/Global.c
+$(LIB)(Global_.o): $(common)/Global.c $(common)/stddecl.h
 	$(CC) $(CFLAGS) -c -o Global_.o $(common)/Global.c
 	$(AR) $(ARFLAGS) $(LIB) Global_.o
 	$(RM) Global_.o
 
 
-$(LIB)(Data.o): $(common)/Data.c
+$(LIB)(Data.o): $(common)/Data.c $(common)/stddecl.h
 	$(CC) $(CFLAGS) -c -o Data.o $(common)/Data.c
 	$(AR) $(ARFLAGS) $(LIB) Data.o
 	$(RM) Data.o
@@ -286,15 +286,18 @@ TARCONTENTS = $(srcdir)/COPYING $(srcdir)/ChangeLog \
   $(srcdir)/cuba.pdf $(srcdir)/cuba.tex $(srcdir)/cuba.h \
   $(COMMON_CDEPS) $(COMMON_TMDEPS) \
   $(common)/Global.c $(common)/Fork.c $(common)/Data.c \
-  $(VEGAS) $(SUAVE) $(DIVONNE) $(CUHRE) \
+  $(VEGAS) $(SUAVE) $(DIVONNE) $(divonne)/KorobovCoeff.c-* $(CUHRE) \
   $(DEMO) $(PARTVIEW) $(tools)/partview.m \
-  $(tools)/mcc $(tools)/fcc $(tools)/mkstatic
+  $(tools)/mcc $(tools)/fcc $(tools)/mkstatic $(tools)/mkdist.c
 
 dist:
-	ln -s . $(TARDIR)
-	tar cvfzh $(TARFILE) --owner=root --group=root \
-	  $(patsubst $(srcdir)/%,$(TARDIR)/%, $(sort $(TARCONTENTS)))
-	$(RM) $(TARDIR)
+	mkdist cvfz $(TARFILE) $(TARDIR) \
+	  $(patsubst $(srcdir)/%,%, $(sort $(TARCONTENTS)))
+
+#	ln -s . $(TARDIR)
+#	tar cvfz $(TARFILE) --owner=root --group=root \
+#	  $(patsubst $(srcdir)/%,$(TARDIR)/%, $(sort $(TARCONTENTS)))
+#	$(RM) $(TARDIR)
 
 pub: dist
 	mv -f $(TARFILE) web/

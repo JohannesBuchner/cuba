@@ -10,6 +10,10 @@
 :Evaluate: NNew::usage = "NNew is an option of Suave.
 	It specifies the number of new integrand evaluations in each subdivision."
 
+:Evaluate: NMin::usage = "NMin is an option of Suave.
+	It specifies the minimum number of samples a former pass must contribute to a subregion to be considered in that region's compound integral value.
+	Increasing NMin may reduce jumps in the chi^2 value."
+
 :Evaluate: Flatness::usage = "Flatness is an option of Suave.
 	It determines how prominently individual samples with a large fluctuation figure in the total fluctuation, which in turn determines how a region is split up.
 	Explicitly, if F[i] is the individual fluctuation of sample i, the total fluctuation is computed as Sum[(1 + F[i])^p, {i, nsamples}]^(2/3/p), i.e. as the p-norm of the fluctuation vector to the power 2/3, where p is the number given by Flatness.
@@ -76,7 +80,8 @@
 :Evaluate: Attributes[Suave] = {HoldFirst}
 
 :Evaluate: Options[Suave] = {PrecisionGoal -> 3, AccuracyGoal -> 12,
-	MinPoints -> 0, MaxPoints -> 50000, NNew -> 1000, Flatness -> 50,
+	MinPoints -> 0, MaxPoints -> 50000,
+	NNew -> 1000, NMin -> 2, Flatness -> 50,
 	StateFile -> "", Verbose -> 1, Final -> Last,
 	PseudoRandom -> False, PseudoRandomSeed -> 5489,
 	SharpEdges -> False, RetainStateFile -> False,
@@ -85,12 +90,12 @@
 :Evaluate: Suave[f_, v:{_, _, _}.., opt___Rule] :=
 	Block[ {ff = HoldForm[f], ndim = Length[{v}], ncomp,
 	tags, vars, lower, range, jac, tmp, defs, intT,
-	rel, abs, mineval, maxeval, nnew, flatness, state,
+	rel, abs, mineval, maxeval, nnew, nmin, flatness, state,
 	verbose, final, level, seed, edges, retain,
 	regions, compiled, $Weight, $Iteration},
 	  Message[Suave::optx, #, Suave]&/@
 	    Complement[First/@ {opt}, tags = First/@ Options[Suave]];
-	  {rel, abs, mineval, maxeval, nnew, flatness, state,
+	  {rel, abs, mineval, maxeval, nnew, nmin, flatness, state,
 	    verbose, final, level, seed, edges, retain,
 	    regions, compiled} =
 	    tags /. {opt} /. Options[Suave];
@@ -111,7 +116,7 @@
 	        If[IntegerQ[level], 256 level, 0],
 	      If[level =!= False && IntegerQ[seed], seed, 0],
 	      mineval, maxeval,
-	      nnew, flatness, state]
+	      nnew, nmin, flatness, state]
 	  ]& @ vars
 	]
 
@@ -165,7 +170,7 @@
 	Suave.tm
 		Subregion-adaptive Vegas Monte Carlo integration
 		by Thomas Hahn
-		last modified 27 Aug 14 th
+		last modified 28 Nov 14 th
 */
 
 

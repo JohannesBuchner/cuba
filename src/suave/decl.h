@@ -2,7 +2,7 @@
 	decl.h
 		Type declarations
 		this file is part of Suave
-		last modified 21 Jul 14 th
+		last modified 25 Nov 14 th
 */
 
 
@@ -52,7 +52,7 @@ typedef struct _this {
   real epsrel, epsabs;
   int flags, seed;
   number mineval, maxeval;
-  number nnew;
+  number nnew, nmin;
   real flatness;
   cchar *statefile;
   count nregions;

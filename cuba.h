@@ -2,7 +2,7 @@
 	cuba.h
 		Prototypes for the Cuba library
 		this file is part of Cuba
-		last modified 9 Oct 14 th
+		last modified 28 Nov 14 th
 */
 
 #ifdef __cplusplus
@@ -48,8 +48,8 @@ void Suave(const int ndim, const int ncomp,
   const double epsrel, const double epsabs,
   const int flags, const int seed,
   const int mineval, const int maxeval,
-  const int nnew, const double flatness,
-  const char *statefile, void *spin,
+  const int nnew, const int nmin,
+  const double flatness, const char *statefile, void *spin,
   int *nregions, int *neval, int *fail,
   double integral[], double error[], double prob[]);
 
@@ -58,8 +58,8 @@ void llSuave(const int ndim, const int ncomp,
   const double epsrel, const double epsabs,
   const int flags, const int seed,
   const long long int mineval, const long long int maxeval,
-  const long long int nnew, const double flatness,
-  const char *statefile, void *spin,
+  const long long int nnew, const long long int nmin,
+  const double flatness, const char *statefile, void *spin,
   int *nregions, long long int *neval, int *fail,
   double integral[], double error[], double prob[]);
 

@@ -3,8 +3,13 @@
 		the sampling routine for the
 		Mathematica versions of the Cuba routines
 		by Thomas Hahn
-		last modified 21 Jul 14 th
+		last modified 26 Nov 14 th
 */
+
+
+#if MLINTERFACE < 4
+#define MLReleaseRealList MLDisownRealList
+#endif
 
 
 static void DoSample(This *t, cnumber n, real *x, real *f

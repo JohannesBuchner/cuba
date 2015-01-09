@@ -70,7 +70,7 @@
 Max-Planck-Institut f\"ur Physik \\
 F\"ohringer Ring 6, D--80805 Munich, Germany}
 
-\date{Aug 28, 2014}
+\date{Nov 28, 2014}
 
 \maketitle
 
@@ -654,7 +654,7 @@ they were Fortran subroutines respectively declared as
 \begin{verbatim}
         subroutine suave(ndim, ncomp, integrand, userdata, nvec,
      &    epsrel, epsabs, flags, seed, mineval, maxeval,
-     &    nnew, flatness, statefile, spin,
+     &    nnew, nmin, flatness, statefile, spin,
      &    nregions, neval, fail, integral, error, prob)
 \end{verbatim}
 \begin{verbatim}
@@ -950,6 +950,11 @@ safely be ignored, however.
 \VarIn{integer nnew}
 the number of new integrand evaluations in each subdivision.
 
+\VarIn{integer nmin}
+the minimum number of samples a former pass must contribute to a 
+subregion to be considered in that region's compound integral value.
+Increasing \Code{nmin} may reduce jumps in the $\chi^2$ value.
+
 \VarIn{double precision flatness}
 the parameter $p$ in Eq.~(\ref{eq:fluct}), \ie the type of norm used to
 compute the fluctuation of a sample.  This determines how prominently
@@ -1182,8 +1187,8 @@ void Suave(const int ndim, const int ncomp,
   const double epsrel, const double epsabs,
   const int flags, const int seed,
   const int mineval, const int maxeval,
-  const int nnew, const double flatness,
-  const char *statefile, void *spin,
+  const int nnew, const int nmin,
+  const double flatness, const char *statefile, void *spin,
   int *nregions, int *neval, int *fail,
   double integral[], double error[], double prob[])
 \end{verbatim}
@@ -1418,6 +1423,11 @@ During the evaluation of the integrand, the global variable
 \Option{NNew}{1000}
 the number of new integrand evaluations in each subdivision.
 
+\Option{NMin}{2}
+the minimum number of samples a former pass must contribute to a 
+subregion to be considered in that region's compound integral value.
+Increasing \Code{NMin} may reduce jumps in the $\chi^2$ value.
+
 \Option{Flatness}{50}
 the parameter $p$ in Eq.~(\ref{eq:fluct}), \ie the type of norm used to
 compute the fluctuation of a sample.  This determines how prominently
@@ -1608,7 +1618,7 @@ prefix.  Their specific invocations are, in Fortran,
 \begin{alltt}
         subroutine llsuave(ndim, ncomp, integrand, userdata, \ul{nvec},
      &    epsrel, epsabs, flags, seed, \ul{mineval}, \ul{maxeval},
-     &    \ul{nnew}, flatness, statefile, spin,
+     &    \ul{nnew}, \ul{nmin}, flatness, statefile, spin,
      &    nregions, \ul{neval}, fail, integral, error, prob)
 \end{alltt}
 \begin{alltt}

@@ -169,6 +169,7 @@
 	  Block[{Set}, define[compiled, tmp, vars, Thread[vars = defs], jac]];
 	  intT = integrandT[f];
 	  intX = integrandX[f];
+	  given = Flatten[given];
 	  Block[#,
 	    ncomp = Length[intT@@ RandomReal[1, ndim]];
 	    MLDivonne[ndim, ncomp, 10.^-rel, 10.^-abs,
@@ -242,7 +243,7 @@
 		originally by J.H. Friedman and M.H. Wright
 		(CERNLIB subroutine D151)
 		this version by Thomas Hahn
-		last modified 27 Aug 14 th
+		last modified 26 Nov 14 th
 */
 
 

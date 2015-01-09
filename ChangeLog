@@ -1,3 +1,29 @@
+26 Nov 14:
+
+- Divonne now applies Flatten to the Given list, hence either
+  a list of coordinates (as before) or a list of points can be
+  given.
+
+- Tweaked MathLink code for compatibility with older Mathematica
+  versions.
+
+
+25 Nov 14:
+
+- Version 4.1: Added 'ninsuf' argument to Suave.
+  When computing the integral value of a subregion, samples from a 
+  former pass contribute only of their number is larger than ninsuf.
+  Increasing ninsuf may reduce jumps in the chi^2 value.
+
+
+25 Nov 14:
+
+- Fixed subtle bug in Cuhre which could lead to longer run times
+  than in versions 1 and 2.
+
+- Fixed miscounting of degrees of freedom in rare cases in Suave.
+
+
 9 Oct 14:
 
 - Divonne now passes the userdata argument to the peakfinder

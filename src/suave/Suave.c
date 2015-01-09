@@ -2,7 +2,7 @@
 	Suave.c
 		Subregion-adaptive Vegas Monte Carlo integration
 		by Thomas Hahn
-		last modified 25 Nov 14 th
+		last modified 28 Nov 14 th
 */
 
 
@@ -19,7 +19,7 @@ Extern void EXPORT(Suave)(ccount ndim, ccount ncomp,
   creal epsrel, creal epsabs,
   cint flags, cint seed,
   cnumber mineval, cnumber maxeval,
-  cnumber nnew, creal flatness,
+  cnumber nnew, cnumber nmin, creal flatness,
   cchar *statefile, Spin **pspin,
   count *pnregions, number *pneval, int *pfail,
   real *integral, real *error, real *prob)
@@ -40,6 +40,7 @@ Extern void EXPORT(Suave)(ccount ndim, ccount ncomp,
   t.mineval = mineval;
   t.maxeval = maxeval;
   t.nnew = nnew;
+  t.nmin = IMax(nmin, 2);
   t.flatness = flatness;
   t.statefile = statefile;
   FORK_ONLY(t.spin = Invalid(pspin) ? NULL : *pspin;)
@@ -58,7 +59,7 @@ Extern void EXPORT(suave)(ccount *pndim, ccount *pncomp,
   creal *pepsrel, creal *pepsabs,
   cint *pflags, cint *pseed,
   cnumber *pmineval, cnumber *pmaxeval,
-  cnumber *pnnew, creal *pflatness,
+  cnumber *pnnew, cnumber *pnmin, creal *pflatness,
   cchar *statefile, Spin **pspin,
   count *pnregions, number *pneval, int *pfail,
   real *integral, real *error, real *prob, cint statefilelen)
@@ -79,6 +80,7 @@ Extern void EXPORT(suave)(ccount *pndim, ccount *pncomp,
   t.mineval = *pmineval;
   t.maxeval = *pmaxeval;
   t.nnew = *pnnew;
+  t.nmin = IMax(*pnmin, 2);
   t.flatness = *pflatness;
   CString(t.statefile, statefile, statefilelen);
   FORK_ONLY(t.spin = Invalid(pspin) ? NULL : *pspin;)

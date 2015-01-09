@@ -2,11 +2,9 @@
 	Sample.c
 		the sampling step of Suave
 		this file is part of Suave
-		last modified 25 Nov 14 th
+		last modified 28 Nov 14 th
 */
 
-
-#define NINSUF 1
 
 typedef struct {
   real sum, sqsum;
@@ -82,7 +80,7 @@ static void Sample(This *t, cnumber nnew, Region *region,
       c->sqsum += Sq(wfun);
 
       if( final ) {
-        if( n > NINSUF ) {
+        if( n >= t->nmin ) {
           real w = Weight(c->sum, c->sqsum, n);
           c->weightsum += c->weight = w;
           c->avgsum += c->avg = w*c->sum;
@@ -109,7 +107,7 @@ static void Sample(This *t, cnumber nnew, Region *region,
       }
     }
 
-    if( final ) df -= NegQ(NINSUF - n), n = 0;
+    if( final ) df -= NegQ(t->nmin - n - 1), n = 0;
   }
 
   region->df = --df;
