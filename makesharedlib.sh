@@ -8,8 +8,8 @@ make -B libcuba.a
 echo "unpacking libcuba.a"
 FILES=$(ar xv libcuba.a |sed 's/x - //g')
 echo "making libcuba.so"
-echo gcc -shared -Wall $FILES -o libcuba.so
-gcc -shared -Wall $FILES -o libcuba.so
+echo gcc -shared -Wall $FILES -lm -o libcuba.so
+gcc -shared -Wall $FILES -o -lm libcuba.so
 rm $FILES
 
 
